@@ -229,29 +229,88 @@ def _get_node_name(node: MatterNodeData) -> str:
 
 
 def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:
-    """Get endpoint information for a node."""
-    endpoints = []
+    """Get endpoint information for a node.
+
+    MatterNodeData stores attributes in a dict with keys like 'endpoint/cluster/attribute'.
+    We parse these to extract endpoint and cluster information.
+    """
+    endpoints_dict: dict[int, dict[str, Any]] = {}
+
     try:
-        if hasattr(node, "endpoints") and node.endpoints:
-            for endpoint_id, endpoint in node.endpoints.items():
-                endpoint_info = {
-                    "endpoint_id": endpoint_id,
-                    "device_types": [],
-                    "has_binding_cluster": False,
-                    "clusters": [],
-                }
-                if hasattr(endpoint, "device_types"):
-                    endpoint_info["device_types"] = [
-                        {"id": dt.device_type, "revision": dt.revision}
-                        for dt in endpoint.device_types
-                    ]
-                if hasattr(endpoint, "clusters"):
-                    endpoint_info["clusters"] = list(endpoint.clusters.keys())
-                    endpoint_info["has_binding_cluster"] = CLUSTER_BINDING in endpoint.clusters
-                endpoints.append(endpoint_info)
+        # Get attributes dictionary from node
+        attributes = getattr(node, "attributes", None)
+        if not attributes:
+            _LOGGER.warning(
+                "Node %s has no attributes dictionary (has attr: %s)",
+                node.node_id,
+                hasattr(node, "attributes"),
+            )
+            return []
+
+        _LOGGER.debug("Node %s has %d attribute keys", node.node_id, len(attributes))
+
+        # Parse attribute keys to extract endpoints and clusters
+        # Keys are in format: 'endpoint/cluster/attribute'
+        for attr_key in attributes.keys():
+            try:
+                parts = str(attr_key).split("/")
+                if len(parts) >= 2:
+                    endpoint_id = int(parts[0])
+                    cluster_id = int(parts[1])
+
+                    if endpoint_id not in endpoints_dict:
+                        endpoints_dict[endpoint_id] = {
+                            "endpoint_id": endpoint_id,
+                            "device_types": [],
+                            "has_binding_cluster": False,
+                            "clusters": set(),
+                        }
+
+                    endpoints_dict[endpoint_id]["clusters"].add(cluster_id)
+
+                    # Check for binding cluster
+                    if cluster_id == CLUSTER_BINDING:
+                        endpoints_dict[endpoint_id]["has_binding_cluster"] = True
+
+                    # Get device types from Descriptor cluster (29), attribute 0
+                    if cluster_id == 29 and len(parts) >= 3 and parts[2] == "0":
+                        device_type_list = attributes.get(attr_key)
+                        if isinstance(device_type_list, list):
+                            for dt in device_type_list:
+                                if isinstance(dt, dict):
+                                    # Format: {0: device_type_id, 1: revision}
+                                    dt_id = dt.get(0) or dt.get("deviceType")
+                                    dt_rev = dt.get(1) or dt.get("revision", 1)
+                                    if dt_id is not None:
+                                        endpoints_dict[endpoint_id]["device_types"].append({
+                                            "id": dt_id,
+                                            "revision": dt_rev,
+                                        })
+            except (ValueError, IndexError) as parse_err:
+                _LOGGER.debug("Could not parse attribute key %s: %s", attr_key, parse_err)
+                continue
+
+        # Convert to list and convert cluster sets to lists
+        endpoints = []
+        for endpoint_id in sorted(endpoints_dict.keys()):
+            ep_info = endpoints_dict[endpoint_id]
+            ep_info["clusters"] = sorted(ep_info["clusters"])
+            endpoints.append(ep_info)
+            _LOGGER.debug(
+                "  Node %s Endpoint %d: device_types=%s, clusters=%s, has_binding=%s",
+                node.node_id,
+                endpoint_id,
+                ep_info["device_types"],
+                ep_info["clusters"],
+                ep_info["has_binding_cluster"],
+            )
+
+        _LOGGER.debug("Node %s: found %d endpoints", node.node_id, len(endpoints))
+        return endpoints
+
     except Exception as err:
-        _LOGGER.debug("Error getting endpoints: %s", err)
-    return endpoints
+        _LOGGER.warning("Error getting endpoints for node %s: %s", node.node_id, err, exc_info=True)
+        return []
 
 
 async def get_bindings(

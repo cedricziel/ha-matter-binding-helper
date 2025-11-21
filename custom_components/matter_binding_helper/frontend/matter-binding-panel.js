@@ -110,7 +110,7 @@ const at={attribute:!0,type:String,converter:v,reflect:!1,hasChanged:m},dt=(t=at
               `}
         </div>
       </div>
-    `}_renderNodeItem(t){const e=this._selectedSourceNode?.node_id===t.node_id,i=t.endpoints.filter(t=>t.has_binding_cluster);return I`
+    `}_renderNodeItem(t){const e=this._selectedSourceNode?.node_id===t.node_id,i=t.endpoints.filter(t=>t.has_binding_cluster),s=t.endpoints.length;return I`
       <li>
         <div
           class="node-item ${e?"selected":""}"
@@ -120,9 +120,11 @@ const at={attribute:!0,type:String,converter:v,reflect:!1,hasChanged:m},dt=(t=at
             class="node-status ${t.available?"":"unavailable"}"
           ></span>
           <span>${t.name}</span>
-          ${i.length>0?I`<small>(${i.length} bindable)</small>`:W}
+          <small>
+            ${s>0?i.length>0?`(${i.length}/${s} bindable)`:`(${s} endpoints, none bindable)`:"(no endpoints)"}
+          </small>
         </div>
-        ${e&&i.length>0?I`
+        ${e&&s>0?I`
               <div class="endpoint-list">
                 ${t.endpoints.map(t=>this._renderEndpointItem(t))}
               </div>

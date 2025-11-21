@@ -558,6 +558,7 @@ export class MatterBindingPanel extends LitElement {
   private _renderNodeItem(node: MatterNode) {
     const isSelected = this._selectedSourceNode?.node_id === node.node_id;
     const bindableEndpoints = node.endpoints.filter((e) => e.has_binding_cluster);
+    const totalEndpoints = node.endpoints.length;
 
     return html`
       <li>
@@ -569,11 +570,15 @@ export class MatterBindingPanel extends LitElement {
             class="node-status ${node.available ? "" : "unavailable"}"
           ></span>
           <span>${node.name}</span>
-          ${bindableEndpoints.length > 0
-            ? html`<small>(${bindableEndpoints.length} bindable)</small>`
-            : nothing}
+          <small>
+            ${totalEndpoints > 0
+              ? bindableEndpoints.length > 0
+                ? `(${bindableEndpoints.length}/${totalEndpoints} bindable)`
+                : `(${totalEndpoints} endpoints, none bindable)`
+              : "(no endpoints)"}
+          </small>
         </div>
-        ${isSelected && bindableEndpoints.length > 0
+        ${isSelected && totalEndpoints > 0
           ? html`
               <div class="endpoint-list">
                 ${node.endpoints.map((endpoint) =>
