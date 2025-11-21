@@ -81,6 +81,15 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
             "node_id": 1,
             "name": "Demo Light",
             "available": True,
+            "device_info": {
+                "vendor_name": "Demo Vendor",
+                "vendor_id": 1234,
+                "product_name": "Demo Light",
+                "product_id": 1,
+                "node_label": None,
+                "hardware_version": "1.0",
+                "software_version": "1.0.0",
+            },
             "endpoints": [
                 {
                     "endpoint_id": 1,
@@ -94,6 +103,15 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
             "node_id": 2,
             "name": "Demo Switch",
             "available": True,
+            "device_info": {
+                "vendor_name": "Demo Vendor",
+                "vendor_id": 1234,
+                "product_name": "Demo Switch",
+                "product_id": 2,
+                "node_label": None,
+                "hardware_version": "1.0",
+                "software_version": "1.0.0",
+            },
             "endpoints": [
                 {
                     "endpoint_id": 1,
@@ -107,6 +125,15 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
             "node_id": 3,
             "name": "Demo Dimmer",
             "available": True,
+            "device_info": {
+                "vendor_name": "Demo Vendor",
+                "vendor_id": 1234,
+                "product_name": "Demo Dimmer",
+                "product_id": 3,
+                "node_label": None,
+                "hardware_version": "1.0",
+                "software_version": "2.1.0",
+            },
             "endpoints": [
                 {
                     "endpoint_id": 1,
@@ -126,6 +153,15 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
             "node_id": 4,
             "name": "Demo Sensor",
             "available": False,  # Unavailable for demo
+            "device_info": {
+                "vendor_name": "Demo Sensors Inc",
+                "vendor_id": 5678,
+                "product_name": "Temperature Sensor",
+                "product_id": 10,
+                "node_label": None,
+                "hardware_version": "2.0",
+                "software_version": "1.2.3",
+            },
             "endpoints": [
                 {
                     "endpoint_id": 1,
@@ -206,6 +242,7 @@ async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
                 "node_id": node.node_id,
                 "name": _get_node_name(node),
                 "available": node.available,
+                "device_info": _get_device_info(node),
                 "endpoints": _get_endpoints_info(node),
             }
             nodes.append(node_info)
@@ -217,15 +254,63 @@ async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
 
 def _get_node_name(node: MatterNodeData) -> str:
     """Extract a friendly name for the node."""
-    # Try to get name from basic information cluster
+    # Basic Information cluster (40) attributes:
+    # 0/40/5 = NodeLabel (user-assigned name)
+    # 0/40/3 = ProductName
     try:
-        if hasattr(node, "node_data") and node.node_data:
-            basic_info = node.node_data.get("0/40")  # Basic Information cluster
-            if basic_info:
-                return basic_info.get("nodeLabel") or basic_info.get("productName") or f"Node {node.node_id}"
+        attributes = getattr(node, "attributes", None)
+        if attributes:
+            # Prefer user-assigned label, then product name
+            node_label = attributes.get("0/40/5")
+            if node_label and str(node_label).strip():
+                return str(node_label).strip()
+
+            product_name = attributes.get("0/40/3")
+            if product_name and str(product_name).strip():
+                return str(product_name).strip()
     except Exception:
         pass
     return f"Node {node.node_id}"
+
+
+def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
+    """Extract device information from Basic Information cluster.
+
+    Basic Information cluster (40) attributes:
+    - 0/40/1: VendorName
+    - 0/40/2: VendorID
+    - 0/40/3: ProductName
+    - 0/40/4: ProductID
+    - 0/40/5: NodeLabel
+    - 0/40/8: HardwareVersionString
+    - 0/40/10: SoftwareVersionString
+    """
+    device_info: dict[str, Any] = {
+        "vendor_name": None,
+        "vendor_id": None,
+        "product_name": None,
+        "product_id": None,
+        "node_label": None,
+        "hardware_version": None,
+        "software_version": None,
+    }
+
+    try:
+        attributes = getattr(node, "attributes", None)
+        if not attributes:
+            return device_info
+
+        device_info["vendor_name"] = attributes.get("0/40/1")
+        device_info["vendor_id"] = attributes.get("0/40/2")
+        device_info["product_name"] = attributes.get("0/40/3")
+        device_info["product_id"] = attributes.get("0/40/4")
+        device_info["node_label"] = attributes.get("0/40/5")
+        device_info["hardware_version"] = attributes.get("0/40/8")
+        device_info["software_version"] = attributes.get("0/40/10")
+    except Exception as err:
+        _LOGGER.debug("Error getting device info for node %s: %s", node.node_id, err)
+
+    return device_info
 
 
 def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:

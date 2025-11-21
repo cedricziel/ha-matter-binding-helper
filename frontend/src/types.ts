@@ -19,10 +19,21 @@ export interface WebSocketMessage {
   [key: string]: unknown;
 }
 
+export interface DeviceInfo {
+  vendor_name: string | null;
+  vendor_id: number | null;
+  product_name: string | null;
+  product_id: number | null;
+  node_label: string | null;
+  hardware_version: string | null;
+  software_version: string | null;
+}
+
 export interface MatterNode {
   node_id: number;
   name: string;
   available: boolean;
+  device_info?: DeviceInfo;
   endpoints: MatterEndpoint[];
 }
 

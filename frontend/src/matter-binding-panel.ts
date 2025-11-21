@@ -166,6 +166,45 @@ export class MatterBindingPanel extends LitElement {
       cursor: not-allowed;
     }
 
+    .node-info {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .node-name {
+      font-weight: 500;
+    }
+
+    .node-vendor {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      opacity: 0.8;
+    }
+
+    .node-details {
+      margin-left: 32px;
+      margin-top: 8px;
+    }
+
+    .node-version {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      background: var(--secondary-background-color);
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .no-endpoints {
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+      padding: 8px 0;
+    }
+
     .bindings-panel {
       min-height: 400px;
     }
@@ -559,6 +598,7 @@ export class MatterBindingPanel extends LitElement {
     const isSelected = this._selectedSourceNode?.node_id === node.node_id;
     const bindableEndpoints = node.endpoints.filter((e) => e.has_binding_cluster);
     const totalEndpoints = node.endpoints.length;
+    const deviceInfo = node.device_info;
 
     return html`
       <li>
@@ -569,7 +609,12 @@ export class MatterBindingPanel extends LitElement {
           <span
             class="node-status ${node.available ? "" : "unavailable"}"
           ></span>
-          <span>${node.name}</span>
+          <div class="node-info">
+            <span class="node-name">${node.name}</span>
+            ${deviceInfo?.vendor_name
+              ? html`<span class="node-vendor">${deviceInfo.vendor_name}</span>`
+              : nothing}
+          </div>
           <small>
             ${totalEndpoints > 0
               ? bindableEndpoints.length > 0
@@ -578,12 +623,21 @@ export class MatterBindingPanel extends LitElement {
               : "(no endpoints)"}
           </small>
         </div>
-        ${isSelected && totalEndpoints > 0
+        ${isSelected
           ? html`
-              <div class="endpoint-list">
-                ${node.endpoints.map((endpoint) =>
-                  this._renderEndpointItem(endpoint)
-                )}
+              <div class="node-details">
+                ${deviceInfo?.software_version
+                  ? html`<span class="node-version">v${deviceInfo.software_version}</span>`
+                  : nothing}
+                ${totalEndpoints > 0
+                  ? html`
+                      <div class="endpoint-list">
+                        ${node.endpoints.map((endpoint) =>
+                          this._renderEndpointItem(endpoint)
+                        )}
+                      </div>
+                    `
+                  : html`<div class="no-endpoints">No endpoints found</div>`}
               </div>
             `
           : nothing}
