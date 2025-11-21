@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Matter Binding Helper",
+        "description": "This integration allows you to manage Matter device bindings. Make sure the Matter integration is configured before proceeding.",
+        "data": {}
+      }
+    },
+    "error": {
+      "matter_not_configured": "The Matter integration is not configured. Please set up Matter first."
+    },
+    "abort": {
+      "already_configured": "Matter Binding Helper is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Matter Binding Helper Options",
+        "data": {}
+      }
+    }
+  }
+}

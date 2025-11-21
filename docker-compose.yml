@@ -1,0 +1,43 @@
+services:
+  homeassistant:
+    container_name: ha-matter-helper-dev
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      # Mount custom component for development
+      - ./custom_components/matter_binding_helper:/config/custom_components/matter_binding_helper:ro
+      # Persist HA configuration
+      - ./dev-config:/config
+    environment:
+      - TZ=Europe/Berlin
+    ports:
+      - "8123:8123"
+    restart: unless-stopped
+    depends_on:
+      - matter-server
+
+  matter-server:
+    container_name: matter-server
+    image: ghcr.io/home-assistant-libs/python-matter-server:stable
+    volumes:
+      - matter-server-data:/data
+    environment:
+      - TZ=Europe/Berlin
+    ports:
+      - "5580:5580"
+    restart: unless-stopped
+
+  # Frontend development with hot reload
+  frontend-dev:
+    container_name: ha-matter-helper-frontend
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - ./custom_components/matter_binding_helper/frontend:/output
+    command: sh -c "npm install && npm run watch"
+    profiles:
+      - dev
+
+volumes:
+  matter-server-data:
+    name: matter-server-data

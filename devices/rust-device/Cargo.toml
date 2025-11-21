@@ -1,0 +1,20 @@
+[package]
+name = "matter-virtual-device"
+version = "0.1.0"
+edition = "2021"
+description = "Virtual Matter device with binding cluster support"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full", "signal", "net", "io-util"] }
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
