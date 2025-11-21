@@ -237,17 +237,31 @@ def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:
     endpoints_dict: dict[int, dict[str, Any]] = {}
 
     try:
+        # Debug: log node object structure
+        _LOGGER.debug(
+            "Node %s type: %s, dir: %s",
+            node.node_id,
+            type(node).__name__,
+            [attr for attr in dir(node) if not attr.startswith("_")],
+        )
+
         # Get attributes dictionary from node
         attributes = getattr(node, "attributes", None)
         if not attributes:
             _LOGGER.warning(
-                "Node %s has no attributes dictionary (has attr: %s)",
+                "Node %s has no attributes dictionary (has attr: %s, type: %s)",
                 node.node_id,
                 hasattr(node, "attributes"),
+                type(attributes) if attributes is not None else "None",
             )
             return []
 
-        _LOGGER.debug("Node %s has %d attribute keys", node.node_id, len(attributes))
+        _LOGGER.debug(
+            "Node %s has %d attribute keys, sample keys: %s",
+            node.node_id,
+            len(attributes),
+            list(attributes.keys())[:10] if attributes else [],
+        )
 
         # Parse attribute keys to extract endpoints and clusters
         # Keys are in format: 'endpoint/cluster/attribute'

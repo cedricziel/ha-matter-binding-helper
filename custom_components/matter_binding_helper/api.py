@@ -29,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup(hass: HomeAssistant) -> None:
     """Set up the WebSocket API."""
     websocket_api.async_register_command(hass, ws_list_nodes)
+    websocket_api.async_register_command(hass, ws_debug_node)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -53,6 +54,50 @@ async def ws_list_nodes(
     """List all Matter nodes."""
     nodes = await matter_client.get_nodes(hass)
     connection.send_result(msg["id"], {"nodes": nodes})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_node",
+        vol.Required("node_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_debug_node(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Get raw node structure info."""
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    target_node_id = msg["node_id"]
+    for node in client.get_nodes():
+        if node.node_id == target_node_id:
+            # Get all public attributes of the node object
+            node_attrs = [attr for attr in dir(node) if not attr.startswith("_")]
+
+            # Get attributes dict info
+            attributes = getattr(node, "attributes", None)
+            attr_info = {
+                "has_attributes": attributes is not None,
+                "attributes_type": type(attributes).__name__ if attributes else None,
+                "attributes_len": len(attributes) if attributes else 0,
+                "sample_keys": list(attributes.keys())[:20] if attributes else [],
+            }
+
+            connection.send_result(msg["id"], {
+                "node_id": node.node_id,
+                "node_type": type(node).__name__,
+                "available_attrs": node_attrs,
+                "attributes_info": attr_info,
+            })
+            return
+
+    connection.send_error(msg["id"], "not_found", f"Node {target_node_id} not found")
 
 
 @websocket_api.websocket_command(
