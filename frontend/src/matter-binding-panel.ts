@@ -872,6 +872,44 @@ export class MatterBindingPanel extends LitElement {
       color: var(--secondary-text-color);
       margin-bottom: 8px;
     }
+
+    /* Readable binding rows */
+    .overview-binding-row.readable {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+    }
+
+    .binding-description {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .binding-sentence {
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+
+    .binding-sentence strong {
+      color: var(--primary-text-color);
+    }
+
+    .binding-action {
+      color: var(--secondary-text-color);
+      margin: 0 4px;
+    }
+
+    .binding-meta {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      opacity: 0.8;
+    }
+
+    .overview-binding-row.recommendation .binding-action {
+      color: var(--primary-color);
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1313,34 +1351,20 @@ export class MatterBindingPanel extends LitElement {
     const { binding, sourceNode, sourceEndpoint, targetNode } = bindingCtx;
     const targetName = targetNode?.name || `Node ${binding.target_node_id}`;
     const isGroupBinding = binding.target_group_id !== null;
-    const sourceArea = sourceNode.area_name;
-    const targetArea = targetNode?.area_name;
-    const actionKey = `delete-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
-    const isLoading = this._actionInProgress === actionKey;
+    const clusterDesc = getClusterBindingDescription(binding.cluster_id);
 
     return html`
-      <div class="overview-binding-row">
-        <div class="binding-source">
-          <div>
-            <span class="node-name">${sourceNode.name}</span>
-            <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+      <div class="overview-binding-row readable">
+        <div class="binding-description">
+          <div class="binding-sentence">
+            <strong>${sourceNode.name}</strong>
+            <span class="binding-action">${clusterDesc.action}</span>
+            <strong>${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>
           </div>
-          ${sourceArea ? html`<span class="area-label">${sourceArea}</span>` : nothing}
-        </div>
-        <div class="binding-info">
-          <span class="binding-cluster-badge">${getClusterName(binding.cluster_id)}</span>
-          <span class="binding-arrow">→</span>
-        </div>
-        <div class="binding-target">
-          ${isGroupBinding
-            ? html`<span class="group-target">Group ${binding.target_group_id}</span>`
-            : html`
-                <div>
-                  <span class="node-name">${targetName}</span>
-                  <span class="endpoint-label">EP ${binding.target_endpoint_id}</span>
-                </div>
-                ${targetArea ? html`<span class="area-label">${targetArea}</span>` : nothing}
-              `}
+          <div class="binding-meta">
+            EP ${sourceEndpoint.endpoint_id} → ${isGroupBinding ? `Group` : `EP ${binding.target_endpoint_id}`}
+            ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
+          </div>
         </div>
         <button
           class="btn-icon delete"
@@ -1409,31 +1433,30 @@ export class MatterBindingPanel extends LitElement {
 
   private _renderRecommendationRow(recommendation: BindingRecommendation) {
     const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = recommendation;
-    const clusterNames = compatibleClusters.map((c) => getClusterName(c)).join(", ");
-    const sourceArea = sourceNode.area_name;
-    const targetArea = targetNode.area_name;
-    const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}`;
-    const isLoading = this._actionInProgress === actionKey;
+
+    // Build action description from compatible clusters
+    const actions = compatibleClusters.map((c) => {
+      const desc = getClusterBindingDescription(c);
+      return desc.action.replace(/^(control |read |receive |trigger |manage )/, '');
+    });
+    // Deduplicate and join
+    const uniqueActions = [...new Set(actions)];
+    const actionText = uniqueActions.length > 2
+      ? `${uniqueActions.slice(0, 2).join(', ')}...`
+      : uniqueActions.join(', ');
 
     return html`
-      <div class="overview-binding-row recommendation">
-        <div class="binding-source">
-          <div>
-            <span class="node-name">${sourceNode.name}</span>
-            <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+      <div class="overview-binding-row recommendation readable">
+        <div class="binding-description">
+          <div class="binding-sentence">
+            <strong>${sourceNode.name}</strong>
+            <span class="binding-action">can ${compatibleClusters.length === 1 ? getClusterBindingDescription(compatibleClusters[0]).action : `access ${actionText} from`}</span>
+            <strong>${targetNode.name}</strong>
           </div>
-          ${sourceArea ? html`<span class="area-label">${sourceArea}</span>` : nothing}
-        </div>
-        <div class="binding-info">
-          <span class="compatible-clusters" title="Compatible clusters">${clusterNames}</span>
-          <span class="binding-arrow">→</span>
-        </div>
-        <div class="binding-target">
-          <div>
-            <span class="node-name">${targetNode.name}</span>
-            <span class="endpoint-label">EP ${targetEndpoint.endpoint_id}</span>
+          <div class="binding-meta">
+            EP ${sourceEndpoint.endpoint_id} → EP ${targetEndpoint.endpoint_id}
+            ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
           </div>
-          ${targetArea ? html`<span class="area-label">${targetArea}</span>` : nothing}
         </div>
         <button
           class="btn btn-small btn-primary"
