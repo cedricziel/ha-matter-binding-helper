@@ -29,6 +29,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _error: string | null = null;
   @state() private _activeTab: "bindings" | "groups" = "bindings";
   @state() private _showCreateDialog = false;
+  @state() private _surveySubmitting = false;
 
   static styles = css`
     :host {
@@ -592,18 +593,41 @@ export class MatterBindingPanel extends LitElement {
     return CLUSTER_NAMES[clusterId] || `Cluster 0x${clusterId.toString(16)}`;
   }
 
+  private async _submitSurvey(): Promise<void> {
+    this._surveySubmitting = true;
+    try {
+      await this.hass.callService("matter_binding_helper", "submit_survey", {});
+      // Show success feedback (could use a toast notification in the future)
+      alert("Survey submitted successfully! Thank you for contributing.");
+    } catch (err) {
+      this._error = `Failed to submit survey: ${err}`;
+    } finally {
+      this._surveySubmitting = false;
+    }
+  }
+
   protected render() {
     return html`
       <div class="${this.narrow ? "narrow" : ""}">
         <div class="header">
           <h1>Matter Binding Helper</h1>
-          <button
-            class="btn btn-primary"
-            @click=${this._loadNodes}
-            ?disabled=${this._loading}
-          >
-            Refresh
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button
+              class="btn btn-secondary"
+              @click=${this._submitSurvey}
+              ?disabled=${this._surveySubmitting}
+              title="Submit anonymized device data to Matter Survey"
+            >
+              ${this._surveySubmitting ? "Submitting..." : "Submit Survey"}
+            </button>
+            <button
+              class="btn btn-primary"
+              @click=${this._loadNodes}
+              ?disabled=${this._loading}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         ${this._error ? html`<div class="error">${this._error}</div>` : nothing}

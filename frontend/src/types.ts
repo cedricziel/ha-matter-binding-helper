@@ -4,6 +4,11 @@
 
 export interface HomeAssistant {
   callWS: <T>(msg: WebSocketMessage) => Promise<T>;
+  callService: (
+    domain: string,
+    service: string,
+    data?: Record<string, unknown>
+  ) => Promise<void>;
   connection: {
     subscribeEvents: (
       callback: (event: unknown) => void,

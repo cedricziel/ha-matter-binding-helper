@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.matter import DOMAIN as MATTER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
@@ -59,6 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.options.get(CONF_TELEMETRY_ENABLED, DEFAULT_TELEMETRY_ENABLED):
         await _async_setup_telemetry(hass, entry)
 
+    # Register services
+    await _async_register_services(hass)
+
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
@@ -75,6 +78,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     # Remove panel
     frontend.async_remove_panel(hass, PANEL_NAME)
+
+    # Remove services
+    hass.services.async_remove(DOMAIN, "submit_survey")
 
     # Clean up stored data
     hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -104,6 +110,27 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         module_url="/matter_binding_helper/frontend/matter-binding-panel.js",
         embed_iframe=False,
         require_admin=True,
+    )
+
+
+async def _async_register_services(hass: HomeAssistant) -> None:
+    """Register integration services."""
+    from . import telemetry
+
+    async def handle_submit_survey(call: ServiceCall) -> ServiceResponse:
+        """Handle the submit_survey service call."""
+        _LOGGER.info("Manual survey submission requested")
+        success = await telemetry.send_telemetry(hass)
+        return {
+            "success": success,
+            "message": "Survey submitted successfully" if success else "Survey submission failed",
+        }
+
+    hass.services.async_register(
+        DOMAIN,
+        "submit_survey",
+        handle_submit_survey,
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
 
