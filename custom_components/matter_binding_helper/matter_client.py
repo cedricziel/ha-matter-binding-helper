@@ -386,6 +386,12 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
     try:
         # Approach 1: Use node.device_info property directly
         node_device_info = getattr(node, "device_info", None)
+        _LOGGER.debug(
+            "Node %s: device_info property type=%s, value=%s",
+            node.node_id,
+            type(node_device_info).__name__ if node_device_info else None,
+            node_device_info,
+        )
         if node_device_info:
             # Try various attribute name formats (snake_case and camelCase)
             device_info["vendor_name"] = (
@@ -421,11 +427,14 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
 
             # If we got any data, return it
             if any(v is not None for v in device_info.values()):
+                _LOGGER.debug("Node %s: extracted device_info from property: %s", node.node_id, device_info)
                 return device_info
 
         # Approach 2: Fall back to attributes dict
+        _LOGGER.debug("Node %s: device_info property had no data, trying attributes dict", node.node_id)
         attributes = getattr(node, "attributes", None)
         if attributes:
+            _LOGGER.debug("Node %s: attributes dict has %d keys", node.node_id, len(attributes))
             device_info["vendor_name"] = attributes.get("0/40/1")
             device_info["vendor_id"] = attributes.get("0/40/2")
             device_info["product_name"] = attributes.get("0/40/3")
@@ -433,10 +442,14 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
             device_info["node_label"] = attributes.get("0/40/5")
             device_info["hardware_version"] = attributes.get("0/40/8")
             device_info["software_version"] = attributes.get("0/40/10")
+            _LOGGER.debug("Node %s: extracted device_info from attributes: %s", node.node_id, device_info)
+        else:
+            _LOGGER.debug("Node %s: no attributes dict found", node.node_id)
 
     except Exception as err:
         _LOGGER.debug("Error getting device info for node %s: %s", node.node_id, err)
 
+    _LOGGER.debug("Node %s: final device_info: %s", node.node_id, device_info)
     return device_info
 
 

@@ -45,8 +45,20 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
     """
     device_info = node.get("device_info", {})
 
+    _LOGGER.debug(
+        "Anonymizing node %s: device_info=%s",
+        node.get("node_id"),
+        device_info,
+    )
+
     # Skip if no useful product identification
     if not device_info.get("vendor_id") and not device_info.get("product_id"):
+        _LOGGER.debug(
+            "Skipping node %s: no vendor_id (%s) or product_id (%s)",
+            node.get("node_id"),
+            device_info.get("vendor_id"),
+            device_info.get("product_id"),
+        )
         return None
 
     # Anonymize endpoints - only keep capability data
