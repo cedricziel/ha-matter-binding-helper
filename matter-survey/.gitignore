@@ -1,0 +1,20 @@
+# Dependencies
+/vendor/
+
+# Database
+/data/
+
+# IDE
+/.idea/
+/.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.bak

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    image: php:8.2-apache
+    container_name: matter-survey
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./public:/var/www/html/public
+      - ./data:/var/www/html/data
+    working_dir: /var/www/html
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html/public
+    command: >
+      bash -c "
+        a2enmod rewrite &&
+        sed -ri -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf &&
+        sed -ri -e 's!/var/www/!/var/www/html/public!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf &&
+        docker-php-ext-install pdo_sqlite &&
+        apache2-foreground
+      "

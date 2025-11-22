@@ -14,7 +14,13 @@ from homeassistant.config_entries import (
 )
 from homeassistant.components.matter import DOMAIN as MATTER_DOMAIN
 
-from .const import CONF_DEMO_MODE, DEFAULT_DEMO_MODE, DOMAIN
+from .const import (
+    CONF_DEMO_MODE,
+    CONF_TELEMETRY_ENABLED,
+    DEFAULT_DEMO_MODE,
+    DEFAULT_TELEMETRY_ENABLED,
+    DOMAIN,
+)
 
 
 class MatterBindingHelperConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -50,10 +56,8 @@ class MatterBindingHelperConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         if user_input is not None:
-            return self.async_create_entry(
-                title="Matter Binding Helper",
-                data={},
-            )
+            # Proceed to telemetry step
+            return await self.async_step_telemetry()
 
         return self.async_show_form(
             step_id="user",
@@ -61,6 +65,34 @@ class MatterBindingHelperConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "matter_integration": "Matter"
             },
+        )
+
+    async def async_step_telemetry(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the telemetry opt-in/out step."""
+        if user_input is not None:
+            # Store telemetry preference in options
+            return self.async_create_entry(
+                title="Matter Binding Helper",
+                data={},
+                options={
+                    CONF_TELEMETRY_ENABLED: user_input.get(
+                        CONF_TELEMETRY_ENABLED, DEFAULT_TELEMETRY_ENABLED
+                    ),
+                },
+            )
+
+        return self.async_show_form(
+            step_id="telemetry",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_TELEMETRY_ENABLED,
+                        default=DEFAULT_TELEMETRY_ENABLED,
+                    ): bool,
+                }
+            ),
         )
 
 
@@ -78,6 +110,12 @@ class MatterBindingHelperOptionsFlow(OptionsFlowWithConfigEntry):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        CONF_TELEMETRY_ENABLED,
+                        default=self.options.get(
+                            CONF_TELEMETRY_ENABLED, DEFAULT_TELEMETRY_ENABLED
+                        ),
+                    ): bool,
                     vol.Optional(
                         CONF_DEMO_MODE,
                         default=self.options.get(CONF_DEMO_MODE, DEFAULT_DEMO_MODE),

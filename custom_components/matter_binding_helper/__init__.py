@@ -2,19 +2,24 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.matter import DOMAIN as MATTER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
+    CONF_TELEMETRY_ENABLED,
+    DEFAULT_TELEMETRY_ENABLED,
     DOMAIN,
     PANEL_ICON,
     PANEL_NAME,
     PANEL_TITLE,
     PANEL_URL,
+    TELEMETRY_INTERVAL_HOURS,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +54,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register WebSocket API
     from . import api
     await api.async_setup(hass)
+
+    # Set up telemetry if enabled
+    if entry.options.get(CONF_TELEMETRY_ENABLED, DEFAULT_TELEMETRY_ENABLED):
+        await _async_setup_telemetry(hass, entry)
 
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -96,3 +105,24 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         embed_iframe=False,
         require_admin=True,
     )
+
+
+async def _async_setup_telemetry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Set up periodic telemetry submission."""
+    from . import telemetry
+
+    async def _send_telemetry_callback(_now=None) -> None:
+        """Callback for periodic telemetry submission."""
+        if telemetry.is_telemetry_enabled(hass):
+            await telemetry.send_telemetry(hass)
+
+    # Schedule periodic telemetry (weekly)
+    cancel_interval = async_track_time_interval(
+        hass,
+        _send_telemetry_callback,
+        timedelta(hours=TELEMETRY_INTERVAL_HOURS),
+    )
+    entry.async_on_unload(cancel_interval)
+
+    # Schedule initial telemetry after a delay (runs in background)
+    hass.async_create_task(telemetry.schedule_initial_telemetry(hass))

@@ -1,0 +1,19 @@
+{
+    "name": "matter-survey/matter-survey",
+    "description": "Matter Device Survey - A database of Matter device capabilities",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "MatterSurvey\\": "src/"
+        }
+    },
+    "scripts": {
+        "serve": "php -S localhost:8080 -t public"
+    }
+}

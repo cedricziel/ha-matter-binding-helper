@@ -1,4 +1,4 @@
-.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-list devices-reset
+.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-list devices-reset survey-install survey-deploy survey-serve
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -88,3 +88,41 @@ dev-full: frontend-build devices-start start ## Start HA + mock devices + Matter
 	@echo "  make devices-test  - Test mock device"
 	@echo "  make devices-logs  - View device logs"
 	@echo "  make logs          - View HA logs"
+
+# Matter Survey (matter-survey.org)
+survey-install: ## Install Matter Survey PHP dependencies
+	cd matter-survey && composer install --no-dev --optimize-autoloader
+
+survey-serve: ## Start local Matter Survey dev server
+	cd matter-survey && php -S localhost:8080 -t public
+
+survey-deploy: survey-install ## Deploy Matter Survey to FTP server
+	@if [ -f .env ]; then \
+		export $$(grep -v '^#' .env | xargs); \
+		echo "Deploying to $$FTP_HOST$$FTP_PATH..."; \
+		lftp -c "set ftp:ssl-allow no; \
+			open -u $$FTP_USER,$$FTP_PASSWORD $$FTP_HOST; \
+			mirror -R --delete --verbose \
+				--exclude .git/ \
+				--exclude .gitignore \
+				--exclude docker-compose.yml \
+				--exclude README.md \
+				matter-survey/ $$FTP_PATH; \
+			echo 'Fixing permissions...'; \
+			chmod 755 $${FTP_PATH}public; \
+			chmod 755 $${FTP_PATH}public/api; \
+			chmod 755 $${FTP_PATH}src; \
+			chmod 755 $${FTP_PATH}vendor; \
+			chmod 755 $${FTP_PATH}data; \
+			chmod 644 $${FTP_PATH}public/.htaccess; \
+			chmod 644 $${FTP_PATH}public/index.php; \
+			chmod 644 $${FTP_PATH}public/device.php; \
+			chmod 644 $${FTP_PATH}public/api/submit.php; \
+			chmod 644 $${FTP_PATH}src/Database.php; \
+			chmod 644 $${FTP_PATH}src/DeviceRepository.php; \
+			chmod 644 $${FTP_PATH}src/TelemetryHandler.php"; \
+		echo "Deployment complete!"; \
+	else \
+		echo "Error: .env file not found. Create it with FTP_USER, FTP_PASSWORD, FTP_HOST, FTP_PATH"; \
+		exit 1; \
+	fi
