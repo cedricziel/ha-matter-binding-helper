@@ -129,6 +129,7 @@ export const CLUSTER_TEMPERATURE_MEASUREMENT = 0x0402;
 export const CLUSTER_PRESSURE_MEASUREMENT = 0x0403;
 export const CLUSTER_HUMIDITY_MEASUREMENT = 0x0405;
 export const CLUSTER_OCCUPANCY_SENSING = 0x0406;
+export const CLUSTER_SWITCH = 0x003b;
 
 export const CLUSTER_NAMES: Record<number, string> = {
   [CLUSTER_IDENTIFY]: "Identify",
@@ -161,11 +162,13 @@ export const CLUSTER_NAMES: Record<number, string> = {
   [CLUSTER_PRESSURE_MEASUREMENT]: "Pressure",
   [CLUSTER_HUMIDITY_MEASUREMENT]: "Humidity",
   [CLUSTER_OCCUPANCY_SENSING]: "Occupancy",
+  [CLUSTER_SWITCH]: "Switch",
 };
 
 // Device Type IDs
 export const DEVICE_TYPE_NAMES: Record<number, string> = {
   // Utility device types
+  15: "Generic Switch",
   17: "Power Source",
   18: "OTA Requestor",
   19: "OTA Provider",
@@ -253,6 +256,10 @@ export const CLUSTER_BINDING_DESCRIPTIONS: Record<number, { action: string; data
     action: "manage group membership on",
     dataType: "group commands",
   },
+  [CLUSTER_SWITCH]: {
+    action: "send button events to",
+    dataType: "press/release events",
+  },
 };
 
 // Helper functions
@@ -329,6 +336,42 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     description: "Turn on/off a device when room occupancy changes.",
     why: "This plug is a server (receives commands). The occupancy sensor can't directly control it via Matter binding.",
     icon: "🔌",
+  },
+  {
+    id: "button-light-toggle",
+    sourceDeviceTypes: [256, 257, 258, 268, 269],  // Various light types
+    targetDeviceTypes: [15],  // Generic Switch
+    title: "Toggle light with button press",
+    description: "Press the button to toggle light on/off. Long press for dimming, double-tap for scenes.",
+    why: "Generic Switch emits button events (press/release/multi-press) rather than state changes. Home Assistant automations can respond to these events to control lights.",
+    icon: "🔘",
+  },
+  {
+    id: "button-plug-toggle",
+    sourceDeviceTypes: [266, 267],  // Plug-in units
+    targetDeviceTypes: [15],  // Generic Switch
+    title: "Toggle device with button press",
+    description: "Use a physical button to control a smart plug or outlet.",
+    why: "Generic Switch emits button events that need Home Assistant automation to translate into on/off commands for the plug.",
+    icon: "🔘",
+  },
+  {
+    id: "button-scene",
+    sourceDeviceTypes: [256, 257, 258, 266, 267, 268, 269, 769],  // Lights, plugs, thermostat
+    targetDeviceTypes: [15],  // Generic Switch
+    title: "Trigger scene with button",
+    description: "Assign different scenes to single press, double press, and long press actions.",
+    why: "Matter scenes via binding require specific cluster support. Home Assistant automations offer more flexibility for multi-press actions.",
+    icon: "🎬",
+  },
+  {
+    id: "button-thermostat-adjust",
+    sourceDeviceTypes: [769],  // Thermostat
+    targetDeviceTypes: [15],  // Generic Switch
+    title: "Adjust thermostat with buttons",
+    description: "Use buttons to raise/lower temperature setpoint or switch heating/cooling modes.",
+    why: "Generic Switch button events need Home Assistant automation to adjust thermostat settings. Perfect for climate sensors with built-in buttons.",
+    icon: "🌡️",
   },
 ];
 
