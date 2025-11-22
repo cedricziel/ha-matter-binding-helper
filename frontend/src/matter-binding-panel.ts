@@ -128,6 +128,21 @@ export class MatterBindingPanel extends LitElement {
       color: var(--text-primary-color);
     }
 
+    .node-item.selected .node-name,
+    .node-item.selected .node-device-type,
+    .node-item.selected .node-area,
+    .node-item.selected .node-vendor,
+    .node-item.selected .node-endpoints,
+    .node-item.selected .node-meta-sep {
+      color: var(--text-primary-color);
+      opacity: 1;
+    }
+
+    .node-meta-sep {
+      color: var(--secondary-text-color);
+      opacity: 0.5;
+    }
+
     .node-status {
       width: 8px;
       height: 8px;
@@ -707,6 +722,9 @@ export class MatterBindingPanel extends LitElement {
             <div class="node-meta">
               ${primaryDeviceType
                 ? html`<span class="node-device-type">${primaryDeviceType}</span>`
+                : nothing}
+              ${primaryDeviceType && node.area_name
+                ? html`<span class="node-meta-sep">·</span>`
                 : nothing}
               ${node.area_name
                 ? html`<span class="node-area">${node.area_name}</span>`
