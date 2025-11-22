@@ -393,16 +393,35 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
             node_device_info,
         )
         if node_device_info:
-            # python-matter-server uses vendorID, productID (uppercase ID)
-            # Try multiple attribute name formats
+            # Try to access as dict first (some objects support dict-like access)
+            if hasattr(node_device_info, "__getitem__"):
+                try:
+                    device_info["vendor_name"] = node_device_info.get("vendorName") or node_device_info.get("vendor_name")
+                    device_info["vendor_id"] = node_device_info.get("vendorID") or node_device_info.get("vendor_id")
+                    device_info["product_name"] = node_device_info.get("productName") or node_device_info.get("product_name")
+                    device_info["product_id"] = node_device_info.get("productID") or node_device_info.get("product_id")
+                    device_info["node_label"] = node_device_info.get("nodeLabel") or node_device_info.get("node_label")
+                    device_info["hardware_version"] = node_device_info.get("hardwareVersionString") or node_device_info.get("hardware_version")
+                    device_info["software_version"] = node_device_info.get("softwareVersionString") or node_device_info.get("software_version")
+                    if any(v is not None for v in device_info.values()):
+                        _LOGGER.debug("Node %s: extracted device_info via dict access: %s", node.node_id, device_info)
+                        return device_info
+                except (TypeError, KeyError):
+                    pass
+
+            # Log available attributes to help debug
+            all_attrs = [a for a in dir(node_device_info) if not a.startswith('_')]
+            _LOGGER.debug("Node %s: device_info available attrs: %s", node.node_id, all_attrs[:20])
+
+            # Try direct attribute access with all possible name formats
             device_info["vendor_name"] = (
                 getattr(node_device_info, "vendorName", None)
                 or getattr(node_device_info, "vendor_name", None)
             )
             device_info["vendor_id"] = (
                 getattr(node_device_info, "vendorID", None)
-                or getattr(node_device_info, "vendor_id", None)
                 or getattr(node_device_info, "vendorId", None)
+                or getattr(node_device_info, "vendor_id", None)
             )
             device_info["product_name"] = (
                 getattr(node_device_info, "productName", None)
@@ -410,8 +429,8 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
             )
             device_info["product_id"] = (
                 getattr(node_device_info, "productID", None)
-                or getattr(node_device_info, "product_id", None)
                 or getattr(node_device_info, "productId", None)
+                or getattr(node_device_info, "product_id", None)
             )
             device_info["node_label"] = (
                 getattr(node_device_info, "nodeLabel", None)
