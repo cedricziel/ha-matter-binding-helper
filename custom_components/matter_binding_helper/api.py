@@ -33,6 +33,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_list_nodes)
     websocket_api.async_register_command(hass, ws_debug_node)
     websocket_api.async_register_command(hass, ws_debug_devices)
+    websocket_api.async_register_command(hass, ws_debug_match)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -186,6 +187,69 @@ async def ws_debug_devices(
             })
 
     connection.send_result(msg["id"], {"devices": matter_devices})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_match",
+        vol.Required("node_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_debug_match(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Test device matching for a specific node ID."""
+    device_registry = dr.async_get(hass)
+    area_registry = ar.async_get(hass)
+    node_id = msg["node_id"]
+
+    # Convert node_id to 16-digit uppercase hex
+    node_id_hex = f"{node_id:016X}"
+    search_pattern = f"-{node_id_hex}-"
+
+    matches = []
+    checked = []
+
+    for device in device_registry.devices.values():
+        for identifier in device.identifiers:
+            if len(identifier) >= 2 and identifier[0] == "matter":
+                id_value = str(identifier[1])
+                is_deviceid = id_value.startswith("deviceid_")
+                has_pattern = search_pattern in id_value
+
+                checked.append({
+                    "device_name": device.name,
+                    "identifier": id_value,
+                    "is_deviceid": is_deviceid,
+                    "has_pattern": has_pattern,
+                })
+
+                if is_deviceid and has_pattern:
+                    area_name = None
+                    if device.area_id:
+                        area = area_registry.async_get_area(device.area_id)
+                        if area:
+                            area_name = area.name
+
+                    matches.append({
+                        "device_id": device.id,
+                        "name": device.name,
+                        "name_by_user": device.name_by_user,
+                        "area_name": area_name,
+                        "matched_identifier": id_value,
+                    })
+
+    connection.send_result(msg["id"], {
+        "node_id": node_id,
+        "node_id_hex": node_id_hex,
+        "search_pattern": search_pattern,
+        "matches": matches,
+        "checked_count": len(checked),
+        "checked_sample": checked[:10],
+    })
 
 
 @websocket_api.websocket_command(
