@@ -283,6 +283,7 @@ export interface AutomationTemplate {
 }
 
 // Templates for common automation scenarios
+// Use {source} and {target} placeholders for device names
 export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
   {
     id: "thermostat-contact-window",
@@ -290,7 +291,7 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     targetDeviceTypes: [21],   // Contact Sensor
     title: "Turn off heating when window opens",
     description: "Automatically pause heating/cooling when a window or door is opened to save energy.",
-    why: "Thermostats don't have a client cluster for Boolean State (contact sensors). Matter bindings require matching client/server clusters.",
+    why: "This thermostat doesn't have a client cluster for Boolean State (contact sensors). Matter bindings require matching client/server clusters.",
     icon: "🪟",
   },
   {
@@ -299,7 +300,7 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     targetDeviceTypes: [263],  // Occupancy Sensor
     title: "Adjust temperature based on occupancy",
     description: "Lower the temperature when room is unoccupied, restore when someone enters.",
-    why: "Thermostats don't have a client cluster for Occupancy Sensing. A Home Assistant automation can bridge this gap.",
+    why: "This thermostat doesn't have a client cluster for Occupancy Sensing. A Home Assistant automation can bridge this gap.",
     icon: "🚶",
   },
   {
@@ -308,7 +309,7 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     targetDeviceTypes: [263],  // Occupancy Sensor
     title: "Turn on light when motion detected",
     description: "Automatically turn on lights when someone enters the room.",
-    why: "Lights are servers (receive commands), not clients. Occupancy sensors report state but can't send on/off commands.",
+    why: "This light is a server (receives commands), not a client. The occupancy sensor reports state but can't send on/off commands to it.",
     icon: "💡",
   },
   {
@@ -317,7 +318,7 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     targetDeviceTypes: [21],   // Contact Sensor
     title: "Turn on light when door opens",
     description: "Automatically turn on lights when a door is opened (e.g., closet light).",
-    why: "Contact sensors report open/close state but don't have client clusters to control lights directly.",
+    why: "This contact sensor reports open/close state but doesn't have client clusters to control lights directly.",
     icon: "🚪",
   },
   {
@@ -326,7 +327,7 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     targetDeviceTypes: [263],  // Occupancy Sensor
     title: "Control device based on occupancy",
     description: "Turn on/off a device when room occupancy changes.",
-    why: "Plug-in units are servers (receive commands). Occupancy sensors can't directly control them via Matter binding.",
+    why: "This plug is a server (receives commands). The occupancy sensor can't directly control it via Matter binding.",
     icon: "🔌",
   },
 ];
