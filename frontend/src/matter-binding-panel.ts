@@ -1140,6 +1140,15 @@ export class MatterBindingPanel extends LitElement {
           continue;
         }
 
+        // Get clusters that this source endpoint already has bindings for
+        // (to avoid recommending conflicting bindings)
+        const existingClusterBindings = this._allBindings
+          .filter((b) =>
+            b.binding.node_id === sourceNode.node_id &&
+            b.binding.endpoint_id === sourceEndpoint.endpoint_id
+          )
+          .map((b) => b.binding.cluster_id);
+
         // Find potential targets (endpoints with matching server clusters)
         for (const targetNode of this._nodes) {
           for (const targetEndpoint of targetNode.endpoints) {
@@ -1158,7 +1167,16 @@ export class MatterBindingPanel extends LitElement {
               continue;
             }
 
-            // Check if this binding already exists
+            // Filter out clusters that already have bindings (would conflict)
+            const availableClusters = compatibleClusters.filter(
+              (c) => !existingClusterBindings.includes(c)
+            );
+
+            if (availableClusters.length === 0) {
+              continue;
+            }
+
+            // Check if this exact binding already exists
             const alreadyBound = this._allBindings.some(
               (b) =>
                 b.binding.node_id === sourceNode.node_id &&
@@ -1176,7 +1194,7 @@ export class MatterBindingPanel extends LitElement {
               sourceEndpoint,
               targetNode,
               targetEndpoint,
-              compatibleClusters,
+              compatibleClusters: availableClusters,
             });
           }
         }
