@@ -36,6 +36,23 @@
 
 declare(strict_types=1);
 
+// Early error handler to catch autoload/initialization errors
+set_error_handler(function ($severity, $message, $file, $line) {
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+set_exception_handler(function ($e) {
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error',
+        'error' => $e->getMessage(),
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine(),
+    ]);
+    exit;
+});
+
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use MatterSurvey\TelemetryHandler;
@@ -77,9 +94,13 @@ if (json_last_error() !== JSON_ERROR_NONE) {
 // Rate limiting: Hash the IP for tracking without storing PII
 $ipHash = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? 'unknown');
 
-// Basic rate limiting check (simple in-memory for now)
+// Basic rate limiting check (simple file-based for now)
 // In production, use Redis or similar
-$rateLimitFile = sys_get_temp_dir() . '/matter-survey-ratelimit-' . $ipHash;
+$rateLimitDir = __DIR__ . '/../../data/ratelimit';
+if (!is_dir($rateLimitDir)) {
+    @mkdir($rateLimitDir, 0755, true);
+}
+$rateLimitFile = $rateLimitDir . '/' . $ipHash;
 $now = time();
 $window = 60; // 1 minute window
 $maxRequests = 10; // Max 10 requests per minute
