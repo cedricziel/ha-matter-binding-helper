@@ -232,6 +232,10 @@ def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
     - HA device name (user-configured)
     - Area name
     - HA device ID
+
+    Matter device identifiers use the format:
+    ("matter", "deviceid_{fabric_id}-{node_id_hex_16}-MatterNodeDevice")
+    where node_id_hex_16 is the node ID as a 16-digit uppercase hex string.
     """
     ha_info: dict[str, Any] = {
         "ha_device_id": None,
@@ -240,20 +244,22 @@ def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
         "area_name": None,
     }
 
+    # Convert node_id to 16-digit uppercase hex for matching
+    node_id_hex = f"{node_id:016X}"
+
     try:
         device_registry = dr.async_get(hass)
         area_registry = ar.async_get(hass)
 
         # Find devices with Matter identifiers containing our node_id
-        # Matter devices use identifiers like ("matter", "node_id")
         for device in device_registry.devices.values():
             for identifier in device.identifiers:
                 # Check if this is a Matter device
                 if len(identifier) >= 2 and identifier[0] == "matter":
-                    # The identifier value might contain the node_id
                     id_value = str(identifier[1])
-                    # Match node_id in various formats: "123", "node_123", etc.
-                    if id_value == str(node_id) or id_value.endswith(f"-{node_id}"):
+
+                    # Match deviceid_ format: deviceid_{fabric}-{node_id_hex}-MatterNodeDevice
+                    if id_value.startswith("deviceid_") and f"-{node_id_hex}-" in id_value:
                         ha_info["ha_device_id"] = device.id
                         ha_info["ha_device_name"] = device.name_by_user or device.name
                         ha_info["area_id"] = device.area_id
