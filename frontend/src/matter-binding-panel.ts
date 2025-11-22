@@ -37,6 +37,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _surveySubmitting = false;
   @state() private _selectedTargetNodeId: number | null = null;
   @state() private _selectedTargetEndpointId: number | null = null;
+  @state() private _filterSameAreaOnly = true;
 
   static styles = css`
     :host {
@@ -659,6 +660,74 @@ export class MatterBindingPanel extends LitElement {
       font-style: italic;
       color: var(--secondary-text-color);
     }
+
+    .filter-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: var(--secondary-background-color);
+      border-radius: 8px;
+    }
+
+    .filter-controls label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--primary-text-color);
+      cursor: pointer;
+    }
+
+    .filter-info {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--disabled-color, #ccc);
+      transition: 0.3s;
+      border-radius: 22px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: var(--primary-color);
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(18px);
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1132,21 +1201,56 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _renderRecommendedBindings() {
+    // Filter recommendations based on toggle
+    const filteredRecommendations = this._filterSameAreaOnly
+      ? this._recommendations.filter((r) => {
+          const sourceArea = r.sourceNode.area_name;
+          const targetArea = r.targetNode.area_name;
+          // Both must have an area and they must match
+          return sourceArea && targetArea && sourceArea === targetArea;
+        })
+      : this._recommendations;
+
     return html`
       <div class="card overview-card">
         <div class="card-header">
           Recommended Bindings
-          <span class="count-badge">${this._recommendations.length}</span>
+          <span class="count-badge">${filteredRecommendations.length}</span>
         </div>
-        ${this._recommendations.length === 0
-          ? html`<div class="empty-state">No binding recommendations. All compatible endpoints are already bound.</div>`
+        <div class="filter-controls">
+          <label>
+            <span class="toggle-switch">
+              <input
+                type="checkbox"
+                ?checked=${this._filterSameAreaOnly}
+                @change=${this._toggleAreaFilter}
+              />
+              <span class="toggle-slider"></span>
+            </span>
+            Same area only
+          </label>
+          ${this._filterSameAreaOnly && filteredRecommendations.length !== this._recommendations.length
+            ? html`<span class="filter-info">(${this._recommendations.length - filteredRecommendations.length} hidden)</span>`
+            : nothing}
+        </div>
+        ${filteredRecommendations.length === 0
+          ? html`<div class="empty-state">
+              ${this._filterSameAreaOnly && this._recommendations.length > 0
+                ? "No same-area recommendations. Toggle filter to see cross-area bindings."
+                : "No binding recommendations. All compatible endpoints are already bound."}
+            </div>`
           : html`
               <div class="binding-list">
-                ${this._recommendations.map((r) => this._renderRecommendationRow(r))}
+                ${filteredRecommendations.map((r) => this._renderRecommendationRow(r))}
               </div>
             `}
       </div>
     `;
+  }
+
+  private _toggleAreaFilter(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    this._filterSameAreaOnly = input.checked;
   }
 
   private _renderRecommendationRow(recommendation: BindingRecommendation) {
