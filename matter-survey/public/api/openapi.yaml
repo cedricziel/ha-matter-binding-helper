@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: Matter Survey API
+  description: |
+    API for collecting anonymized Matter device capability data from Home Assistant integrations.
+
+    This data helps build a community-driven database of Matter device capabilities,
+    enabling better binding suggestions and device compatibility information.
+
+    ## Privacy
+
+    - **No personal data collected**: Device names, locations, and user-configured information are never transmitted
+    - **Only public device info**: Vendor IDs, product IDs, and capability data from the Matter specification
+    - **Anonymous installations**: Random UUIDs used only for deduplication, not tracking
+  version: 1.0.0
+  contact:
+    name: Matter Binding Helper
+    url: https://github.com/cedricziel/ha-matter-helper
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://matter-survey.58lab.org/api
+    description: Production server
+
+paths:
+  /submit.php:
+    post:
+      summary: Submit device telemetry
+      description: |
+        Receives anonymized device data from Home Assistant integrations.
+        Rate limited to 10 requests per minute per IP.
+      operationId: submitTelemetry
+      tags:
+        - Telemetry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetrySubmission'
+            example:
+              installation_id: "550e8400-e29b-41d4-a716-446655440000"
+              schema_version: 1
+              devices:
+                - vendor_id: 4456
+                  vendor_name: "Eve Systems"
+                  product_id: 80
+                  product_name: "Eve Energy"
+                  hardware_version: "1.0"
+                  software_version: "2.1.0"
+                  endpoints:
+                    - endpoint_id: 1
+                      device_types:
+                        - id: 266
+                          revision: 2
+                      clusters:
+                        - 6
+                        - 8
+                        - 30
+                      has_binding_cluster: true
+      responses:
+        '200':
+          description: Submission processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                status: "ok"
+                message: "Processed 1 devices"
+                devices_processed: 1
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_installation_id:
+                  summary: Missing installation ID
+                  value:
+                    status: "error"
+                    error: "Missing installation_id"
+                invalid_json:
+                  summary: Invalid JSON
+                  value:
+                    status: "error"
+                    error: "Invalid JSON: Syntax error"
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Rate limit exceeded. Please try again later."
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                error: "Internal server error"
+
+components:
+  schemas:
+    TelemetrySubmission:
+      type: object
+      required:
+        - installation_id
+        - devices
+      properties:
+        installation_id:
+          type: string
+          format: uuid
+          description: Random UUID for deduplication (not tracking)
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        schema_version:
+          type: integer
+          description: Schema version for forwards compatibility
+          default: 1
+          example: 1
+        devices:
+          type: array
+          description: List of anonymized device data
+          items:
+            $ref: '#/components/schemas/Device'
+
+    Device:
+      type: object
+      description: Anonymized device capability data
+      properties:
+        vendor_id:
+          type: integer
+          description: Matter vendor ID
+          example: 4456
+        vendor_name:
+          type: string
+          description: Vendor/manufacturer name
+          example: "Eve Systems"
+        product_id:
+          type: integer
+          description: Matter product ID
+          example: 80
+        product_name:
+          type: string
+          description: Product name
+          example: "Eve Energy"
+        hardware_version:
+          type: string
+          description: Hardware version string
+          example: "1.0"
+        software_version:
+          type: string
+          description: Software/firmware version string
+          example: "2.1.0"
+        endpoints:
+          type: array
+          description: Device endpoints with capabilities
+          items:
+            $ref: '#/components/schemas/Endpoint'
+
+    Endpoint:
+      type: object
+      description: Device endpoint with capability information
+      properties:
+        endpoint_id:
+          type: integer
+          description: Endpoint ID (0 = root node, 1+ = functional endpoints)
+          example: 1
+        device_types:
+          type: array
+          description: Matter device types on this endpoint
+          items:
+            $ref: '#/components/schemas/DeviceType'
+        clusters:
+          type: array
+          description: Cluster IDs supported on this endpoint
+          items:
+            type: integer
+          example: [6, 8, 30]
+        has_binding_cluster:
+          type: boolean
+          description: Whether the endpoint supports the Binding cluster (0x001E)
+          example: true
+
+    DeviceType:
+      type: object
+      description: Matter device type definition
+      properties:
+        id:
+          type: integer
+          description: |
+            Device type ID from Matter specification.
+            Common types: 256 (On/Off Light), 266 (On/Off Plug), 769 (Thermostat)
+          example: 266
+        revision:
+          type: integer
+          description: Device type revision
+          default: 1
+          example: 2
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["ok"]
+          example: "ok"
+        message:
+          type: string
+          example: "Processed 1 devices"
+        devices_processed:
+          type: integer
+          description: Number of devices successfully processed
+          example: 1
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["error"]
+          example: "error"
+        error:
+          type: string
+          description: Error message
+          example: "Missing installation_id"
+
+tags:
+  - name: Telemetry
+    description: Device telemetry submission endpoints

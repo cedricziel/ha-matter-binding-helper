@@ -118,6 +118,9 @@ survey-deploy: survey-install ## Deploy Matter Survey to FTP server
 			chmod 644 $${FTP_PATH}public/index.php; \
 			chmod 644 $${FTP_PATH}public/device.php; \
 			chmod 644 $${FTP_PATH}public/api/submit.php; \
+			chmod 644 $${FTP_PATH}public/api/index.php; \
+			chmod 644 $${FTP_PATH}public/api/docs.html; \
+			chmod 644 $${FTP_PATH}public/api/openapi.yaml; \
 			chmod 644 $${FTP_PATH}src/Database.php; \
 			chmod 644 $${FTP_PATH}src/DeviceRepository.php; \
 			chmod 644 $${FTP_PATH}src/TelemetryHandler.php"; \
