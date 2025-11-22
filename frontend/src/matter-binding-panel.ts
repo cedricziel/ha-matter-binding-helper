@@ -254,6 +254,56 @@ export class MatterBindingPanel extends LitElement {
       margin-right: 4px;
     }
 
+    .entity-list {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--secondary-background-color);
+      border-radius: 6px;
+    }
+
+    .entity-list-header {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary-text-color);
+      margin-bottom: 8px;
+    }
+
+    .entity-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .entity-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: 12px;
+      font-size: 11px;
+      color: var(--primary-text-color);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .entity-chip:hover {
+      border-color: var(--primary-color);
+      background: var(--primary-color);
+      color: var(--text-primary-color);
+    }
+
+    .entity-chip .domain-icon {
+      font-size: 12px;
+    }
+
+    .entity-chip.disabled {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
     .node-info {
       display: flex;
       flex-direction: column;
@@ -1838,10 +1888,55 @@ export class MatterBindingPanel extends LitElement {
                       </div>
                     `
                   : html`<div class="no-endpoints">No endpoints found</div>`}
+                ${this._renderEntityList(node)}
               </div>
             `
           : nothing}
       </li>
+    `;
+  }
+
+  private _renderEntityList(node: MatterNode) {
+    const entities = node.entities || [];
+    if (entities.length === 0) {
+      return nothing;
+    }
+
+    // Domain icons mapping
+    const domainIcons: Record<string, string> = {
+      light: "💡",
+      switch: "🔌",
+      event: "🔘",
+      sensor: "📊",
+      binary_sensor: "⚡",
+      climate: "🌡️",
+      cover: "🪟",
+      fan: "💨",
+      lock: "🔒",
+      button: "⏺️",
+    };
+
+    return html`
+      <div class="entity-list">
+        <div class="entity-list-header">Home Assistant Entities</div>
+        <div class="entity-chips">
+          ${entities
+            .filter((e) => !e.disabled)
+            .map(
+              (entity) => html`
+                <a
+                  class="entity-chip"
+                  href="/config/entities/entity/${entity.entity_id}"
+                  target="_top"
+                  @click=${(e: Event) => e.stopPropagation()}
+                >
+                  <span class="domain-icon">${domainIcons[entity.domain] || "📦"}</span>
+                  <span>${entity.name || entity.entity_id}</span>
+                </a>
+              `
+            )}
+        </div>
+      </div>
     `;
   }
 

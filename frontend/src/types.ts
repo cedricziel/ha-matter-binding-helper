@@ -34,6 +34,15 @@ export interface DeviceInfo {
   software_version: string | null;
 }
 
+export interface EntityInfo {
+  entity_id: string;
+  domain: string;
+  name: string | null;
+  original_name: string | null;
+  platform: string;
+  disabled: boolean;
+}
+
 export interface MatterNode {
   node_id: number;
   name: string;
@@ -42,6 +51,7 @@ export interface MatterNode {
   endpoints: MatterEndpoint[];
   area_name?: string | null;
   ha_device_id?: string | null;
+  entities?: EntityInfo[];
 }
 
 export interface MatterEndpoint {

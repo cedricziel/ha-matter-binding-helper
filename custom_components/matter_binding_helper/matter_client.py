@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     ATTR_CLIENT_LIST,
@@ -240,6 +241,44 @@ def get_matter_client(hass: HomeAssistant) -> MatterClient | None:
     return None
 
 
+def _get_entities_for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
+    """Get all entities associated with a device.
+
+    Returns a list of entity info dicts with:
+    - entity_id: The full entity ID (e.g., "light.living_room")
+    - domain: The entity domain (e.g., "light", "switch", "event")
+    - name: The entity's friendly name
+    - original_name: The original name before user customization
+    - platform: The integration platform (should be "matter")
+    """
+    entities: list[dict[str, Any]] = []
+
+    try:
+        entity_registry = er.async_get(hass)
+
+        for entity in entity_registry.entities.values():
+            if entity.device_id == device_id:
+                entities.append({
+                    "entity_id": entity.entity_id,
+                    "domain": entity.domain,
+                    "name": entity.name or entity.original_name,
+                    "original_name": entity.original_name,
+                    "platform": entity.platform,
+                    "disabled": entity.disabled,
+                })
+
+        _LOGGER.debug(
+            "Found %d entities for device %s: %s",
+            len(entities),
+            device_id,
+            [e["entity_id"] for e in entities],
+        )
+    except Exception as err:
+        _LOGGER.debug("Error getting entities for device %s: %s", device_id, err)
+
+    return entities
+
+
 def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
     """Get Home Assistant device info for a Matter node.
 
@@ -247,6 +286,7 @@ def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
     - HA device name (user-configured)
     - Area name
     - HA device ID
+    - Associated entities
 
     Matter device identifiers use the format:
     ("matter", "deviceid_{fabric_id}-{node_id_hex_16}-MatterNodeDevice")
@@ -257,6 +297,7 @@ def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
         "ha_device_name": None,
         "area_id": None,
         "area_name": None,
+        "entities": [],
     }
 
     # Convert node_id to 16-digit uppercase hex for matching
@@ -284,11 +325,15 @@ def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
                             if area:
                                 ha_info["area_name"] = area.name
 
+                        # Get all entities for this device
+                        ha_info["entities"] = _get_entities_for_device(hass, device.id)
+
                         _LOGGER.debug(
-                            "Found HA device for Matter node %s: %s (area: %s)",
+                            "Found HA device for Matter node %s: %s (area: %s, entities: %d)",
                             node_id,
                             ha_info["ha_device_name"],
                             ha_info["area_name"],
+                            len(ha_info["entities"]),
                         )
                         return ha_info
 
@@ -332,6 +377,7 @@ async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
                 "endpoints": endpoints,
                 "area_name": ha_info.get("area_name"),
                 "ha_device_id": ha_info.get("ha_device_id"),
+                "entities": ha_info.get("entities", []),
             }
             _LOGGER.info(
                 "Node %s (%s): available=%s, endpoints=%d, area=%s",
