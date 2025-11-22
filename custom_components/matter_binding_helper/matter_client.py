@@ -393,36 +393,39 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
             node_device_info,
         )
         if node_device_info:
-            # Try various attribute name formats (snake_case and camelCase)
+            # python-matter-server uses vendorID, productID (uppercase ID)
+            # Try multiple attribute name formats
             device_info["vendor_name"] = (
-                getattr(node_device_info, "vendor_name", None)
-                or getattr(node_device_info, "vendorName", None)
+                getattr(node_device_info, "vendorName", None)
+                or getattr(node_device_info, "vendor_name", None)
             )
             device_info["vendor_id"] = (
-                getattr(node_device_info, "vendor_id", None)
+                getattr(node_device_info, "vendorID", None)
+                or getattr(node_device_info, "vendor_id", None)
                 or getattr(node_device_info, "vendorId", None)
             )
             device_info["product_name"] = (
-                getattr(node_device_info, "product_name", None)
-                or getattr(node_device_info, "productName", None)
+                getattr(node_device_info, "productName", None)
+                or getattr(node_device_info, "product_name", None)
             )
             device_info["product_id"] = (
-                getattr(node_device_info, "product_id", None)
+                getattr(node_device_info, "productID", None)
+                or getattr(node_device_info, "product_id", None)
                 or getattr(node_device_info, "productId", None)
             )
             device_info["node_label"] = (
-                getattr(node_device_info, "node_label", None)
-                or getattr(node_device_info, "nodeLabel", None)
+                getattr(node_device_info, "nodeLabel", None)
+                or getattr(node_device_info, "node_label", None)
             )
             device_info["hardware_version"] = (
-                getattr(node_device_info, "hardware_version_string", None)
-                or getattr(node_device_info, "hardwareVersionString", None)
-                or getattr(node_device_info, "hardware_version", None)
+                getattr(node_device_info, "hardwareVersionString", None)
+                or getattr(node_device_info, "hardware_version_string", None)
+                or getattr(node_device_info, "hardwareVersion", None)
             )
             device_info["software_version"] = (
-                getattr(node_device_info, "software_version_string", None)
-                or getattr(node_device_info, "softwareVersionString", None)
-                or getattr(node_device_info, "software_version", None)
+                getattr(node_device_info, "softwareVersionString", None)
+                or getattr(node_device_info, "software_version_string", None)
+                or getattr(node_device_info, "softwareVersion", None)
             )
 
             # If we got any data, return it
@@ -434,7 +437,9 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
         _LOGGER.debug("Node %s: device_info property had no data, trying attributes dict", node.node_id)
         attributes = getattr(node, "attributes", None)
         if attributes:
-            _LOGGER.debug("Node %s: attributes dict has %d keys", node.node_id, len(attributes))
+            _LOGGER.debug("Node %s: attributes dict has %d keys, sample keys: %s", node.node_id, len(attributes), list(attributes.keys())[:5])
+
+            # Try string keys first (older format)
             device_info["vendor_name"] = attributes.get("0/40/1")
             device_info["vendor_id"] = attributes.get("0/40/2")
             device_info["product_name"] = attributes.get("0/40/3")
@@ -442,6 +447,34 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
             device_info["node_label"] = attributes.get("0/40/5")
             device_info["hardware_version"] = attributes.get("0/40/8")
             device_info["software_version"] = attributes.get("0/40/10")
+
+            # If string keys didn't work, try iterating and matching by path components
+            if not any(v is not None for v in device_info.values()):
+                _LOGGER.debug("Node %s: string keys didn't work, trying path matching", node.node_id)
+                for attr_key, attr_value in attributes.items():
+                    # Convert key to string and parse
+                    key_str = str(attr_key)
+                    if "/40/" in key_str or "BasicInformation" in key_str:
+                        _LOGGER.debug("Node %s: found Basic Info attr: %s = %s", node.node_id, key_str, attr_value)
+                    # Check for endpoint 0, cluster 40 (Basic Information)
+                    if hasattr(attr_key, 'endpoint_id') and hasattr(attr_key, 'cluster_id') and hasattr(attr_key, 'attribute_id'):
+                        if attr_key.endpoint_id == 0 and attr_key.cluster_id == 40:
+                            attr_id = attr_key.attribute_id
+                            if attr_id == 1:
+                                device_info["vendor_name"] = attr_value
+                            elif attr_id == 2:
+                                device_info["vendor_id"] = attr_value
+                            elif attr_id == 3:
+                                device_info["product_name"] = attr_value
+                            elif attr_id == 4:
+                                device_info["product_id"] = attr_value
+                            elif attr_id == 5:
+                                device_info["node_label"] = attr_value
+                            elif attr_id == 8:
+                                device_info["hardware_version"] = attr_value
+                            elif attr_id == 10:
+                                device_info["software_version"] = attr_value
+
             _LOGGER.debug("Node %s: extracted device_info from attributes: %s", node.node_id, device_info)
         else:
             _LOGGER.debug("Node %s: no attributes dict found", node.node_id)
