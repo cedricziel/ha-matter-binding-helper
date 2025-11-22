@@ -81,7 +81,7 @@ export class MatterBindingPanel extends LitElement {
 
     .content {
       display: grid;
-      grid-template-columns: 300px 1fr;
+      grid-template-columns: 380px 1fr;
       gap: 24px;
     }
 
@@ -171,22 +171,41 @@ export class MatterBindingPanel extends LitElement {
       flex-direction: column;
       flex: 1;
       min-width: 0;
+      gap: 2px;
     }
 
     .node-name {
       font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .node-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
     }
 
     .node-vendor {
-      font-size: 12px;
       color: var(--secondary-text-color);
       opacity: 0.8;
     }
 
     .node-area {
-      font-size: 12px;
       color: var(--primary-color);
       opacity: 0.9;
+    }
+
+    .node-endpoints {
+      color: var(--secondary-text-color);
+      opacity: 0.7;
+    }
+
+    .node-endpoints.has-binding {
+      color: var(--success-color, #4caf50);
+      opacity: 1;
     }
 
     .node-details {
@@ -617,19 +636,21 @@ export class MatterBindingPanel extends LitElement {
           ></span>
           <div class="node-info">
             <span class="node-name">${node.name}</span>
-            ${node.area_name
-              ? html`<span class="node-area">${node.area_name}</span>`
-              : deviceInfo?.vendor_name
-                ? html`<span class="node-vendor">${deviceInfo.vendor_name}</span>`
-                : nothing}
+            <div class="node-meta">
+              ${node.area_name
+                ? html`<span class="node-area">${node.area_name}</span>`
+                : deviceInfo?.vendor_name
+                  ? html`<span class="node-vendor">${deviceInfo.vendor_name}</span>`
+                  : nothing}
+              <span class="node-endpoints ${bindableEndpoints.length > 0 ? "has-binding" : ""}">
+                ${totalEndpoints > 0
+                  ? bindableEndpoints.length > 0
+                    ? `${bindableEndpoints.length}/${totalEndpoints} bindable`
+                    : `${totalEndpoints} ep`
+                  : "no endpoints"}
+              </span>
+            </div>
           </div>
-          <small>
-            ${totalEndpoints > 0
-              ? bindableEndpoints.length > 0
-                ? `(${bindableEndpoints.length}/${totalEndpoints} bindable)`
-                : `(${totalEndpoints} endpoints, none bindable)`
-              : "(no endpoints)"}
-          </small>
         </div>
         ${isSelected
           ? html`
