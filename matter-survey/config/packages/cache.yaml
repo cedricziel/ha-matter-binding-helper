@@ -1,4 +1,0 @@
-framework:
-    cache:
-        app: cache.adapter.filesystem
-        directory: '%kernel.project_dir%/var/cache/pools'
