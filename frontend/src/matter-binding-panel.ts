@@ -756,7 +756,8 @@ export class MatterBindingPanel extends LitElement {
       }
     }
 
-    .btn-icon.btn-loading::after {
+    .btn-icon.btn-loading::after,
+    .delete-btn.btn-loading::after {
       border-color: rgba(244, 67, 54, 0.3);
       border-top-color: var(--error-color, #f44336);
     }
@@ -950,6 +951,9 @@ export class MatterBindingPanel extends LitElement {
   private async _deleteBinding(binding: Binding): Promise<void> {
     if (!confirm("Are you sure you want to delete this binding?")) return;
 
+    const actionKey = `delete-tab-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
+    this._actionInProgress = actionKey;
+
     try {
       await api.deleteBinding(
         this.hass,
@@ -962,6 +966,8 @@ export class MatterBindingPanel extends LitElement {
       await this._loadBindings();
     } catch (err) {
       this._error = `Failed to delete binding: ${err}`;
+    } finally {
+      this._actionInProgress = null;
     }
   }
 
@@ -1545,6 +1551,9 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _renderBindingCard(binding: Binding) {
+    const actionKey = `delete-tab-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
+    const isLoading = this._actionInProgress === actionKey;
+
     return html`
       <div class="binding-card">
         <div class="binding-info">
@@ -1560,8 +1569,12 @@ export class MatterBindingPanel extends LitElement {
             </span>
           </div>
         </div>
-        <button class="delete-btn" @click=${() => this._deleteBinding(binding)}>
-          Delete
+        <button
+          class="delete-btn ${isLoading ? "btn-loading" : ""}"
+          ?disabled=${isLoading || this._actionInProgress !== null}
+          @click=${() => this._deleteBinding(binding)}
+        >
+          ${isLoading ? "" : "Delete"}
         </button>
       </div>
     `;
