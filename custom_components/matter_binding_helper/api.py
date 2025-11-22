@@ -89,11 +89,52 @@ async def ws_debug_node(
                 "sample_keys": list(attributes.keys())[:20] if attributes else [],
             }
 
+            # Get endpoints property info
+            endpoints_prop = getattr(node, "endpoints", None)
+            endpoints_info = {
+                "has_endpoints": endpoints_prop is not None,
+                "endpoints_type": type(endpoints_prop).__name__ if endpoints_prop else None,
+                "endpoints_len": len(endpoints_prop) if endpoints_prop else 0,
+            }
+
+            # Inspect first endpoint if available
+            first_endpoint_info = None
+            if endpoints_prop:
+                try:
+                    if isinstance(endpoints_prop, dict):
+                        # endpoints is a dict keyed by endpoint_id
+                        first_ep_id = next(iter(endpoints_prop.keys()), None)
+                        if first_ep_id is not None:
+                            first_ep = endpoints_prop[first_ep_id]
+                            first_endpoint_info = {
+                                "endpoint_id": first_ep_id,
+                                "type": type(first_ep).__name__,
+                                "attrs": [a for a in dir(first_ep) if not a.startswith("_")],
+                            }
+                    elif isinstance(endpoints_prop, list) and len(endpoints_prop) > 0:
+                        first_ep = endpoints_prop[0]
+                        first_endpoint_info = {
+                            "type": type(first_ep).__name__,
+                            "attrs": [a for a in dir(first_ep) if not a.startswith("_")],
+                        }
+                except Exception as ep_err:
+                    first_endpoint_info = {"error": str(ep_err)}
+
+            # Get node_data info
+            node_data = getattr(node, "node_data", None)
+            node_data_info = {
+                "has_node_data": node_data is not None,
+                "node_data_type": type(node_data).__name__ if node_data else None,
+            }
+
             connection.send_result(msg["id"], {
                 "node_id": node.node_id,
                 "node_type": type(node).__name__,
                 "available_attrs": node_attrs,
                 "attributes_info": attr_info,
+                "endpoints_info": endpoints_info,
+                "first_endpoint": first_endpoint_info,
+                "node_data_info": node_data_info,
             })
             return
 

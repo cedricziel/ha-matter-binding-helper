@@ -237,17 +237,29 @@ async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
 
     nodes = []
     try:
-        for node in client.get_nodes():
+        _LOGGER.info("Fetching Matter nodes from client (live mode)")
+        all_nodes = client.get_nodes()
+        _LOGGER.info("Found %d nodes from Matter client", len(all_nodes))
+
+        for node in all_nodes:
+            endpoints = _get_endpoints_info(node)
             node_info = {
                 "node_id": node.node_id,
                 "name": _get_node_name(node),
                 "available": node.available,
                 "device_info": _get_device_info(node),
-                "endpoints": _get_endpoints_info(node),
+                "endpoints": endpoints,
             }
+            _LOGGER.info(
+                "Node %s (%s): available=%s, endpoints=%d",
+                node.node_id,
+                node_info["name"],
+                node.available,
+                len(endpoints),
+            )
             nodes.append(node_info)
     except Exception as err:
-        _LOGGER.error("Error getting Matter nodes: %s", err)
+        _LOGGER.error("Error getting Matter nodes: %s", err, exc_info=True)
 
     return nodes
 
@@ -316,38 +328,136 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
 def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:
     """Get endpoint information for a node.
 
-    MatterNodeData stores attributes in a dict with keys like 'endpoint/cluster/attribute'.
-    We parse these to extract endpoint and cluster information.
+    Tries multiple approaches:
+    1. Use node.endpoints property directly (MatterNode objects)
+    2. Fall back to parsing node.attributes dict
     """
+    endpoints: list[dict[str, Any]] = []
+
+    try:
+        # Approach 1: Try using node.endpoints property directly
+        endpoints_prop = getattr(node, "endpoints", None)
+        if endpoints_prop:
+            _LOGGER.debug(
+                "Node %s: using endpoints property (type: %s, len: %s)",
+                node.node_id,
+                type(endpoints_prop).__name__,
+                len(endpoints_prop) if endpoints_prop else 0,
+            )
+            endpoints = _extract_from_endpoints_property(node.node_id, endpoints_prop)
+            if endpoints:
+                return endpoints
+
+        # Approach 2: Fall back to parsing attributes dict
+        attributes = getattr(node, "attributes", None)
+        if attributes:
+            _LOGGER.debug(
+                "Node %s: using attributes dict (len: %s)",
+                node.node_id,
+                len(attributes),
+            )
+            endpoints = _extract_from_attributes_dict(node.node_id, attributes)
+            if endpoints:
+                return endpoints
+
+        _LOGGER.debug("Node %s: no endpoint data found", node.node_id)
+        return []
+
+    except Exception as err:
+        _LOGGER.warning("Error getting endpoints for node %s: %s", node.node_id, err, exc_info=True)
+        return []
+
+
+def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[dict[str, Any]]:
+    """Extract endpoint info from node.endpoints property."""
+    endpoints: list[dict[str, Any]] = []
+
+    try:
+        # endpoints can be a dict keyed by endpoint_id or a list
+        if isinstance(endpoints_prop, dict):
+            items = endpoints_prop.items()
+        elif hasattr(endpoints_prop, "__iter__"):
+            # Try to iterate if it's some other iterable
+            items = [(getattr(ep, "endpoint_id", i), ep) for i, ep in enumerate(endpoints_prop)]
+        else:
+            return []
+
+        for endpoint_id, endpoint in items:
+            try:
+                ep_info = {
+                    "endpoint_id": int(endpoint_id),
+                    "device_types": [],
+                    "has_binding_cluster": False,
+                    "clusters": [],
+                }
+
+                # Try to get clusters from endpoint
+                clusters = None
+                if hasattr(endpoint, "clusters"):
+                    clusters = endpoint.clusters
+                elif isinstance(endpoint, dict):
+                    clusters = endpoint.get("clusters")
+
+                if clusters:
+                    cluster_ids = set()
+                    # clusters might be a dict keyed by cluster_id or a list
+                    if isinstance(clusters, dict):
+                        cluster_ids = set(clusters.keys())
+                    elif hasattr(clusters, "__iter__"):
+                        for c in clusters:
+                            if hasattr(c, "cluster_id"):
+                                cluster_ids.add(c.cluster_id)
+                            elif isinstance(c, (int, str)):
+                                cluster_ids.add(int(c))
+
+                    ep_info["clusters"] = sorted(cluster_ids)
+                    ep_info["has_binding_cluster"] = CLUSTER_BINDING in cluster_ids
+
+                # Try to get device types
+                device_types = None
+                if hasattr(endpoint, "device_types"):
+                    device_types = endpoint.device_types
+                elif isinstance(endpoint, dict):
+                    device_types = endpoint.get("device_types")
+
+                if device_types:
+                    for dt in device_types:
+                        if hasattr(dt, "device_type"):
+                            ep_info["device_types"].append({
+                                "id": dt.device_type,
+                                "revision": getattr(dt, "revision", 1),
+                            })
+                        elif isinstance(dt, dict):
+                            ep_info["device_types"].append({
+                                "id": dt.get("device_type") or dt.get("id"),
+                                "revision": dt.get("revision", 1),
+                            })
+
+                endpoints.append(ep_info)
+                _LOGGER.debug(
+                    "  Node %s Endpoint %d: device_types=%s, clusters=%s, has_binding=%s",
+                    node_id,
+                    ep_info["endpoint_id"],
+                    ep_info["device_types"],
+                    ep_info["clusters"],
+                    ep_info["has_binding_cluster"],
+                )
+
+            except Exception as ep_err:
+                _LOGGER.debug("Error processing endpoint %s: %s", endpoint_id, ep_err)
+                continue
+
+    except Exception as err:
+        _LOGGER.debug("Error extracting from endpoints property: %s", err)
+
+    return endpoints
+
+
+def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[str, Any]]:
+    """Extract endpoint info from node.attributes dict (legacy approach)."""
     endpoints_dict: dict[int, dict[str, Any]] = {}
 
     try:
-        # Debug: log node object structure
-        _LOGGER.debug(
-            "Node %s type: %s, dir: %s",
-            node.node_id,
-            type(node).__name__,
-            [attr for attr in dir(node) if not attr.startswith("_")],
-        )
-
-        # Get attributes dictionary from node
-        attributes = getattr(node, "attributes", None)
-        if not attributes:
-            _LOGGER.warning(
-                "Node %s has no attributes dictionary (has attr: %s, type: %s)",
-                node.node_id,
-                hasattr(node, "attributes"),
-                type(attributes) if attributes is not None else "None",
-            )
-            return []
-
-        _LOGGER.debug(
-            "Node %s has %d attribute keys, sample keys: %s",
-            node.node_id,
-            len(attributes),
-            list(attributes.keys())[:10] if attributes else [],
-        )
-
         # Parse attribute keys to extract endpoints and clusters
         # Keys are in format: 'endpoint/cluster/attribute'
         for attr_key in attributes.keys():
@@ -377,7 +487,6 @@ def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:
                         if isinstance(device_type_list, list):
                             for dt in device_type_list:
                                 if isinstance(dt, dict):
-                                    # Format: {0: device_type_id, 1: revision}
                                     dt_id = dt.get(0) or dt.get("deviceType")
                                     dt_rev = dt.get(1) or dt.get("revision", 1)
                                     if dt_id is not None:
@@ -395,20 +504,11 @@ def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:
             ep_info = endpoints_dict[endpoint_id]
             ep_info["clusters"] = sorted(ep_info["clusters"])
             endpoints.append(ep_info)
-            _LOGGER.debug(
-                "  Node %s Endpoint %d: device_types=%s, clusters=%s, has_binding=%s",
-                node.node_id,
-                endpoint_id,
-                ep_info["device_types"],
-                ep_info["clusters"],
-                ep_info["has_binding_cluster"],
-            )
 
-        _LOGGER.debug("Node %s: found %d endpoints", node.node_id, len(endpoints))
         return endpoints
 
     except Exception as err:
-        _LOGGER.warning("Error getting endpoints for node %s: %s", node.node_id, err, exc_info=True)
+        _LOGGER.debug("Error extracting from attributes dict: %s", err)
         return []
 
 
