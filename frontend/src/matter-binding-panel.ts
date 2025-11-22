@@ -244,6 +244,11 @@ export class MatterBindingPanel extends LitElement {
       opacity: 0.8;
     }
 
+    .node-device-type {
+      color: var(--secondary-text-color);
+      font-weight: 500;
+    }
+
     .node-area {
       color: var(--primary-color);
       opacity: 0.9;
@@ -671,11 +676,22 @@ export class MatterBindingPanel extends LitElement {
     `;
   }
 
+  private _getPrimaryDeviceType(node: MatterNode): string | null {
+    // Get device type from endpoint 1, or first non-zero endpoint
+    const primaryEndpoint = node.endpoints.find((e) => e.endpoint_id === 1)
+      || node.endpoints.find((e) => e.endpoint_id > 0);
+    if (primaryEndpoint && primaryEndpoint.device_types.length > 0) {
+      return getDeviceTypeName(primaryEndpoint.device_types[0].id);
+    }
+    return null;
+  }
+
   private _renderNodeItem(node: MatterNode) {
     const isSelected = this._selectedSourceNode?.node_id === node.node_id;
     const bindableEndpoints = node.endpoints.filter((e) => e.has_binding_cluster);
     const totalEndpoints = node.endpoints.length;
     const deviceInfo = node.device_info;
+    const primaryDeviceType = this._getPrimaryDeviceType(node);
 
     return html`
       <li>
@@ -689,18 +705,12 @@ export class MatterBindingPanel extends LitElement {
           <div class="node-info">
             <span class="node-name">${node.name}</span>
             <div class="node-meta">
+              ${primaryDeviceType
+                ? html`<span class="node-device-type">${primaryDeviceType}</span>`
+                : nothing}
               ${node.area_name
                 ? html`<span class="node-area">${node.area_name}</span>`
-                : deviceInfo?.vendor_name
-                  ? html`<span class="node-vendor">${deviceInfo.vendor_name}</span>`
-                  : nothing}
-              <span class="node-endpoints ${bindableEndpoints.length > 0 ? "has-binding" : ""}">
-                ${totalEndpoints > 0
-                  ? bindableEndpoints.length > 0
-                    ? `${bindableEndpoints.length}/${totalEndpoints} bindable`
-                    : `${totalEndpoints} ep`
-                  : "no endpoints"}
-              </span>
+                : nothing}
             </div>
           </div>
         </div>
