@@ -107,6 +107,7 @@ survey-deploy: survey-install ## Deploy Matter Survey to FTP server
 				--exclude .gitignore \
 				--exclude docker-compose.yml \
 				--exclude README.md \
+				--exclude data/ \
 				matter-survey/ $$FTP_PATH; \
 			echo 'Fixing permissions...'; \
 			chmod 755 $${FTP_PATH}public; \
