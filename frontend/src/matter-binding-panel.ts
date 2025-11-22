@@ -38,6 +38,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _selectedTargetNodeId: number | null = null;
   @state() private _selectedTargetEndpointId: number | null = null;
   @state() private _filterSameAreaOnly = true;
+  @state() private _actionInProgress: string | null = null;
 
   static styles = css`
     :host {
@@ -728,6 +729,37 @@ export class MatterBindingPanel extends LitElement {
     .toggle-switch input:checked + .toggle-slider:before {
       transform: translateX(18px);
     }
+
+    .btn-loading {
+      position: relative;
+      color: transparent !important;
+    }
+
+    .btn-loading::after {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      top: 50%;
+      left: 50%;
+      margin-left: -7px;
+      margin-top: -7px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-icon.btn-loading::after {
+      border-color: rgba(244, 67, 54, 0.3);
+      border-top-color: var(--error-color, #f44336);
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1164,6 +1196,8 @@ export class MatterBindingPanel extends LitElement {
     const isGroupBinding = binding.target_group_id !== null;
     const sourceArea = sourceNode.area_name;
     const targetArea = targetNode?.area_name;
+    const actionKey = `delete-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
+    const isLoading = this._actionInProgress === actionKey;
 
     return html`
       <div class="overview-binding-row">
@@ -1190,11 +1224,12 @@ export class MatterBindingPanel extends LitElement {
               `}
         </div>
         <button
-          class="btn-icon delete"
+          class="btn-icon delete ${isLoading ? "btn-loading" : ""}"
           title="Delete binding"
+          ?disabled=${isLoading || this._actionInProgress !== null}
           @click=${() => this._deleteBindingFromOverview(bindingCtx)}
         >
-          ✕
+          ${isLoading ? "" : "✕"}
         </button>
       </div>
     `;
@@ -1258,6 +1293,8 @@ export class MatterBindingPanel extends LitElement {
     const clusterNames = compatibleClusters.map((c) => getClusterName(c)).join(", ");
     const sourceArea = sourceNode.area_name;
     const targetArea = targetNode.area_name;
+    const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}`;
+    const isLoading = this._actionInProgress === actionKey;
 
     return html`
       <div class="overview-binding-row recommendation">
@@ -1280,7 +1317,8 @@ export class MatterBindingPanel extends LitElement {
           ${targetArea ? html`<span class="area-label">${targetArea}</span>` : nothing}
         </div>
         <button
-          class="btn btn-small btn-primary"
+          class="btn btn-small btn-primary ${isLoading ? "btn-loading" : ""}"
+          ?disabled=${isLoading || this._actionInProgress !== null}
           @click=${() => this._createBindingFromRecommendation(recommendation)}
         >
           Create
@@ -1291,6 +1329,10 @@ export class MatterBindingPanel extends LitElement {
 
   private async _deleteBindingFromOverview(bindingCtx: BindingWithContext): Promise<void> {
     const { binding } = bindingCtx;
+    const actionKey = `delete-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
+
+    this._actionInProgress = actionKey;
+
     try {
       await api.deleteBinding(
         this.hass,
@@ -1304,6 +1346,8 @@ export class MatterBindingPanel extends LitElement {
       await this._loadOverviewData();
     } catch (err) {
       this._error = `Failed to delete binding: ${err}`;
+    } finally {
+      this._actionInProgress = null;
     }
   }
 
@@ -1312,6 +1356,9 @@ export class MatterBindingPanel extends LitElement {
 
     // Use the first compatible cluster (could show a picker for multiple)
     const clusterId = compatibleClusters[0];
+    const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}`;
+
+    this._actionInProgress = actionKey;
 
     try {
       await api.createBinding(
@@ -1326,6 +1373,8 @@ export class MatterBindingPanel extends LitElement {
       await this._loadOverviewData();
     } catch (err) {
       this._error = `Failed to create binding: ${err}`;
+    } finally {
+      this._actionInProgress = null;
     }
   }
 
