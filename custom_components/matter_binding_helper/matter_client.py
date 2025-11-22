@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     CLUSTER_BINDING,
@@ -223,6 +225,59 @@ def get_matter_client(hass: HomeAssistant) -> MatterClient | None:
     return None
 
 
+def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
+    """Get Home Assistant device info for a Matter node.
+
+    Looks up the HA device associated with the Matter node to get:
+    - HA device name (user-configured)
+    - Area name
+    - HA device ID
+    """
+    ha_info: dict[str, Any] = {
+        "ha_device_id": None,
+        "ha_device_name": None,
+        "area_id": None,
+        "area_name": None,
+    }
+
+    try:
+        device_registry = dr.async_get(hass)
+        area_registry = ar.async_get(hass)
+
+        # Find devices with Matter identifiers containing our node_id
+        # Matter devices use identifiers like ("matter", "node_id")
+        for device in device_registry.devices.values():
+            for identifier in device.identifiers:
+                # Check if this is a Matter device
+                if len(identifier) >= 2 and identifier[0] == "matter":
+                    # The identifier value might contain the node_id
+                    id_value = str(identifier[1])
+                    # Match node_id in various formats: "123", "node_123", etc.
+                    if id_value == str(node_id) or id_value.endswith(f"-{node_id}"):
+                        ha_info["ha_device_id"] = device.id
+                        ha_info["ha_device_name"] = device.name_by_user or device.name
+                        ha_info["area_id"] = device.area_id
+
+                        if device.area_id:
+                            area = area_registry.async_get_area(device.area_id)
+                            if area:
+                                ha_info["area_name"] = area.name
+
+                        _LOGGER.debug(
+                            "Found HA device for Matter node %s: %s (area: %s)",
+                            node_id,
+                            ha_info["ha_device_name"],
+                            ha_info["area_name"],
+                        )
+                        return ha_info
+
+        _LOGGER.debug("No HA device found for Matter node %s", node_id)
+    except Exception as err:
+        _LOGGER.debug("Error getting HA device info for node %s: %s", node_id, err)
+
+    return ha_info
+
+
 async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Get all Matter nodes."""
     # Check for demo mode first
@@ -243,19 +298,27 @@ async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
 
         for node in all_nodes:
             endpoints = _get_endpoints_info(node)
+            ha_info = _get_ha_device_info(hass, node.node_id)
+
+            # Use HA device name if available, otherwise fall back to Matter name
+            name = ha_info.get("ha_device_name") or _get_node_name(node)
+
             node_info = {
                 "node_id": node.node_id,
-                "name": _get_node_name(node),
+                "name": name,
                 "available": node.available,
                 "device_info": _get_device_info(node),
                 "endpoints": endpoints,
+                "area_name": ha_info.get("area_name"),
+                "ha_device_id": ha_info.get("ha_device_id"),
             }
             _LOGGER.info(
-                "Node %s (%s): available=%s, endpoints=%d",
+                "Node %s (%s): available=%s, endpoints=%d, area=%s",
                 node.node_id,
                 node_info["name"],
                 node.available,
                 len(endpoints),
+                node_info["area_name"],
             )
             nodes.append(node_info)
     except Exception as err:
@@ -266,17 +329,29 @@ async def get_nodes(hass: HomeAssistant) -> list[dict[str, Any]]:
 
 def _get_node_name(node: MatterNodeData) -> str:
     """Extract a friendly name for the node."""
-    # Basic Information cluster (40) attributes:
-    # 0/40/5 = NodeLabel (user-assigned name)
-    # 0/40/3 = ProductName
     try:
+        # Approach 1: Use node.name property (MatterNode objects)
+        name_prop = getattr(node, "name", None)
+        if name_prop and str(name_prop).strip():
+            return str(name_prop).strip()
+
+        # Approach 2: Try node.device_info property
+        device_info = getattr(node, "device_info", None)
+        if device_info:
+            # Try node_label first, then product_name
+            node_label = getattr(device_info, "node_label", None) or getattr(device_info, "nodeLabel", None)
+            if node_label and str(node_label).strip():
+                return str(node_label).strip()
+            product_name = getattr(device_info, "product_name", None) or getattr(device_info, "productName", None)
+            if product_name and str(product_name).strip():
+                return str(product_name).strip()
+
+        # Approach 3: Fall back to attributes dict
         attributes = getattr(node, "attributes", None)
         if attributes:
-            # Prefer user-assigned label, then product name
             node_label = attributes.get("0/40/5")
             if node_label and str(node_label).strip():
                 return str(node_label).strip()
-
             product_name = attributes.get("0/40/3")
             if product_name and str(product_name).strip():
                 return str(product_name).strip()
@@ -286,16 +361,11 @@ def _get_node_name(node: MatterNodeData) -> str:
 
 
 def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
-    """Extract device information from Basic Information cluster.
+    """Extract device information from node.
 
-    Basic Information cluster (40) attributes:
-    - 0/40/1: VendorName
-    - 0/40/2: VendorID
-    - 0/40/3: ProductName
-    - 0/40/4: ProductID
-    - 0/40/5: NodeLabel
-    - 0/40/8: HardwareVersionString
-    - 0/40/10: SoftwareVersionString
+    Tries multiple approaches:
+    1. Use node.device_info property (MatterNode objects)
+    2. Fall back to parsing node.attributes dict
     """
     device_info: dict[str, Any] = {
         "vendor_name": None,
@@ -308,17 +378,56 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
     }
 
     try:
-        attributes = getattr(node, "attributes", None)
-        if not attributes:
-            return device_info
+        # Approach 1: Use node.device_info property directly
+        node_device_info = getattr(node, "device_info", None)
+        if node_device_info:
+            # Try various attribute name formats (snake_case and camelCase)
+            device_info["vendor_name"] = (
+                getattr(node_device_info, "vendor_name", None)
+                or getattr(node_device_info, "vendorName", None)
+            )
+            device_info["vendor_id"] = (
+                getattr(node_device_info, "vendor_id", None)
+                or getattr(node_device_info, "vendorId", None)
+            )
+            device_info["product_name"] = (
+                getattr(node_device_info, "product_name", None)
+                or getattr(node_device_info, "productName", None)
+            )
+            device_info["product_id"] = (
+                getattr(node_device_info, "product_id", None)
+                or getattr(node_device_info, "productId", None)
+            )
+            device_info["node_label"] = (
+                getattr(node_device_info, "node_label", None)
+                or getattr(node_device_info, "nodeLabel", None)
+            )
+            device_info["hardware_version"] = (
+                getattr(node_device_info, "hardware_version_string", None)
+                or getattr(node_device_info, "hardwareVersionString", None)
+                or getattr(node_device_info, "hardware_version", None)
+            )
+            device_info["software_version"] = (
+                getattr(node_device_info, "software_version_string", None)
+                or getattr(node_device_info, "softwareVersionString", None)
+                or getattr(node_device_info, "software_version", None)
+            )
 
-        device_info["vendor_name"] = attributes.get("0/40/1")
-        device_info["vendor_id"] = attributes.get("0/40/2")
-        device_info["product_name"] = attributes.get("0/40/3")
-        device_info["product_id"] = attributes.get("0/40/4")
-        device_info["node_label"] = attributes.get("0/40/5")
-        device_info["hardware_version"] = attributes.get("0/40/8")
-        device_info["software_version"] = attributes.get("0/40/10")
+            # If we got any data, return it
+            if any(v is not None for v in device_info.values()):
+                return device_info
+
+        # Approach 2: Fall back to attributes dict
+        attributes = getattr(node, "attributes", None)
+        if attributes:
+            device_info["vendor_name"] = attributes.get("0/40/1")
+            device_info["vendor_id"] = attributes.get("0/40/2")
+            device_info["product_name"] = attributes.get("0/40/3")
+            device_info["product_id"] = attributes.get("0/40/4")
+            device_info["node_label"] = attributes.get("0/40/5")
+            device_info["hardware_version"] = attributes.get("0/40/8")
+            device_info["software_version"] = attributes.get("0/40/10")
+
     except Exception as err:
         _LOGGER.debug("Error getting device info for node %s: %s", node.node_id, err)
 

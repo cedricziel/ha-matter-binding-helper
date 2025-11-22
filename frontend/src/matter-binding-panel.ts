@@ -183,6 +183,12 @@ export class MatterBindingPanel extends LitElement {
       opacity: 0.8;
     }
 
+    .node-area {
+      font-size: 12px;
+      color: var(--primary-color);
+      opacity: 0.9;
+    }
+
     .node-details {
       margin-left: 32px;
       margin-top: 8px;
@@ -611,9 +617,11 @@ export class MatterBindingPanel extends LitElement {
           ></span>
           <div class="node-info">
             <span class="node-name">${node.name}</span>
-            ${deviceInfo?.vendor_name
-              ? html`<span class="node-vendor">${deviceInfo.vendor_name}</span>`
-              : nothing}
+            ${node.area_name
+              ? html`<span class="node-area">${node.area_name}</span>`
+              : deviceInfo?.vendor_name
+                ? html`<span class="node-vendor">${deviceInfo.vendor_name}</span>`
+                : nothing}
           </div>
           <small>
             ${totalEndpoints > 0

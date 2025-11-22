@@ -35,6 +35,8 @@ export interface MatterNode {
   available: boolean;
   device_info?: DeviceInfo;
   endpoints: MatterEndpoint[];
+  area_name?: string | null;
+  ha_device_id?: string | null;
 }
 
 export interface MatterEndpoint {
