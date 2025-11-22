@@ -10,6 +10,8 @@ import type {
   MatterNode,
   MatterEndpoint,
   Binding,
+  BindingWithContext,
+  BindingRecommendation,
   MatterGroup,
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName } from "./types";
@@ -27,8 +29,11 @@ export class MatterBindingPanel extends LitElement {
   @state() private _groups: MatterGroup[] = [];
   @state() private _loading = false;
   @state() private _error: string | null = null;
-  @state() private _activeTab: "bindings" | "groups" = "bindings";
+  @state() private _activeTab: "overview" | "bindings" | "groups" = "overview";
   @state() private _showCreateDialog = false;
+  @state() private _allBindings: BindingWithContext[] = [];
+  @state() private _recommendations: BindingRecommendation[] = [];
+  @state() private _overviewLoading = false;
   @state() private _surveySubmitting = false;
   @state() private _selectedTargetNodeId: number | null = null;
   @state() private _selectedTargetEndpointId: number | null = null;
@@ -499,10 +504,146 @@ export class MatterBindingPanel extends LitElement {
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    /* Overview Tab Styles */
+    .overview-content {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .overview-card {
+      background: var(--card-background-color);
+      border-radius: 8px;
+      box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .overview-card .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px;
+      border-bottom: 1px solid var(--divider-color);
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .count-badge {
+      background: var(--primary-color);
+      color: white;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: normal;
+    }
+
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      color: var(--secondary-text-color);
+    }
+
+    .binding-list {
+      padding: 8px 0;
+    }
+
+    .overview-binding-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .overview-binding-row:last-child {
+      border-bottom: none;
+    }
+
+    .overview-binding-row.recommendation {
+      background: var(--secondary-background-color);
+    }
+
+    .binding-source,
+    .binding-target {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 150px;
+    }
+
+    .binding-source .node-name,
+    .binding-target .node-name {
+      font-weight: 500;
+    }
+
+    .endpoint-label {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      background: var(--secondary-background-color);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .binding-arrow {
+      color: var(--primary-color);
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .binding-cluster-badge {
+      background: var(--primary-color);
+      color: white;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    .compatible-clusters {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      margin-left: auto;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--secondary-text-color);
+    }
+
+    .btn-icon:hover {
+      background: var(--secondary-background-color);
+    }
+
+    .btn-icon.delete {
+      color: var(--error-color, #f44336);
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .group-target {
+      font-style: italic;
+      color: var(--secondary-text-color);
+    }
   `;
 
   protected firstUpdated(): void {
-    this._loadNodes();
+    this._loadNodes().then(() => {
+      // Load overview data after nodes are loaded
+      if (this._activeTab === "overview") {
+        this._loadOverviewData();
+      }
+    });
   }
 
   private async _loadNodes(): Promise<void> {
@@ -547,6 +688,119 @@ export class MatterBindingPanel extends LitElement {
     } finally {
       this._loading = false;
     }
+  }
+
+  private async _loadOverviewData(): Promise<void> {
+    this._overviewLoading = true;
+    this._error = null;
+
+    try {
+      // Load all bindings from all endpoints with binding clusters
+      const allBindings: BindingWithContext[] = [];
+
+      for (const node of this._nodes) {
+        for (const endpoint of node.endpoints) {
+          if (endpoint.has_binding_cluster) {
+            try {
+              const response = await api.listBindings(
+                this.hass,
+                node.node_id,
+                endpoint.endpoint_id
+              );
+
+              for (const binding of response.bindings) {
+                // Find target node and endpoint
+                const targetNode = binding.target_node_id
+                  ? this._nodes.find((n) => n.node_id === binding.target_node_id) || null
+                  : null;
+                const targetEndpoint = targetNode && binding.target_endpoint_id
+                  ? targetNode.endpoints.find((ep) => ep.endpoint_id === binding.target_endpoint_id) || null
+                  : null;
+
+                allBindings.push({
+                  binding,
+                  sourceNode: node,
+                  sourceEndpoint: endpoint,
+                  targetNode,
+                  targetEndpoint,
+                });
+              }
+            } catch {
+              // Skip endpoints that fail to load bindings
+            }
+          }
+        }
+      }
+
+      this._allBindings = allBindings;
+
+      // Compute recommendations
+      this._recommendations = this._computeRecommendations();
+    } catch (err) {
+      this._error = `Failed to load overview data: ${err}`;
+    } finally {
+      this._overviewLoading = false;
+    }
+  }
+
+  private _computeRecommendations(): BindingRecommendation[] {
+    const recommendations: BindingRecommendation[] = [];
+
+    // Find all endpoints that can create bindings (have client clusters)
+    for (const sourceNode of this._nodes) {
+      for (const sourceEndpoint of sourceNode.endpoints) {
+        const sourceClientClusters = sourceEndpoint.client_clusters || [];
+        if (sourceClientClusters.length === 0 || !sourceEndpoint.has_binding_cluster) {
+          continue;
+        }
+
+        // Find potential targets (endpoints with matching server clusters)
+        for (const targetNode of this._nodes) {
+          for (const targetEndpoint of targetNode.endpoints) {
+            // Skip same endpoint
+            if (sourceNode.node_id === targetNode.node_id &&
+                sourceEndpoint.endpoint_id === targetEndpoint.endpoint_id) {
+              continue;
+            }
+
+            const targetServerClusters = targetEndpoint.server_clusters || [];
+            const compatibleClusters = sourceClientClusters.filter((c) =>
+              targetServerClusters.includes(c)
+            );
+
+            if (compatibleClusters.length === 0) {
+              continue;
+            }
+
+            // Check if this binding already exists
+            const alreadyBound = this._allBindings.some(
+              (b) =>
+                b.binding.node_id === sourceNode.node_id &&
+                b.binding.endpoint_id === sourceEndpoint.endpoint_id &&
+                b.binding.target_node_id === targetNode.node_id &&
+                b.binding.target_endpoint_id === targetEndpoint.endpoint_id
+            );
+
+            if (alreadyBound) {
+              continue;
+            }
+
+            recommendations.push({
+              sourceNode,
+              sourceEndpoint,
+              targetNode,
+              targetEndpoint,
+              compatibleClusters,
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by number of compatible clusters (more = higher priority)
+    recommendations.sort((a, b) => b.compatibleClusters.length - a.compatibleClusters.length);
+
+    return recommendations;
   }
 
   private _selectNode(node: MatterNode): void {
@@ -745,6 +999,15 @@ export class MatterBindingPanel extends LitElement {
 
         <div class="tabs">
           <button
+            class="tab ${this._activeTab === "overview" ? "active" : ""}"
+            @click=${() => {
+              this._activeTab = "overview";
+              this._loadOverviewData();
+            }}
+          >
+            Overview
+          </button>
+          <button
             class="tab ${this._activeTab === "bindings" ? "active" : ""}"
             @click=${() => (this._activeTab = "bindings")}
           >
@@ -761,12 +1024,161 @@ export class MatterBindingPanel extends LitElement {
           </button>
         </div>
 
-        ${this._activeTab === "bindings"
-          ? this._renderBindingsTab()
-          : this._renderGroupsTab()}
+        ${this._activeTab === "overview"
+          ? this._renderOverviewTab()
+          : this._activeTab === "bindings"
+            ? this._renderBindingsTab()
+            : this._renderGroupsTab()}
         ${this._showCreateDialog ? this._renderCreateDialog() : nothing}
       </div>
     `;
+  }
+
+  private _renderOverviewTab() {
+    return html`
+      <div class="overview-content">
+        ${this._overviewLoading
+          ? html`<div class="loading">Loading bindings...</div>`
+          : html`
+              ${this._renderEstablishedBindings()}
+              ${this._renderRecommendedBindings()}
+            `}
+      </div>
+    `;
+  }
+
+  private _renderEstablishedBindings() {
+    return html`
+      <div class="card overview-card">
+        <div class="card-header">
+          Established Bindings
+          <span class="count-badge">${this._allBindings.length}</span>
+        </div>
+        ${this._allBindings.length === 0
+          ? html`<div class="empty-state">No bindings configured yet.</div>`
+          : html`
+              <div class="binding-list">
+                ${this._allBindings.map((b) => this._renderEstablishedBindingRow(b))}
+              </div>
+            `}
+      </div>
+    `;
+  }
+
+  private _renderEstablishedBindingRow(bindingCtx: BindingWithContext) {
+    const { binding, sourceNode, sourceEndpoint, targetNode } = bindingCtx;
+    const targetName = targetNode?.name || `Node ${binding.target_node_id}`;
+    const isGroupBinding = binding.target_group_id !== null;
+
+    return html`
+      <div class="overview-binding-row">
+        <div class="binding-source">
+          <span class="node-name">${sourceNode.name}</span>
+          <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+        </div>
+        <span class="binding-arrow">→</span>
+        <div class="binding-target">
+          ${isGroupBinding
+            ? html`<span class="group-target">Group ${binding.target_group_id}</span>`
+            : html`
+                <span class="node-name">${targetName}</span>
+                <span class="endpoint-label">EP ${binding.target_endpoint_id}</span>
+              `}
+        </div>
+        <span class="binding-cluster-badge">${getClusterName(binding.cluster_id)}</span>
+        <button
+          class="btn-icon delete"
+          title="Delete binding"
+          @click=${() => this._deleteBindingFromOverview(bindingCtx)}
+        >
+          ✕
+        </button>
+      </div>
+    `;
+  }
+
+  private _renderRecommendedBindings() {
+    return html`
+      <div class="card overview-card">
+        <div class="card-header">
+          Recommended Bindings
+          <span class="count-badge">${this._recommendations.length}</span>
+        </div>
+        ${this._recommendations.length === 0
+          ? html`<div class="empty-state">No binding recommendations. All compatible endpoints are already bound.</div>`
+          : html`
+              <div class="binding-list">
+                ${this._recommendations.map((r) => this._renderRecommendationRow(r))}
+              </div>
+            `}
+      </div>
+    `;
+  }
+
+  private _renderRecommendationRow(recommendation: BindingRecommendation) {
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = recommendation;
+    const clusterNames = compatibleClusters.map((c) => getClusterName(c)).join(", ");
+
+    return html`
+      <div class="overview-binding-row recommendation">
+        <div class="binding-source">
+          <span class="node-name">${sourceNode.name}</span>
+          <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+        </div>
+        <span class="binding-arrow">→</span>
+        <div class="binding-target">
+          <span class="node-name">${targetNode.name}</span>
+          <span class="endpoint-label">EP ${targetEndpoint.endpoint_id}</span>
+        </div>
+        <span class="compatible-clusters" title="Compatible clusters">${clusterNames}</span>
+        <button
+          class="btn btn-small btn-primary"
+          @click=${() => this._createBindingFromRecommendation(recommendation)}
+        >
+          Create
+        </button>
+      </div>
+    `;
+  }
+
+  private async _deleteBindingFromOverview(bindingCtx: BindingWithContext): Promise<void> {
+    const { binding } = bindingCtx;
+    try {
+      await api.deleteBinding(
+        this.hass,
+        binding.node_id,
+        binding.endpoint_id,
+        binding.target_node_id ?? undefined,
+        binding.target_endpoint_id ?? undefined,
+        binding.target_group_id ?? undefined
+      );
+      // Reload overview data
+      await this._loadOverviewData();
+    } catch (err) {
+      this._error = `Failed to delete binding: ${err}`;
+    }
+  }
+
+  private async _createBindingFromRecommendation(recommendation: BindingRecommendation): Promise<void> {
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = recommendation;
+
+    // Use the first compatible cluster (could show a picker for multiple)
+    const clusterId = compatibleClusters[0];
+
+    try {
+      await api.createBinding(
+        this.hass,
+        sourceNode.node_id,
+        sourceEndpoint.endpoint_id,
+        clusterId,
+        targetNode.node_id,
+        targetEndpoint.endpoint_id
+      );
+      // Reload overview data
+      await this._loadOverviewData();
+    } catch (err) {
+      this._error = `Failed to create binding: ${err}`;
+    }
   }
 
   private _renderBindingsTab() {

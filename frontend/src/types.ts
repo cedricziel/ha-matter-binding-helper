@@ -66,6 +66,24 @@ export interface Binding {
   target_group_id: number | null;
 }
 
+// Binding with full context for overview display
+export interface BindingWithContext {
+  binding: Binding;
+  sourceNode: MatterNode;
+  sourceEndpoint: MatterEndpoint;
+  targetNode: MatterNode | null;
+  targetEndpoint: MatterEndpoint | null;
+}
+
+// Recommended binding suggestion
+export interface BindingRecommendation {
+  sourceNode: MatterNode;
+  sourceEndpoint: MatterEndpoint;
+  targetNode: MatterNode;
+  targetEndpoint: MatterEndpoint;
+  compatibleClusters: number[];
+}
+
 export interface MatterGroup {
   group_id: number;
   name: string;
