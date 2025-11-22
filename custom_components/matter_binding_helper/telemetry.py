@@ -84,21 +84,28 @@ def _get_or_create_installation_id(hass: HomeAssistant) -> str:
     Uses config entry options for storage, which is more reliable than
     the Store helper class in various HA contexts.
     """
-    for entry in hass.config_entries.async_entries(DOMAIN):
+    entries = hass.config_entries.async_entries(DOMAIN)
+    _LOGGER.debug("Looking for installation_id in %d config entries", len(entries))
+
+    for entry in entries:
         # Check if we already have an installation ID
         if CONF_INSTALLATION_ID in entry.options:
-            return entry.options[CONF_INSTALLATION_ID]
+            existing_id = entry.options[CONF_INSTALLATION_ID]
+            _LOGGER.debug("Found existing installation_id: %s", existing_id)
+            return existing_id
 
         # Generate new random UUID and persist it in config entry options
         installation_id = str(uuid.uuid4())
         new_options = {**entry.options, CONF_INSTALLATION_ID: installation_id}
         hass.config_entries.async_update_entry(entry, options=new_options)
-        _LOGGER.debug("Generated new installation_id: %s", installation_id)
+        _LOGGER.info("Generated new installation_id: %s", installation_id)
         return installation_id
 
     # Fallback if no config entry exists (shouldn't happen in normal operation)
-    _LOGGER.warning("No config entry found, generating ephemeral installation_id")
-    return str(uuid.uuid4())
+    _LOGGER.warning("No config entry found for %s, generating ephemeral installation_id", DOMAIN)
+    ephemeral_id = str(uuid.uuid4())
+    _LOGGER.warning("Using ephemeral installation_id: %s (data won't be deduplicated)", ephemeral_id)
+    return ephemeral_id
 
 
 async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
@@ -108,14 +115,31 @@ async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
     - installation_id: Random UUID for deduplication only
     - devices: List of anonymized device capability data
     """
+    _LOGGER.debug("Collecting survey data...")
+
     installation_id = _get_or_create_installation_id(hass)
+
+    _LOGGER.debug("Fetching Matter nodes...")
     nodes = await get_nodes(hass)
+    _LOGGER.debug("Retrieved %d nodes from Matter client", len(nodes))
 
     anonymized_devices = []
+    skipped_count = 0
     for node in nodes:
         anonymized = _anonymize_node(node)
         if anonymized:
             anonymized_devices.append(anonymized)
+        else:
+            skipped_count += 1
+
+    if skipped_count > 0:
+        _LOGGER.debug("Skipped %d nodes (no useful product data)", skipped_count)
+
+    _LOGGER.debug(
+        "Survey data ready: installation_id=%s, devices=%d",
+        installation_id,
+        len(anonymized_devices),
+    )
 
     return {
         "installation_id": installation_id,
@@ -129,16 +153,31 @@ async def send_telemetry(hass: HomeAssistant) -> bool:
 
     Returns True if successful, False otherwise.
     """
+    _LOGGER.debug("send_telemetry() called")
+
+    # Check if telemetry is enabled
+    if not is_telemetry_enabled(hass):
+        _LOGGER.info("Telemetry is disabled in settings, skipping submission")
+        return False
+
     try:
+        _LOGGER.debug("Collecting survey data...")
         data = await collect_survey_data(hass)
 
+        _LOGGER.debug(
+            "Collected data: installation_id=%s, device_count=%d",
+            data.get("installation_id", "MISSING"),
+            len(data.get("devices", [])),
+        )
+
         if not data["devices"]:
-            _LOGGER.debug("No devices to report, skipping telemetry")
+            _LOGGER.info("No Matter devices found to report, skipping telemetry")
             return True
 
         _LOGGER.info(
-            "Sending anonymized telemetry for %d devices to Matter Survey",
+            "Sending anonymized telemetry for %d devices to %s",
             len(data["devices"]),
+            TELEMETRY_URL,
         )
 
         async with aiohttp.ClientSession() as session:
@@ -148,25 +187,35 @@ async def send_telemetry(hass: HomeAssistant) -> bool:
                 headers={"Content-Type": "application/json"},
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as response:
+                response_text = await response.text()
+                _LOGGER.debug(
+                    "Server response: status=%d, body=%s",
+                    response.status,
+                    response_text,
+                )
+
                 if response.status == 200:
-                    _LOGGER.info("Telemetry sent successfully")
+                    _LOGGER.info(
+                        "Telemetry sent successfully: %d devices reported",
+                        len(data["devices"]),
+                    )
                     return True
                 else:
                     _LOGGER.warning(
                         "Telemetry submission failed with status %d: %s",
                         response.status,
-                        await response.text(),
+                        response_text,
                     )
                     return False
 
     except asyncio.TimeoutError:
-        _LOGGER.warning("Telemetry submission timed out")
+        _LOGGER.warning("Telemetry submission timed out after 30 seconds")
         return False
     except aiohttp.ClientError as err:
-        _LOGGER.warning("Telemetry submission failed: %s", err)
+        _LOGGER.warning("Telemetry submission failed (network error): %s", err)
         return False
     except Exception as err:
-        _LOGGER.error("Unexpected error sending telemetry: %s", err)
+        _LOGGER.error("Unexpected error sending telemetry (%s): %s", type(err).__name__, err, exc_info=True)
         return False
 
 
@@ -184,11 +233,11 @@ async def schedule_initial_telemetry(hass: HomeAssistant) -> None:
     Home Assistant to fully initialize and discover all Matter devices.
     """
     if not is_telemetry_enabled(hass):
-        _LOGGER.debug("Telemetry disabled, skipping initial submission")
+        _LOGGER.info("Telemetry disabled in settings, skipping initial submission")
         return
 
     _LOGGER.info(
-        "Scheduling initial telemetry submission in %d minutes",
+        "Scheduling initial Matter Survey submission in %d minutes",
         TELEMETRY_INITIAL_DELAY_MINUTES,
     )
 
@@ -196,4 +245,8 @@ async def schedule_initial_telemetry(hass: HomeAssistant) -> None:
 
     # Check again in case user disabled it during the delay
     if is_telemetry_enabled(hass):
-        await send_telemetry(hass)
+        _LOGGER.info("Starting scheduled initial telemetry submission")
+        result = await send_telemetry(hass)
+        _LOGGER.info("Initial telemetry submission %s", "succeeded" if result else "failed")
+    else:
+        _LOGGER.info("Telemetry was disabled during delay period, skipping submission")
