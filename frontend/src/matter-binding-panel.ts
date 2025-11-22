@@ -12,7 +12,7 @@ import type {
   Binding,
   MatterGroup,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName } from "./types";
 import * as api from "./api";
 
 @customElement("matter-binding-helper-panel")
@@ -145,25 +145,76 @@ export class MatterBindingPanel extends LitElement {
     }
 
     .endpoint-item {
-      padding: 8px 12px;
+      padding: 10px 12px;
       font-size: 13px;
-      color: var(--secondary-text-color);
+      color: var(--primary-text-color);
       cursor: pointer;
-      border-radius: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--divider-color);
+      margin-bottom: 8px;
     }
 
     .endpoint-item:hover {
       background: var(--secondary-background-color);
+      border-color: var(--primary-color);
     }
 
     .endpoint-item.selected {
       background: var(--primary-color);
       color: var(--text-primary-color);
+      border-color: var(--primary-color);
     }
 
     .endpoint-item.no-binding {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
+      border-style: dashed;
+    }
+
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .endpoint-id {
+      font-weight: 500;
+    }
+
+    .endpoint-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .endpoint-badge.binding {
+      background: var(--success-color, #4caf50);
+      color: white;
+    }
+
+    .endpoint-device-types {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      margin-bottom: 2px;
+    }
+
+    .endpoint-item.selected .endpoint-device-types {
+      color: var(--text-primary-color);
+      opacity: 0.9;
+    }
+
+    .endpoint-clusters {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      opacity: 0.8;
+    }
+
+    .endpoint-item.selected .endpoint-clusters {
+      color: var(--text-primary-color);
+      opacity: 0.8;
     }
 
     .node-info {
@@ -677,6 +728,18 @@ export class MatterBindingPanel extends LitElement {
   private _renderEndpointItem(endpoint: MatterEndpoint) {
     const isSelected =
       this._selectedSourceEndpoint?.endpoint_id === endpoint.endpoint_id;
+
+    // Get device type names (skip Root Node for endpoint 0)
+    const deviceTypes = endpoint.device_types
+      .map((dt) => getDeviceTypeName(dt.id))
+      .filter((name) => endpoint.endpoint_id !== 0 || !name.includes("Root"));
+
+    // Get interesting clusters (skip infrastructure ones)
+    const infraClusters = [29, 31, 40, 42, 48, 49, 50, 51, 52, 53, 56, 60, 62, 63, 70];
+    const interestingClusters = endpoint.clusters
+      .filter((c) => !infraClusters.includes(c))
+      .map((c) => getClusterName(c));
+
     return html`
       <div
         class="endpoint-item ${isSelected ? "selected" : ""} ${!endpoint.has_binding_cluster
@@ -684,8 +747,18 @@ export class MatterBindingPanel extends LitElement {
           : ""}"
         @click=${() => this._selectEndpoint(endpoint)}
       >
-        Endpoint ${endpoint.endpoint_id}
-        ${!endpoint.has_binding_cluster ? "(no binding support)" : ""}
+        <div class="endpoint-header">
+          <span class="endpoint-id">Endpoint ${endpoint.endpoint_id}</span>
+          ${endpoint.has_binding_cluster
+            ? html`<span class="endpoint-badge binding">Binding</span>`
+            : nothing}
+        </div>
+        ${deviceTypes.length > 0
+          ? html`<div class="endpoint-device-types">${deviceTypes.join(", ")}</div>`
+          : nothing}
+        ${interestingClusters.length > 0
+          ? html`<div class="endpoint-clusters">${interestingClusters.join(" · ")}</div>`
+          : nothing}
       </div>
     `;
   }
