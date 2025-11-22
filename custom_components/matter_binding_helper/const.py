@@ -9,7 +9,7 @@ CONF_TELEMETRY_ENABLED = "telemetry_enabled"
 DEFAULT_TELEMETRY_ENABLED = True  # Opt-out model: enabled by default
 
 # Telemetry settings
-TELEMETRY_URL = "https://matter-survey.58lab.org/api/submit"
+TELEMETRY_URL = "https://matter-survey.org/api/submit"
 TELEMETRY_INTERVAL_HOURS = 168  # Weekly (7 days * 24 hours)
 TELEMETRY_INITIAL_DELAY_MINUTES = 5  # Wait before first submission
 
