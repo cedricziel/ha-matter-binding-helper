@@ -125,6 +125,10 @@ export const CLUSTER_POWER_SOURCE = 0x002f;
 export const CLUSTER_COLOR_CONTROL = 0x0300;
 export const CLUSTER_THERMOSTAT = 0x0201;
 export const CLUSTER_THERMOSTAT_UI = 0x0204;
+export const CLUSTER_TEMPERATURE_MEASUREMENT = 0x0402;
+export const CLUSTER_PRESSURE_MEASUREMENT = 0x0403;
+export const CLUSTER_HUMIDITY_MEASUREMENT = 0x0405;
+export const CLUSTER_OCCUPANCY_SENSING = 0x0406;
 
 export const CLUSTER_NAMES: Record<number, string> = {
   [CLUSTER_IDENTIFY]: "Identify",
@@ -153,6 +157,10 @@ export const CLUSTER_NAMES: Record<number, string> = {
   [CLUSTER_THERMOSTAT]: "Thermostat",
   [CLUSTER_THERMOSTAT_UI]: "Thermostat UI",
   514: "Fan Control",
+  [CLUSTER_TEMPERATURE_MEASUREMENT]: "Temperature",
+  [CLUSTER_PRESSURE_MEASUREMENT]: "Pressure",
+  [CLUSTER_HUMIDITY_MEASUREMENT]: "Humidity",
+  [CLUSTER_OCCUPANCY_SENSING]: "Occupancy",
 };
 
 // Device Type IDs

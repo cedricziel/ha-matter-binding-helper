@@ -566,9 +566,18 @@ export class MatterBindingPanel extends LitElement {
     .binding-source,
     .binding-target {
       display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      min-width: 180px;
+      flex: 1;
+    }
+
+    .binding-source > div:first-child,
+    .binding-target > div:first-child {
+      display: flex;
       align-items: center;
       gap: 6px;
-      min-width: 150px;
     }
 
     .binding-source .node-name,
@@ -584,6 +593,20 @@ export class MatterBindingPanel extends LitElement {
       border-radius: 4px;
     }
 
+    .area-label {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+    }
+
+    .binding-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
     .binding-arrow {
       color: var(--primary-color);
       font-size: 18px;
@@ -596,14 +619,15 @@ export class MatterBindingPanel extends LitElement {
       font-size: 11px;
       padding: 4px 8px;
       border-radius: 4px;
-      margin-left: auto;
     }
 
     .compatible-clusters {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--secondary-text-color);
-      margin-left: auto;
-      max-width: 200px;
+      background: var(--secondary-background-color);
+      padding: 4px 8px;
+      border-radius: 4px;
+      max-width: 150px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1069,23 +1093,33 @@ export class MatterBindingPanel extends LitElement {
     const { binding, sourceNode, sourceEndpoint, targetNode } = bindingCtx;
     const targetName = targetNode?.name || `Node ${binding.target_node_id}`;
     const isGroupBinding = binding.target_group_id !== null;
+    const sourceArea = sourceNode.area_name;
+    const targetArea = targetNode?.area_name;
 
     return html`
       <div class="overview-binding-row">
         <div class="binding-source">
-          <span class="node-name">${sourceNode.name}</span>
-          <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+          <div>
+            <span class="node-name">${sourceNode.name}</span>
+            <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+          </div>
+          ${sourceArea ? html`<span class="area-label">${sourceArea}</span>` : nothing}
         </div>
-        <span class="binding-arrow">→</span>
+        <div class="binding-info">
+          <span class="binding-cluster-badge">${getClusterName(binding.cluster_id)}</span>
+          <span class="binding-arrow">→</span>
+        </div>
         <div class="binding-target">
           ${isGroupBinding
             ? html`<span class="group-target">Group ${binding.target_group_id}</span>`
             : html`
-                <span class="node-name">${targetName}</span>
-                <span class="endpoint-label">EP ${binding.target_endpoint_id}</span>
+                <div>
+                  <span class="node-name">${targetName}</span>
+                  <span class="endpoint-label">EP ${binding.target_endpoint_id}</span>
+                </div>
+                ${targetArea ? html`<span class="area-label">${targetArea}</span>` : nothing}
               `}
         </div>
-        <span class="binding-cluster-badge">${getClusterName(binding.cluster_id)}</span>
         <button
           class="btn-icon delete"
           title="Delete binding"
@@ -1118,19 +1152,29 @@ export class MatterBindingPanel extends LitElement {
   private _renderRecommendationRow(recommendation: BindingRecommendation) {
     const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = recommendation;
     const clusterNames = compatibleClusters.map((c) => getClusterName(c)).join(", ");
+    const sourceArea = sourceNode.area_name;
+    const targetArea = targetNode.area_name;
 
     return html`
       <div class="overview-binding-row recommendation">
         <div class="binding-source">
-          <span class="node-name">${sourceNode.name}</span>
-          <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+          <div>
+            <span class="node-name">${sourceNode.name}</span>
+            <span class="endpoint-label">EP ${sourceEndpoint.endpoint_id}</span>
+          </div>
+          ${sourceArea ? html`<span class="area-label">${sourceArea}</span>` : nothing}
         </div>
-        <span class="binding-arrow">→</span>
+        <div class="binding-info">
+          <span class="compatible-clusters" title="Compatible clusters">${clusterNames}</span>
+          <span class="binding-arrow">→</span>
+        </div>
         <div class="binding-target">
-          <span class="node-name">${targetNode.name}</span>
-          <span class="endpoint-label">EP ${targetEndpoint.endpoint_id}</span>
+          <div>
+            <span class="node-name">${targetNode.name}</span>
+            <span class="endpoint-label">EP ${targetEndpoint.endpoint_id}</span>
+          </div>
+          ${targetArea ? html`<span class="area-label">${targetArea}</span>` : nothing}
         </div>
-        <span class="compatible-clusters" title="Compatible clusters">${clusterNames}</span>
         <button
           class="btn btn-small btn-primary"
           @click=${() => this._createBindingFromRecommendation(recommendation)}
