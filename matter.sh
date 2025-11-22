@@ -103,6 +103,10 @@ list_groups() {
   ws_call "matter_binding_helper/list_groups"
 }
 
+debug_devices() {
+  ws_call "matter_binding_helper/debug_devices"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -115,6 +119,7 @@ show_help() {
   echo "  node <node_id>                Debug info for a specific node"
   echo "  bindings <node_id> <ep_id>    List bindings for node endpoint"
   echo "  groups                        List all Matter groups"
+  echo "  devices                       Debug: List HA devices with Matter identifiers"
   echo ""
   echo "Environment (from .env):"
   echo "  HA_HOST   Home Assistant URL (e.g., http://homeassistant.local:8123)"
@@ -133,6 +138,9 @@ case "${1:-}" in
     ;;
   groups)
     list_groups
+    ;;
+  devices)
+    debug_devices
     ;;
   help|--help|-h)
     show_help

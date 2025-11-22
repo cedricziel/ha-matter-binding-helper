@@ -8,6 +8,8 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     DOMAIN,
@@ -30,6 +32,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     """Set up the WebSocket API."""
     websocket_api.async_register_command(hass, ws_list_nodes)
     websocket_api.async_register_command(hass, ws_debug_node)
+    websocket_api.async_register_command(hass, ws_debug_devices)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -139,6 +142,50 @@ async def ws_debug_node(
             return
 
     connection.send_error(msg["id"], "not_found", f"Node {target_node_id} not found")
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_devices",
+    }
+)
+@websocket_api.async_response
+async def ws_debug_devices(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: List all devices with Matter identifiers."""
+    device_registry = dr.async_get(hass)
+    area_registry = ar.async_get(hass)
+
+    matter_devices = []
+    for device in device_registry.devices.values():
+        # Check if any identifier starts with "matter"
+        matter_identifiers = [
+            list(ident) for ident in device.identifiers
+            if len(ident) >= 2 and ident[0] == "matter"
+        ]
+
+        if matter_identifiers:
+            area_name = None
+            if device.area_id:
+                area = area_registry.async_get_area(device.area_id)
+                if area:
+                    area_name = area.name
+
+            matter_devices.append({
+                "device_id": device.id,
+                "name": device.name,
+                "name_by_user": device.name_by_user,
+                "identifiers": matter_identifiers,
+                "area_id": device.area_id,
+                "area_name": area_name,
+                "model": device.model,
+                "manufacturer": device.manufacturer,
+            })
+
+    connection.send_result(msg["id"], {"devices": matter_devices})
 
 
 @websocket_api.websocket_command(
