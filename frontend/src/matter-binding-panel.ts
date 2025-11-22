@@ -14,7 +14,7 @@ import type {
   BindingRecommendation,
   MatterGroup,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription } from "./types";
 import * as api from "./api";
 
 @customElement("matter-binding-helper-panel")
@@ -39,6 +39,9 @@ export class MatterBindingPanel extends LitElement {
   @state() private _selectedTargetEndpointId: number | null = null;
   @state() private _filterSameAreaOnly = true;
   @state() private _actionInProgress: string | null = null;
+  @state() private _pendingBindingRecommendation: BindingRecommendation | null = null;
+  @state() private _selectedClusterForBinding: number | null = null;
+  @state() private _pendingDeleteBinding: BindingWithContext | null = null;
 
   static styles = css`
     :host {
@@ -761,6 +764,114 @@ export class MatterBindingPanel extends LitElement {
       border-color: rgba(244, 67, 54, 0.3);
       border-top-color: var(--error-color, #f44336);
     }
+
+    .confirm-dialog {
+      max-width: 500px;
+    }
+
+    .confirm-dialog .dialog-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .confirm-icon {
+      font-size: 24px;
+    }
+
+    .binding-explanation {
+      background: var(--secondary-background-color);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+
+    .binding-explanation-header {
+      font-size: 14px;
+      color: var(--secondary-text-color);
+      margin-bottom: 12px;
+    }
+
+    .binding-explanation-content {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .binding-explanation-content strong {
+      color: var(--primary-color);
+    }
+
+    .binding-devices {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .binding-device-card {
+      flex: 1;
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .binding-device-card.source {
+      border-color: var(--primary-color);
+    }
+
+    .binding-device-card.target {
+      border-color: var(--success-color, #4caf50);
+    }
+
+    .binding-device-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .binding-device-endpoint {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    .binding-device-area {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    .binding-arrow-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .binding-arrow-large {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+
+    .binding-cluster-label {
+      font-size: 11px;
+      background: var(--primary-color);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .cluster-select-group {
+      margin-top: 16px;
+    }
+
+    .cluster-select-group label {
+      display: block;
+      font-size: 14px;
+      color: var(--secondary-text-color);
+      margin-bottom: 8px;
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1161,6 +1272,8 @@ export class MatterBindingPanel extends LitElement {
             ? this._renderBindingsTab()
             : this._renderGroupsTab()}
         ${this._showCreateDialog ? this._renderCreateDialog() : nothing}
+        ${this._pendingBindingRecommendation ? this._renderBindingConfirmDialog() : nothing}
+        ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
       </div>
     `;
   }
@@ -1230,12 +1343,12 @@ export class MatterBindingPanel extends LitElement {
               `}
         </div>
         <button
-          class="btn-icon delete ${isLoading ? "btn-loading" : ""}"
+          class="btn-icon delete"
           title="Delete binding"
-          ?disabled=${isLoading || this._actionInProgress !== null}
-          @click=${() => this._deleteBindingFromOverview(bindingCtx)}
+          ?disabled=${this._actionInProgress !== null}
+          @click=${() => this._showDeleteConfirmDialog(bindingCtx)}
         >
-          ${isLoading ? "" : "✕"}
+          ✕
         </button>
       </div>
     `;
@@ -1323,9 +1436,9 @@ export class MatterBindingPanel extends LitElement {
           ${targetArea ? html`<span class="area-label">${targetArea}</span>` : nothing}
         </div>
         <button
-          class="btn btn-small btn-primary ${isLoading ? "btn-loading" : ""}"
-          ?disabled=${isLoading || this._actionInProgress !== null}
-          @click=${() => this._createBindingFromRecommendation(recommendation)}
+          class="btn btn-small btn-primary"
+          ?disabled=${this._actionInProgress !== null}
+          @click=${() => this._showBindingConfirmDialog(recommendation)}
         >
           Create
         </button>
@@ -1333,8 +1446,18 @@ export class MatterBindingPanel extends LitElement {
     `;
   }
 
-  private async _deleteBindingFromOverview(bindingCtx: BindingWithContext): Promise<void> {
-    const { binding } = bindingCtx;
+  private _showDeleteConfirmDialog(bindingCtx: BindingWithContext): void {
+    this._pendingDeleteBinding = bindingCtx;
+  }
+
+  private _closeDeleteConfirmDialog(): void {
+    this._pendingDeleteBinding = null;
+  }
+
+  private async _confirmDeleteBinding(): Promise<void> {
+    if (!this._pendingDeleteBinding) return;
+
+    const { binding } = this._pendingDeleteBinding;
     const actionKey = `delete-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
 
     this._actionInProgress = actionKey;
@@ -1348,6 +1471,7 @@ export class MatterBindingPanel extends LitElement {
         binding.target_endpoint_id ?? undefined,
         binding.target_group_id ?? undefined
       );
+      this._closeDeleteConfirmDialog();
       // Reload overview data
       await this._loadOverviewData();
     } catch (err) {
@@ -1357,11 +1481,27 @@ export class MatterBindingPanel extends LitElement {
     }
   }
 
-  private async _createBindingFromRecommendation(recommendation: BindingRecommendation): Promise<void> {
-    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = recommendation;
+  private _showBindingConfirmDialog(recommendation: BindingRecommendation): void {
+    this._pendingBindingRecommendation = recommendation;
+    // Default to first compatible cluster
+    this._selectedClusterForBinding = recommendation.compatibleClusters[0];
+  }
 
-    // Use the first compatible cluster (could show a picker for multiple)
-    const clusterId = compatibleClusters[0];
+  private _closeBindingConfirmDialog(): void {
+    this._pendingBindingRecommendation = null;
+    this._selectedClusterForBinding = null;
+  }
+
+  private _handleClusterSelectChange(e: Event): void {
+    const select = e.target as HTMLSelectElement;
+    this._selectedClusterForBinding = parseInt(select.value, 10);
+  }
+
+  private async _confirmCreateBinding(): Promise<void> {
+    if (!this._pendingBindingRecommendation || !this._selectedClusterForBinding) return;
+
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint } = this._pendingBindingRecommendation;
+    const clusterId = this._selectedClusterForBinding;
     const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}`;
 
     this._actionInProgress = actionKey;
@@ -1375,6 +1515,7 @@ export class MatterBindingPanel extends LitElement {
         targetNode.node_id,
         targetEndpoint.endpoint_id
       );
+      this._closeBindingConfirmDialog();
       // Reload overview data
       await this._loadOverviewData();
     } catch (err) {
@@ -1609,6 +1750,168 @@ export class MatterBindingPanel extends LitElement {
                   No Matter groups configured. Group management is coming soon.
                 </div>
               `}
+      </div>
+    `;
+  }
+
+  private _renderBindingConfirmDialog() {
+    if (!this._pendingBindingRecommendation || !this._selectedClusterForBinding) return nothing;
+
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = this._pendingBindingRecommendation;
+    const clusterId = this._selectedClusterForBinding;
+    const clusterDesc = getClusterBindingDescription(clusterId);
+    const isLoading = this._actionInProgress !== null;
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeBindingConfirmDialog}>
+        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">
+            <span class="confirm-icon">🔗</span>
+            Create Binding
+          </div>
+
+          <div class="binding-devices">
+            <div class="binding-device-card source">
+              <div class="binding-device-name">${sourceNode.name}</div>
+              <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
+              ${sourceNode.area_name
+                ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
+                : nothing}
+            </div>
+            <div class="binding-arrow-container">
+              <span class="binding-cluster-label">${getClusterName(clusterId)}</span>
+              <span class="binding-arrow-large">→</span>
+            </div>
+            <div class="binding-device-card target">
+              <div class="binding-device-name">${targetNode.name}</div>
+              <div class="binding-device-endpoint">Endpoint ${targetEndpoint.endpoint_id}</div>
+              ${targetNode.area_name
+                ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
+                : nothing}
+            </div>
+          </div>
+
+          <div class="binding-explanation">
+            <div class="binding-explanation-header">What this binding does:</div>
+            <div class="binding-explanation-content">
+              <strong>${sourceNode.name}</strong> will ${clusterDesc.action}
+              <strong>${targetNode.name}</strong> using ${clusterDesc.dataType}.
+            </div>
+          </div>
+
+          ${compatibleClusters.length > 1
+            ? html`
+                <div class="cluster-select-group">
+                  <label>Select cluster to bind:</label>
+                  <select
+                    class="form-select"
+                    @change=${this._handleClusterSelectChange}
+                  >
+                    ${compatibleClusters.map(
+                      (c) => html`
+                        <option value=${c} ?selected=${c === clusterId}>
+                          ${getClusterName(c)} - ${getClusterBindingDescription(c).dataType}
+                        </option>
+                      `
+                    )}
+                  </select>
+                </div>
+              `
+            : nothing}
+
+          <div class="dialog-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click=${this._closeBindingConfirmDialog}
+              ?disabled=${isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary ${isLoading ? "btn-loading" : ""}"
+              @click=${this._confirmCreateBinding}
+              ?disabled=${isLoading}
+            >
+              Create Binding
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderDeleteConfirmDialog() {
+    if (!this._pendingDeleteBinding) return nothing;
+
+    const { binding, sourceNode, sourceEndpoint, targetNode } = this._pendingDeleteBinding;
+    const clusterDesc = getClusterBindingDescription(binding.cluster_id);
+    const targetName = targetNode?.name || `Node ${binding.target_node_id}`;
+    const isLoading = this._actionInProgress !== null;
+    const isGroupBinding = binding.target_group_id !== null;
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeDeleteConfirmDialog}>
+        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">
+            <span class="confirm-icon">🗑️</span>
+            Remove Binding
+          </div>
+
+          <div class="binding-devices">
+            <div class="binding-device-card source">
+              <div class="binding-device-name">${sourceNode.name}</div>
+              <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
+              ${sourceNode.area_name
+                ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
+                : nothing}
+            </div>
+            <div class="binding-arrow-container">
+              <span class="binding-cluster-label">${getClusterName(binding.cluster_id)}</span>
+              <span class="binding-arrow-large" style="text-decoration: line-through; color: var(--error-color);">→</span>
+            </div>
+            <div class="binding-device-card target">
+              ${isGroupBinding
+                ? html`<div class="binding-device-name">Group ${binding.target_group_id}</div>`
+                : html`
+                    <div class="binding-device-name">${targetName}</div>
+                    <div class="binding-device-endpoint">Endpoint ${binding.target_endpoint_id}</div>
+                    ${targetNode?.area_name
+                      ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
+                      : nothing}
+                  `}
+            </div>
+          </div>
+
+          <div class="binding-explanation" style="border-left: 3px solid var(--error-color);">
+            <div class="binding-explanation-header">After removing this binding:</div>
+            <div class="binding-explanation-content">
+              <strong>${sourceNode.name}</strong> will stop being able to ${clusterDesc.action}
+              <strong>${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>.
+            </div>
+          </div>
+
+          <div class="dialog-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click=${this._closeDeleteConfirmDialog}
+              ?disabled=${isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary ${isLoading ? "btn-loading" : ""}"
+              style="background: var(--error-color);"
+              @click=${this._confirmDeleteBinding}
+              ?disabled=${isLoading}
+            >
+              Remove Binding
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }

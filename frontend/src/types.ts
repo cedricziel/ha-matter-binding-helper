@@ -211,6 +211,50 @@ export const DEVICE_TYPE_NAMES: Record<number, string> = {
   43: "Speaker",
 };
 
+// Cluster binding descriptions - explains what happens when devices are bound via this cluster
+export const CLUSTER_BINDING_DESCRIPTIONS: Record<number, { action: string; dataType: string }> = {
+  [CLUSTER_ON_OFF]: {
+    action: "control the on/off state of",
+    dataType: "on/off commands",
+  },
+  [CLUSTER_LEVEL_CONTROL]: {
+    action: "control the brightness/level of",
+    dataType: "level/dimming commands",
+  },
+  [CLUSTER_COLOR_CONTROL]: {
+    action: "control the color of",
+    dataType: "color commands",
+  },
+  [CLUSTER_TEMPERATURE_MEASUREMENT]: {
+    action: "read temperature data from",
+    dataType: "temperature readings",
+  },
+  [CLUSTER_PRESSURE_MEASUREMENT]: {
+    action: "read pressure data from",
+    dataType: "pressure readings",
+  },
+  [CLUSTER_HUMIDITY_MEASUREMENT]: {
+    action: "read humidity data from",
+    dataType: "humidity readings",
+  },
+  [CLUSTER_OCCUPANCY_SENSING]: {
+    action: "receive occupancy status from",
+    dataType: "occupancy/presence data",
+  },
+  [CLUSTER_THERMOSTAT]: {
+    action: "control thermostat settings on",
+    dataType: "thermostat commands",
+  },
+  [CLUSTER_SCENES]: {
+    action: "trigger scenes on",
+    dataType: "scene commands",
+  },
+  [CLUSTER_GROUPS]: {
+    action: "manage group membership on",
+    dataType: "group commands",
+  },
+};
+
 // Helper functions
 export function getClusterName(clusterId: number): string {
   return CLUSTER_NAMES[clusterId] || `0x${clusterId.toString(16).padStart(4, "0")}`;
@@ -218,4 +262,11 @@ export function getClusterName(clusterId: number): string {
 
 export function getDeviceTypeName(deviceTypeId: number): string {
   return DEVICE_TYPE_NAMES[deviceTypeId] || `Type ${deviceTypeId}`;
+}
+
+export function getClusterBindingDescription(clusterId: number): { action: string; dataType: string } {
+  return CLUSTER_BINDING_DESCRIPTIONS[clusterId] || {
+    action: "communicate with",
+    dataType: `${getClusterName(clusterId)} data`,
+  };
 }
