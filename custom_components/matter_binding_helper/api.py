@@ -34,6 +34,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_debug_node)
     websocket_api.async_register_command(hass, ws_debug_devices)
     websocket_api.async_register_command(hass, ws_debug_match)
+    websocket_api.async_register_command(hass, ws_debug_bindings)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -187,6 +188,114 @@ async def ws_debug_devices(
             })
 
     connection.send_result(msg["id"], {"devices": matter_devices})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_bindings",
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_debug_bindings(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Dump raw binding cluster data for a node/endpoint."""
+    from .const import CLUSTER_BINDING
+
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    target_node_id = msg["node_id"]
+    target_endpoint_id = msg["endpoint_id"]
+    result = {
+        "node_id": target_node_id,
+        "endpoint_id": target_endpoint_id,
+        "binding_cluster_id": CLUSTER_BINDING,
+        "endpoint_info": None,
+        "binding_cluster_info": None,
+        "binding_value": None,
+        "clusters_on_endpoint": [],
+    }
+
+    for node in client.get_nodes():
+        if node.node_id != target_node_id:
+            continue
+
+        # Access endpoints
+        endpoints = getattr(node, "endpoints", None)
+        if not endpoints:
+            result["error"] = "Node has no endpoints property"
+            connection.send_result(msg["id"], result)
+            return
+
+        endpoint = endpoints.get(target_endpoint_id)
+        if not endpoint:
+            result["error"] = f"Endpoint {target_endpoint_id} not found. Available: {list(endpoints.keys())}"
+            connection.send_result(msg["id"], result)
+            return
+
+        # Endpoint info
+        result["endpoint_info"] = {
+            "type": type(endpoint).__name__,
+            "available_attrs": [a for a in dir(endpoint) if not a.startswith('_')][:20],
+        }
+
+        # Get clusters on endpoint
+        if hasattr(endpoint, "clusters"):
+            clusters = endpoint.clusters
+            if isinstance(clusters, dict):
+                result["clusters_on_endpoint"] = list(clusters.keys())
+
+                # Check for binding cluster
+                binding_cluster = clusters.get(CLUSTER_BINDING)
+                if binding_cluster:
+                    result["binding_cluster_info"] = {
+                        "type": type(binding_cluster).__name__,
+                        "available_attrs": [a for a in dir(binding_cluster) if not a.startswith('_')][:20],
+                    }
+
+                    # Try to get binding attribute value
+                    if hasattr(binding_cluster, "binding"):
+                        result["binding_value"] = {
+                            "source": "cluster.binding",
+                            "type": type(binding_cluster.binding).__name__,
+                            "value": repr(binding_cluster.binding)[:1000],
+                        }
+
+        # Try get_cluster method
+        if hasattr(endpoint, "get_cluster") and result["binding_cluster_info"] is None:
+            binding_cluster = endpoint.get_cluster(CLUSTER_BINDING)
+            if binding_cluster:
+                result["binding_cluster_info"] = {
+                    "type": type(binding_cluster).__name__,
+                    "available_attrs": [a for a in dir(binding_cluster) if not a.startswith('_')][:20],
+                    "source": "get_cluster()",
+                }
+
+        # Try get_attribute_value method
+        if hasattr(endpoint, "get_attribute_value") and result["binding_value"] is None:
+            try:
+                attr_value = endpoint.get_attribute_value(CLUSTER_BINDING, 0)
+                if attr_value is not None:
+                    result["binding_value"] = {
+                        "source": "endpoint.get_attribute_value(30, 0)",
+                        "type": type(attr_value).__name__,
+                        "value": repr(attr_value)[:1000],
+                    }
+            except Exception as e:
+                result["get_attribute_value_error"] = str(e)
+
+        connection.send_result(msg["id"], result)
+        return
+
+    result["error"] = f"Node {target_node_id} not found"
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(

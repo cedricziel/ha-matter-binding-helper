@@ -116,6 +116,16 @@ debug_match() {
   ws_call "matter_binding_helper/debug_match" "{\"node_id\": $NODE_ID}"
 }
 
+debug_bindings() {
+  local NODE_ID="$1"
+  local ENDPOINT_ID="$2"
+  if [[ -z "$NODE_ID" || -z "$ENDPOINT_ID" ]]; then
+    echo "Usage: $0 debug-bindings <node_id> <endpoint_id>"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/debug_bindings" "{\"node_id\": $NODE_ID, \"endpoint_id\": $ENDPOINT_ID}"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -124,12 +134,13 @@ show_help() {
   echo "Usage: $0 <command> [args]"
   echo ""
   echo "Commands:"
-  echo "  nodes                         List all Matter nodes"
-  echo "  node <node_id>                Debug info for a specific node"
-  echo "  bindings <node_id> <ep_id>    List bindings for node endpoint"
-  echo "  groups                        List all Matter groups"
-  echo "  devices                       Debug: List HA devices with Matter identifiers"
-  echo "  match <node_id>               Debug: Test device matching for a node"
+  echo "  nodes                              List all Matter nodes"
+  echo "  node <node_id>                     Debug info for a specific node"
+  echo "  bindings <node_id> <ep_id>         List bindings for node endpoint"
+  echo "  debug-bindings <node_id> <ep_id>   Debug: Dump raw binding cluster data"
+  echo "  groups                             List all Matter groups"
+  echo "  devices                            Debug: List HA devices with Matter identifiers"
+  echo "  match <node_id>                    Debug: Test device matching for a node"
   echo ""
   echo "Environment (from .env):"
   echo "  HA_HOST   Home Assistant URL (e.g., http://homeassistant.local:8123)"
@@ -145,6 +156,9 @@ case "${1:-}" in
     ;;
   bindings)
     list_bindings "${2:-}" "${3:-}"
+    ;;
+  debug-bindings)
+    debug_bindings "${2:-}" "${3:-}"
     ;;
   groups)
     list_groups

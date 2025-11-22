@@ -785,17 +785,41 @@ async def get_bindings(
 
     client = get_matter_client(hass)
     if not client:
+        _LOGGER.warning("get_bindings: Matter client not available")
         return []
 
     bindings = []
     try:
-        # Read the binding cluster attribute
+        # First, try to get bindings from node's cached endpoint data
+        bindings_from_cache = _get_bindings_from_node_cache(client, node_id, endpoint_id)
+        if bindings_from_cache is not None:
+            _LOGGER.debug(
+                "get_bindings: Found %d bindings from node cache for node %s ep %s",
+                len(bindings_from_cache), node_id, endpoint_id
+            )
+            return bindings_from_cache
+
+        # Fall back to reading via read_attribute API
+        _LOGGER.debug(
+            "get_bindings: No cached bindings, trying read_attribute for node %s ep %s",
+            node_id, endpoint_id
+        )
+        attribute_path = f"{endpoint_id}/{CLUSTER_BINDING}/0"
+        _LOGGER.debug("get_bindings: Calling read_attribute with path: %s", attribute_path)
+
         result = await client.read_attribute(
             node_id=node_id,
-            attribute_path=f"{endpoint_id}/{CLUSTER_BINDING}/0",  # Binding attribute
+            attribute_path=attribute_path,
         )
+
+        _LOGGER.debug(
+            "get_bindings: read_attribute returned type=%s, value=%s",
+            type(result).__name__, result
+        )
+
         if result and isinstance(result, list):
             for binding in result:
+                _LOGGER.debug("get_bindings: Processing binding entry: %s", binding)
                 entry = BindingEntry(
                     node_id=node_id,
                     endpoint_id=endpoint_id,
@@ -806,7 +830,170 @@ async def get_bindings(
                 )
                 bindings.append(entry)
     except Exception as err:
-        _LOGGER.error("Error reading bindings for node %s endpoint %s: %s", node_id, endpoint_id, err)
+        _LOGGER.error("Error reading bindings for node %s endpoint %s: %s", node_id, endpoint_id, err, exc_info=True)
+
+    _LOGGER.debug("get_bindings: Returning %d bindings for node %s ep %s", len(bindings), node_id, endpoint_id)
+    return bindings
+
+
+def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_id: int) -> list[BindingEntry] | None:
+    """Try to get bindings from the node's cached endpoint data.
+
+    Uses the MatterEndpoint object's get_cluster() or get_attribute_value() methods
+    to access binding data from the matter-server's cache.
+
+    Returns None if bindings are not found in the cache.
+    Returns empty list if the binding attribute exists but is empty.
+    """
+    try:
+        for node in client.get_nodes():
+            if node.node_id != node_id:
+                continue
+
+            # Access the endpoint from node.endpoints dict
+            endpoints = getattr(node, "endpoints", None)
+            if not endpoints:
+                _LOGGER.debug("_get_bindings_from_node_cache: Node %s has no endpoints", node_id)
+                return None
+
+            endpoint = endpoints.get(endpoint_id)
+            if not endpoint:
+                _LOGGER.debug("_get_bindings_from_node_cache: Node %s has no endpoint %s", node_id, endpoint_id)
+                return None
+
+            _LOGGER.debug(
+                "_get_bindings_from_node_cache: Found endpoint %s (type=%s), available methods: %s",
+                endpoint_id, type(endpoint).__name__,
+                [m for m in dir(endpoint) if not m.startswith('_')][:15]
+            )
+
+            binding_value = None
+
+            # Method 1: Try get_cluster() to get the Binding cluster
+            if hasattr(endpoint, "get_cluster"):
+                binding_cluster = endpoint.get_cluster(CLUSTER_BINDING)
+                _LOGGER.debug(
+                    "_get_bindings_from_node_cache: get_cluster(%s) returned: %s (type=%s)",
+                    CLUSTER_BINDING, binding_cluster, type(binding_cluster).__name__ if binding_cluster else None
+                )
+                if binding_cluster:
+                    # Try to get the Binding attribute (attribute 0) from the cluster
+                    if hasattr(binding_cluster, "binding"):
+                        binding_value = binding_cluster.binding
+                        _LOGGER.debug("_get_bindings_from_node_cache: Found via cluster.binding: %s", binding_value)
+                    elif hasattr(binding_cluster, "get_attribute_value"):
+                        binding_value = binding_cluster.get_attribute_value(0)
+                        _LOGGER.debug("_get_bindings_from_node_cache: Found via cluster.get_attribute_value(0): %s", binding_value)
+                    elif isinstance(binding_cluster, dict):
+                        binding_value = binding_cluster.get(0) or binding_cluster.get("binding")
+                        _LOGGER.debug("_get_bindings_from_node_cache: Found via cluster dict: %s", binding_value)
+                    else:
+                        # Log available attributes on the cluster
+                        cluster_attrs = [a for a in dir(binding_cluster) if not a.startswith('_')]
+                        _LOGGER.debug("_get_bindings_from_node_cache: Binding cluster attrs: %s", cluster_attrs)
+
+            # Method 2: Try endpoint.get_attribute_value() directly
+            if binding_value is None and hasattr(endpoint, "get_attribute_value"):
+                try:
+                    binding_value = endpoint.get_attribute_value(CLUSTER_BINDING, 0)
+                    _LOGGER.debug(
+                        "_get_bindings_from_node_cache: endpoint.get_attribute_value(%s, 0) returned: %s",
+                        CLUSTER_BINDING, binding_value
+                    )
+                except Exception as attr_err:
+                    _LOGGER.debug("_get_bindings_from_node_cache: get_attribute_value failed: %s", attr_err)
+
+            # Method 3: Try accessing clusters dict directly
+            if binding_value is None and hasattr(endpoint, "clusters"):
+                clusters = endpoint.clusters
+                _LOGGER.debug(
+                    "_get_bindings_from_node_cache: endpoint.clusters type=%s, keys=%s",
+                    type(clusters).__name__,
+                    list(clusters.keys()) if isinstance(clusters, dict) else "N/A"
+                )
+                if isinstance(clusters, dict):
+                    binding_cluster = clusters.get(CLUSTER_BINDING)
+                    if binding_cluster:
+                        _LOGGER.debug(
+                            "_get_bindings_from_node_cache: Found binding cluster in dict: %s (type=%s)",
+                            binding_cluster, type(binding_cluster).__name__
+                        )
+                        # Try to get binding attribute
+                        if hasattr(binding_cluster, "binding"):
+                            binding_value = binding_cluster.binding
+                        elif isinstance(binding_cluster, dict):
+                            binding_value = binding_cluster.get(0) or binding_cluster.get("binding")
+
+            if binding_value is None:
+                _LOGGER.debug("_get_bindings_from_node_cache: No binding value found for node %s ep %s", node_id, endpoint_id)
+                return None
+
+            # Parse the binding value into BindingEntry objects
+            return _parse_binding_value(node_id, endpoint_id, binding_value)
+
+        _LOGGER.debug("_get_bindings_from_node_cache: Node %s not found", node_id)
+        return None
+
+    except Exception as err:
+        _LOGGER.debug("_get_bindings_from_node_cache: Error: %s", err, exc_info=True)
+        return None
+
+
+def _parse_binding_value(node_id: int, endpoint_id: int, binding_value: Any) -> list[BindingEntry]:
+    """Parse a binding attribute value into BindingEntry objects."""
+    bindings = []
+
+    if not binding_value:
+        return bindings
+
+    # Ensure it's a list
+    if not isinstance(binding_value, list):
+        binding_value = [binding_value]
+
+    for binding in binding_value:
+        _LOGGER.debug("_parse_binding_value: Parsing entry: %s (type=%s)", binding, type(binding).__name__)
+
+        # Handle different binding entry formats
+        cluster_id = 0
+        target_node = None
+        target_endpoint = None
+        target_group = None
+
+        if isinstance(binding, dict):
+            # Dict format - try various key names (Matter uses PascalCase)
+            cluster_id = (
+                binding.get("Cluster") or binding.get("cluster") or
+                binding.get("ClusterId") or binding.get("clusterId") or 0
+            )
+            target_node = (
+                binding.get("Node") or binding.get("node") or
+                binding.get("NodeId") or binding.get("nodeId")
+            )
+            target_endpoint = (
+                binding.get("Endpoint") or binding.get("endpoint") or
+                binding.get("EndpointId") or binding.get("endpointId")
+            )
+            target_group = (
+                binding.get("Group") or binding.get("group") or
+                binding.get("GroupId") or binding.get("groupId")
+            )
+        elif hasattr(binding, "cluster"):
+            # Object with snake_case attributes
+            cluster_id = getattr(binding, "cluster", 0)
+            target_node = getattr(binding, "node", None)
+            target_endpoint = getattr(binding, "endpoint", None)
+            target_group = getattr(binding, "group", None)
+
+        entry = BindingEntry(
+            node_id=node_id,
+            endpoint_id=endpoint_id,
+            cluster_id=cluster_id,
+            target_node_id=target_node,
+            target_endpoint_id=target_endpoint,
+            target_group_id=target_group,
+        )
+        bindings.append(entry)
+        _LOGGER.debug("_parse_binding_value: Created BindingEntry: %s", entry)
 
     return bindings
 
