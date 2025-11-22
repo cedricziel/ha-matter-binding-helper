@@ -133,7 +133,8 @@ export class MatterBindingPanel extends LitElement {
     .node-item.selected .node-area,
     .node-item.selected .node-vendor,
     .node-item.selected .node-endpoints,
-    .node-item.selected .node-meta-sep {
+    .node-item.selected .node-meta-sep,
+    .node-item.selected .node-version {
       color: var(--text-primary-color);
       opacity: 1;
     }
@@ -287,11 +288,8 @@ export class MatterBindingPanel extends LitElement {
     .node-version {
       font-size: 11px;
       color: var(--secondary-text-color);
-      background: var(--secondary-background-color);
-      padding: 2px 8px;
-      border-radius: 4px;
-      display: inline-block;
-      margin-bottom: 8px;
+      opacity: 0.6;
+      margin-left: auto;
     }
 
     .no-endpoints {
@@ -729,15 +727,15 @@ export class MatterBindingPanel extends LitElement {
               ${node.area_name
                 ? html`<span class="node-area">${node.area_name}</span>`
                 : nothing}
+              ${deviceInfo?.software_version
+                ? html`<span class="node-version">v${deviceInfo.software_version}</span>`
+                : nothing}
             </div>
           </div>
         </div>
         ${isSelected
           ? html`
               <div class="node-details">
-                ${deviceInfo?.software_version
-                  ? html`<span class="node-version">v${deviceInfo.software_version}</span>`
-                  : nothing}
                 ${totalEndpoints > 0
                   ? html`
                       <div class="endpoint-list">
