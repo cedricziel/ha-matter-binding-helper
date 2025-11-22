@@ -13,8 +13,9 @@ import type {
   BindingWithContext,
   BindingRecommendation,
   MatterGroup,
+  AutomationRecommendation,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES } from "./types";
 import * as api from "./api";
 
 @customElement("matter-binding-helper-panel")
@@ -42,6 +43,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _pendingBindingRecommendation: BindingRecommendation | null = null;
   @state() private _selectedClusterForBinding: number | null = null;
   @state() private _pendingDeleteBinding: BindingWithContext | null = null;
+  @state() private _automationRecommendations: AutomationRecommendation[] = [];
 
   static styles = css`
     :host {
@@ -910,6 +912,59 @@ export class MatterBindingPanel extends LitElement {
     .overview-binding-row.recommendation .binding-action {
       color: var(--primary-color);
     }
+
+    /* Automation recommendations */
+    .automation-card {
+      border-left: 3px solid var(--warning-color, #ff9800);
+    }
+
+    .automation-intro {
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      background: var(--secondary-background-color);
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .overview-binding-row.automation {
+      background: rgba(255, 152, 0, 0.05);
+    }
+
+    .automation-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .automation-icon {
+      font-size: 18px;
+    }
+
+    .automation-suggestion {
+      font-size: 14px;
+      color: var(--primary-color);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .automation-why {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+
+    .why-label {
+      font-weight: 500;
+      color: var(--warning-color, #ff9800);
+    }
+
+    .btn-secondary {
+      text-decoration: none;
+      display: inline-block;
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1011,11 +1066,67 @@ export class MatterBindingPanel extends LitElement {
 
       // Compute recommendations
       this._recommendations = this._computeRecommendations();
+
+      // Compute automation recommendations
+      this._automationRecommendations = this._computeAutomationRecommendations();
     } catch (err) {
       this._error = `Failed to load overview data: ${err}`;
     } finally {
       this._overviewLoading = false;
     }
+  }
+
+  private _computeAutomationRecommendations(): AutomationRecommendation[] {
+    const recommendations: AutomationRecommendation[] = [];
+    const seen = new Set<string>();
+
+    for (const sourceNode of this._nodes) {
+      for (const sourceEndpoint of sourceNode.endpoints) {
+        const sourceDeviceTypes = sourceEndpoint.device_types.map((dt) => dt.id);
+
+        for (const targetNode of this._nodes) {
+          // Only consider same-area devices for automation recommendations
+          if (sourceNode.area_name && targetNode.area_name &&
+              sourceNode.area_name !== targetNode.area_name) {
+            continue;
+          }
+
+          for (const targetEndpoint of targetNode.endpoints) {
+            // Skip same device
+            if (sourceNode.node_id === targetNode.node_id) continue;
+
+            const targetDeviceTypes = targetEndpoint.device_types.map((dt) => dt.id);
+
+            // Check each automation template
+            for (const template of AUTOMATION_TEMPLATES) {
+              const sourceMatch = template.sourceDeviceTypes.some((dt) =>
+                sourceDeviceTypes.includes(dt)
+              );
+              const targetMatch = template.targetDeviceTypes.some((dt) =>
+                targetDeviceTypes.includes(dt)
+              );
+
+              if (sourceMatch && targetMatch) {
+                // Create a unique key to avoid duplicates
+                const key = `${template.id}-${sourceNode.node_id}-${targetNode.node_id}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+
+                recommendations.push({
+                  template,
+                  sourceNode,
+                  sourceEndpoint,
+                  targetNode,
+                  targetEndpoint,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return recommendations;
   }
 
   private _computeRecommendations(): BindingRecommendation[] {
@@ -1324,6 +1435,7 @@ export class MatterBindingPanel extends LitElement {
           : html`
               ${this._renderEstablishedBindings()}
               ${this._renderRecommendedBindings()}
+              ${this._renderRecommendedAutomations()}
             `}
       </div>
     `;
@@ -1422,6 +1534,55 @@ export class MatterBindingPanel extends LitElement {
                 ${filteredRecommendations.map((r) => this._renderRecommendationRow(r))}
               </div>
             `}
+      </div>
+    `;
+  }
+
+  private _renderRecommendedAutomations() {
+    if (this._automationRecommendations.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="card overview-card automation-card">
+        <div class="card-header">
+          <span>💡 Recommended Automations</span>
+          <span class="count-badge">${this._automationRecommendations.length}</span>
+        </div>
+        <div class="automation-intro">
+          These device combinations can't use Matter bindings directly, but Home Assistant automations can achieve the same result.
+        </div>
+        <div class="binding-list">
+          ${this._automationRecommendations.map((r) => this._renderAutomationRow(r))}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderAutomationRow(recommendation: AutomationRecommendation) {
+    const { template, sourceNode, targetNode } = recommendation;
+
+    return html`
+      <div class="overview-binding-row automation readable">
+        <div class="binding-description">
+          <div class="automation-title">
+            <span class="automation-icon">${template.icon}</span>
+            <strong>${sourceNode.name}</strong> + <strong>${targetNode.name}</strong>
+          </div>
+          <div class="automation-suggestion">${template.title}</div>
+          <div class="automation-why">
+            <span class="why-label">Why not a binding?</span> ${template.why}
+          </div>
+          ${sourceNode.area_name ? html`<div class="binding-meta">${sourceNode.area_name}</div>` : nothing}
+        </div>
+        <a
+          class="btn btn-small btn-secondary"
+          href="/config/automation/new"
+          target="_blank"
+          title="Create this automation in Home Assistant"
+        >
+          Create in HA →
+        </a>
       </div>
     `;
   }

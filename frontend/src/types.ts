@@ -270,3 +270,72 @@ export function getClusterBindingDescription(clusterId: number): { action: strin
     dataType: `${getClusterName(clusterId)} data`,
   };
 }
+
+// Automation recommendation for device combinations that can't use bindings
+export interface AutomationTemplate {
+  id: string;
+  sourceDeviceTypes: number[];  // Device types that benefit from this automation
+  targetDeviceTypes: number[];  // Device types that provide the trigger/data
+  title: string;
+  description: string;
+  why: string;  // Explanation of why binding doesn't work
+  icon: string;
+}
+
+// Templates for common automation scenarios
+export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
+  {
+    id: "thermostat-contact-window",
+    sourceDeviceTypes: [769],  // Thermostat
+    targetDeviceTypes: [21],   // Contact Sensor
+    title: "Turn off heating when window opens",
+    description: "Automatically pause heating/cooling when a window or door is opened to save energy.",
+    why: "Thermostats don't have a client cluster for Boolean State (contact sensors). Matter bindings require matching client/server clusters.",
+    icon: "🪟",
+  },
+  {
+    id: "thermostat-occupancy",
+    sourceDeviceTypes: [769],  // Thermostat
+    targetDeviceTypes: [263],  // Occupancy Sensor
+    title: "Adjust temperature based on occupancy",
+    description: "Lower the temperature when room is unoccupied, restore when someone enters.",
+    why: "Thermostats don't have a client cluster for Occupancy Sensing. A Home Assistant automation can bridge this gap.",
+    icon: "🚶",
+  },
+  {
+    id: "light-occupancy",
+    sourceDeviceTypes: [256, 257, 258, 268, 269],  // Various light types
+    targetDeviceTypes: [263],  // Occupancy Sensor
+    title: "Turn on light when motion detected",
+    description: "Automatically turn on lights when someone enters the room.",
+    why: "Lights are servers (receive commands), not clients. Occupancy sensors report state but can't send on/off commands.",
+    icon: "💡",
+  },
+  {
+    id: "light-contact-door",
+    sourceDeviceTypes: [256, 257, 258, 268, 269],  // Various light types
+    targetDeviceTypes: [21],   // Contact Sensor
+    title: "Turn on light when door opens",
+    description: "Automatically turn on lights when a door is opened (e.g., closet light).",
+    why: "Contact sensors report open/close state but don't have client clusters to control lights directly.",
+    icon: "🚪",
+  },
+  {
+    id: "plug-occupancy",
+    sourceDeviceTypes: [266, 267],  // Plug-in units
+    targetDeviceTypes: [263],  // Occupancy Sensor
+    title: "Control device based on occupancy",
+    description: "Turn on/off a device when room occupancy changes.",
+    why: "Plug-in units are servers (receive commands). Occupancy sensors can't directly control them via Matter binding.",
+    icon: "🔌",
+  },
+];
+
+// Recommendation result
+export interface AutomationRecommendation {
+  template: AutomationTemplate;
+  sourceNode: MatterNode;
+  sourceEndpoint: MatterEndpoint;
+  targetNode: MatterNode;
+  targetEndpoint: MatterEndpoint;
+}
