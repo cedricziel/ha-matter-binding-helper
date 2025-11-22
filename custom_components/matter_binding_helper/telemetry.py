@@ -8,7 +8,6 @@ from typing import Any
 
 import aiohttp
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_TELEMETRY_ENABLED,
@@ -21,9 +20,8 @@ from .matter_client import get_nodes
 
 _LOGGER = logging.getLogger(__name__)
 
-# Storage key for installation UUID
-STORAGE_KEY = f"{DOMAIN}_telemetry"
-STORAGE_VERSION = 1
+# Config entry option key for installation UUID
+CONF_INSTALLATION_ID = "installation_id"
 
 
 def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
@@ -76,26 +74,31 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-async def _get_or_create_installation_id(hass: HomeAssistant) -> str:
+def _get_or_create_installation_id(hass: HomeAssistant) -> str:
     """Get or create a random installation UUID for deduplication.
 
     This UUID is used only for deduplication on the server side to avoid
     counting the same installation multiple times. It is not linked to
     any personally identifiable information and cannot be used to track users.
+
+    Uses config entry options for storage, which is more reliable than
+    the Store helper class in various HA contexts.
     """
-    store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        # Check if we already have an installation ID
+        if CONF_INSTALLATION_ID in entry.options:
+            return entry.options[CONF_INSTALLATION_ID]
 
-    try:
-        data = await store.async_load()
-        if data and "installation_id" in data:
-            return data["installation_id"]
-    except Exception:
-        pass
+        # Generate new random UUID and persist it in config entry options
+        installation_id = str(uuid.uuid4())
+        new_options = {**entry.options, CONF_INSTALLATION_ID: installation_id}
+        hass.config_entries.async_update_entry(entry, options=new_options)
+        _LOGGER.debug("Generated new installation_id: %s", installation_id)
+        return installation_id
 
-    # Generate new random UUID
-    installation_id = str(uuid.uuid4())
-    await store.async_save({"installation_id": installation_id})
-    return installation_id
+    # Fallback if no config entry exists (shouldn't happen in normal operation)
+    _LOGGER.warning("No config entry found, generating ephemeral installation_id")
+    return str(uuid.uuid4())
 
 
 async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
@@ -105,7 +108,7 @@ async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
     - installation_id: Random UUID for deduplication only
     - devices: List of anonymized device capability data
     """
-    installation_id = await _get_or_create_installation_id(hass)
+    installation_id = _get_or_create_installation_id(hass)
     nodes = await get_nodes(hass)
 
     anonymized_devices = []
