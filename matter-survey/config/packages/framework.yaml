@@ -1,0 +1,12 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    http_method_override: false
+    handle_all_throwables: true
+    php_errors:
+        log: true
+    rate_limiter:
+        api_submit:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '1 minute'
+            cache_pool: cache.app

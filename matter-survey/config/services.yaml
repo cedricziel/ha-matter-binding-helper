@@ -1,0 +1,17 @@
+parameters:
+    database_path: '%kernel.project_dir%/data/matter-survey.db'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Kernel.php'
+
+    App\Service\DatabaseService:
+        arguments:
+            $databasePath: '%database_path%'
+            $schemaPath: '%kernel.project_dir%/schema.sql'

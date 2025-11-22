@@ -110,3 +110,37 @@ Enable via Settings → Devices & Services → Matter Binding Helper → Configu
 - `homeassistant`: HA with custom component mounted read-only
 - `matter-server`: python-matter-server on ws://matter-server:5580/ws
 - `rust-light`: Mock device on port 5540
+
+## Matter Survey (matter-survey.org)
+
+A Symfony 7 microframework app for collecting anonymous Matter device telemetry from the Home Assistant integration.
+
+### Local Development
+
+```bash
+make survey-serve      # Start local dev server at http://localhost:8080
+```
+
+### Deployment
+
+```bash
+make survey-deploy     # Deploy via rsync + SSH, runs composer on server
+```
+
+Requires `.env` with `SFTP_USER`, `SFTP_HOST`, `SFTP_PATH`.
+
+### Architecture
+
+- **Framework**: Symfony 7 with MicroKernelTrait
+- **Database**: SQLite at `data/matter-survey.db`
+- **Templates**: Twig
+- **Key files**:
+  - `matter-survey/src/Controller/DeviceController.php` - Web UI routes
+  - `matter-survey/src/Controller/ApiController.php` - `/api/submit` endpoint
+  - `matter-survey/src/Service/TelemetryService.php` - Processes telemetry submissions
+  - `matter-survey/src/Service/MatterRegistry.php` - Device/cluster type lookups
+  - `matter-survey/config/packages/` - Symfony bundle configs (rate limiter, CORS, cache)
+
+### Telemetry Integration
+
+The HA integration sends telemetry to `https://matter-survey.org/api/submit`. URL configured in `custom_components/matter_binding_helper/const.py` as `TELEMETRY_URL`.

@@ -94,39 +94,36 @@ survey-install: ## Install Matter Survey PHP dependencies
 	cd matter-survey && composer install --no-dev --optimize-autoloader
 
 survey-serve: ## Start local Matter Survey dev server
-	cd matter-survey && php -S localhost:8080 -t public
+	cd matter-survey && php -S localhost:8080 -t public public/router.php
 
-survey-deploy: survey-install ## Deploy Matter Survey to FTP server
+survey-deploy: ## Deploy Matter Survey via rsync + SSH composer
 	@if [ -f .env ]; then \
 		export $$(grep -v '^#' .env | xargs); \
-		echo "Deploying to $$FTP_HOST$$FTP_PATH..."; \
-		lftp -c "set ftp:ssl-allow no; \
-			open -u $$FTP_USER,$$FTP_PASSWORD $$FTP_HOST; \
-			mirror -R --delete --verbose \
-				--exclude .git/ \
-				--exclude .gitignore \
-				--exclude docker-compose.yml \
-				--exclude README.md \
-				--exclude data/ \
-				matter-survey/ $$FTP_PATH; \
-			echo 'Fixing permissions...'; \
-			chmod 755 $${FTP_PATH}public; \
-			chmod 755 $${FTP_PATH}public/api; \
-			chmod 755 $${FTP_PATH}src; \
-			chmod 755 $${FTP_PATH}vendor; \
-			chmod 755 $${FTP_PATH}data; \
-			chmod 644 $${FTP_PATH}public/.htaccess; \
-			chmod 644 $${FTP_PATH}public/index.php; \
-			chmod 644 $${FTP_PATH}public/device.php; \
-			chmod 644 $${FTP_PATH}public/api/submit.php; \
-			chmod 644 $${FTP_PATH}public/api/index.php; \
-			chmod 644 $${FTP_PATH}public/api/docs.html; \
-			chmod 644 $${FTP_PATH}public/api/openapi.yaml; \
-			chmod 644 $${FTP_PATH}src/Database.php; \
-			chmod 644 $${FTP_PATH}src/DeviceRepository.php; \
-			chmod 644 $${FTP_PATH}src/TelemetryHandler.php"; \
+		echo "Deploying to $$SFTP_USER@$$SFTP_HOST:$$SFTP_PATH..."; \
+		echo "Syncing files with rsync..."; \
+		rsync -avz --delete \
+			--exclude '.git/' \
+			--exclude '.gitignore' \
+			--exclude '.env' \
+			--exclude 'vendor/' \
+			--exclude 'var/cache/*' \
+			--exclude 'var/log/*' \
+			--exclude 'data/*.db' \
+			matter-survey/ $$SFTP_USER@$$SFTP_HOST:$$SFTP_PATH/; \
+		echo "Copying .env.prod to .env on server..."; \
+		ssh $$SFTP_USER@$$SFTP_HOST "cp $$SFTP_PATH/.env.prod $$SFTP_PATH/.env"; \
+		echo "Running composer install on server..."; \
+		ssh $$SFTP_USER@$$SFTP_HOST "cd $$SFTP_PATH && composer install --no-dev --optimize-autoloader"; \
+		echo "Fixing permissions..."; \
+		ssh $$SFTP_USER@$$SFTP_HOST "\
+			chmod 755 $$SFTP_PATH/public && \
+			chmod 644 $$SFTP_PATH/public/.htaccess && \
+			chmod 644 $$SFTP_PATH/public/index.php && \
+			chmod -R 777 $$SFTP_PATH/var && \
+			chmod 755 $$SFTP_PATH/data && \
+			touch $$SFTP_PATH/data/.gitkeep"; \
 		echo "Deployment complete!"; \
 	else \
-		echo "Error: .env file not found. Create it with FTP_USER, FTP_PASSWORD, FTP_HOST, FTP_PATH"; \
+		echo "Error: .env file not found. Create it with SFTP_USER, SFTP_HOST, SFTP_PATH"; \
 		exit 1; \
 	fi

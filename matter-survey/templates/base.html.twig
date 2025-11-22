@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Matter Survey{% endblock %}</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-900: #111827;
+            --green-100: #dcfce7;
+            --green-700: #15803d;
+            --blue-100: #dbeafe;
+            --blue-700: #1d4ed8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--gray-900);
+            background: var(--gray-50);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        header {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        header h1 a {
+            color: var(--gray-900);
+            text-decoration: none;
+        }
+
+        header p {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-binding {
+            background: var(--green-100);
+            color: var(--green-700);
+        }
+
+        .badge-endpoints {
+            background: var(--gray-100);
+            color: var(--gray-700);
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        footer a {
+            color: var(--primary);
+        }
+
+        {% block extra_styles %}{% endblock %}
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="{{ path('device_index') }}">Matter Survey</a></h1>
+            {% block header_subtitle %}<p>Community-driven database of Matter device capabilities</p>{% endblock %}
+        </div>
+    </header>
+
+    <main class="container">
+        {% block body %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>
+            Data contributed by <a href="https://github.com/cedricziel/ha-matter-helper">Matter Binding Helper</a> users.
+            <br>
+            Privacy-focused: No personal data is collected.
+        </p>
+    </footer>
+</body>
+</html>

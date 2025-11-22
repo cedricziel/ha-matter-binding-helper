@@ -2,22 +2,20 @@
 
 declare(strict_types=1);
 
-namespace MatterSurvey;
+namespace App\Repository;
 
+use App\Service\DatabaseService;
 use PDO;
 
 class DeviceRepository
 {
     private PDO $db;
 
-    public function __construct(?PDO $db = null)
+    public function __construct(DatabaseService $databaseService)
     {
-        $this->db = $db ?? Database::getInstance();
+        $this->db = $databaseService->getConnection();
     }
 
-    /**
-     * Upsert a device and return its ID.
-     */
     public function upsertDevice(array $deviceData): int
     {
         $stmt = $this->db->prepare('
@@ -42,9 +40,6 @@ class DeviceRepository
         return (int) $result['id'];
     }
 
-    /**
-     * Upsert a device version.
-     */
     public function upsertVersion(int $deviceId, ?string $hardwareVersion, ?string $softwareVersion): void
     {
         $stmt = $this->db->prepare('
@@ -62,9 +57,6 @@ class DeviceRepository
         ]);
     }
 
-    /**
-     * Upsert endpoint capabilities for a device.
-     */
     public function upsertEndpoint(int $deviceId, array $endpointData): void
     {
         $stmt = $this->db->prepare('
@@ -85,9 +77,6 @@ class DeviceRepository
         ]);
     }
 
-    /**
-     * Get all devices with summary information.
-     */
     public function getAllDevices(int $limit = 100, int $offset = 0): array
     {
         $stmt = $this->db->prepare('
@@ -102,18 +91,12 @@ class DeviceRepository
         return $stmt->fetchAll();
     }
 
-    /**
-     * Get device count.
-     */
     public function getDeviceCount(): int
     {
         $stmt = $this->db->query('SELECT COUNT(*) as count FROM devices');
         return (int) $stmt->fetch()['count'];
     }
 
-    /**
-     * Get a single device by ID.
-     */
     public function getDevice(int $id): ?array
     {
         $stmt = $this->db->prepare('SELECT * FROM device_summary WHERE id = :id');
@@ -121,9 +104,6 @@ class DeviceRepository
         return $stmt->fetch() ?: null;
     }
 
-    /**
-     * Get endpoints for a device.
-     */
     public function getDeviceEndpoints(int $deviceId): array
     {
         $stmt = $this->db->prepare('
@@ -145,9 +125,6 @@ class DeviceRepository
         return $endpoints;
     }
 
-    /**
-     * Get versions for a device.
-     */
     public function getDeviceVersions(int $deviceId): array
     {
         $stmt = $this->db->prepare('
@@ -160,9 +137,6 @@ class DeviceRepository
         return $stmt->fetchAll();
     }
 
-    /**
-     * Search devices by vendor or product name.
-     */
     public function searchDevices(string $query, int $limit = 50): array
     {
         $stmt = $this->db->prepare('
@@ -178,47 +152,6 @@ class DeviceRepository
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll();
-    }
-
-    /**
-     * Get cluster usage statistics.
-     */
-    public function getClusterStats(): array
-    {
-        $stmt = $this->db->query('SELECT * FROM cluster_stats ORDER BY device_count DESC LIMIT 50');
-        return $stmt->fetchAll();
-    }
-
-    /**
-     * Get devices by device type.
-     */
-    public function getDevicesByDeviceType(int $deviceTypeId): array
-    {
-        $stmt = $this->db->prepare("
-            SELECT DISTINCT d.*
-            FROM device_summary d
-            JOIN device_endpoints de ON d.id = de.device_id
-            WHERE EXISTS (
-                SELECT 1 FROM json_each(de.device_types)
-                WHERE json_extract(value, '$.id') = :device_type_id
-            )
-            ORDER BY d.submission_count DESC
-        ");
-        $stmt->execute([':device_type_id' => $deviceTypeId]);
-        return $stmt->fetchAll();
-    }
-
-    /**
-     * Get devices that support binding.
-     */
-    public function getBindableDevices(): array
-    {
-        $stmt = $this->db->query('
-            SELECT * FROM device_summary
-            WHERE supports_binding = 1
-            ORDER BY submission_count DESC
-        ');
         return $stmt->fetchAll();
     }
 }
