@@ -67,7 +67,8 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
         anonymized_endpoints.append({
             "endpoint_id": endpoint.get("endpoint_id"),
             "device_types": endpoint.get("device_types", []),
-            "clusters": endpoint.get("clusters", []),
+            "server_clusters": endpoint.get("server_clusters", []),
+            "client_clusters": endpoint.get("client_clusters", []),
             "has_binding_cluster": endpoint.get("has_binding_cluster", False),
         })
 
@@ -155,7 +156,7 @@ async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
 
     return {
         "installation_id": installation_id,
-        "schema_version": 1,
+        "schema_version": 2,  # v2: server_clusters/client_clusters instead of clusters
         "devices": anonymized_devices,
     }
 

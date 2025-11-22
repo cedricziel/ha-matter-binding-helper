@@ -10,7 +10,10 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 
 from .const import (
+    ATTR_CLIENT_LIST,
+    ATTR_SERVER_LIST,
     CLUSTER_BINDING,
+    CLUSTER_DESCRIPTOR,
     CLUSTER_LEVEL_CONTROL,
     CLUSTER_ON_OFF,
     CONF_DEMO_MODE,
@@ -97,7 +100,10 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
                     "endpoint_id": 1,
                     "device_types": [{"id": 256, "revision": 2}],  # On/Off Light
                     "has_binding_cluster": True,
-                    "clusters": [CLUSTER_ON_OFF, CLUSTER_BINDING],
+                    # Light is a SERVER for On/Off (receives commands)
+                    # Binding is typically a server cluster on lights for group bindings
+                    "server_clusters": [CLUSTER_ON_OFF, CLUSTER_BINDING],
+                    "client_clusters": [],
                 },
             ],
         },
@@ -119,7 +125,10 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
                     "endpoint_id": 1,
                     "device_types": [{"id": 259, "revision": 2}],  # On/Off Light Switch
                     "has_binding_cluster": True,
-                    "clusters": [CLUSTER_ON_OFF, CLUSTER_BINDING],
+                    # Switch is a CLIENT for On/Off (sends commands)
+                    # Binding is a server cluster (stores where to send commands)
+                    "server_clusters": [CLUSTER_BINDING],
+                    "client_clusters": [CLUSTER_ON_OFF],
                 },
             ],
         },
@@ -141,13 +150,17 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
                     "endpoint_id": 1,
                     "device_types": [{"id": 257, "revision": 2}],  # Dimmable Light
                     "has_binding_cluster": True,
-                    "clusters": [CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL, CLUSTER_BINDING],
+                    # Dimmable Light is a SERVER for On/Off and Level Control
+                    "server_clusters": [CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL, CLUSTER_BINDING],
+                    "client_clusters": [],
                 },
                 {
                     "endpoint_id": 2,
                     "device_types": [{"id": 260, "revision": 2}],  # Dimmer Switch
                     "has_binding_cluster": True,
-                    "clusters": [CLUSTER_LEVEL_CONTROL, CLUSTER_BINDING],
+                    # Dimmer Switch is a CLIENT for On/Off and Level Control
+                    "server_clusters": [CLUSTER_BINDING],
+                    "client_clusters": [CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL],
                 },
             ],
         },
@@ -169,7 +182,9 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
                     "endpoint_id": 1,
                     "device_types": [{"id": 770, "revision": 1}],  # Temperature Sensor
                     "has_binding_cluster": False,
-                    "clusters": [0x0402],  # Temperature Measurement
+                    # Temperature Sensor is a SERVER for Temperature Measurement
+                    "server_clusters": [0x0402],  # Temperature Measurement
+                    "client_clusters": [],
                 },
             ],
         },
@@ -568,7 +583,8 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
                     "endpoint_id": int(endpoint_id),
                     "device_types": [],
                     "has_binding_cluster": False,
-                    "clusters": [],
+                    "server_clusters": [],
+                    "client_clusters": [],
                 }
 
                 # Try to get clusters from endpoint
@@ -578,20 +594,40 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
                 elif isinstance(endpoint, dict):
                     clusters = endpoint.get("clusters")
 
+                server_cluster_ids = set()
+                client_cluster_ids = set()
+
                 if clusters:
-                    cluster_ids = set()
                     # clusters might be a dict keyed by cluster_id or a list
                     if isinstance(clusters, dict):
-                        cluster_ids = set(clusters.keys())
+                        # All clusters in endpoint.clusters are server clusters
+                        server_cluster_ids = set(clusters.keys())
+
+                        # Look for Descriptor cluster to get the official lists
+                        descriptor = clusters.get(CLUSTER_DESCRIPTOR)
+                        if descriptor:
+                            # Try to get ServerList and ClientList attributes
+                            server_list = _get_cluster_attribute(descriptor, ATTR_SERVER_LIST)
+                            client_list = _get_cluster_attribute(descriptor, ATTR_CLIENT_LIST)
+
+                            if server_list is not None:
+                                server_cluster_ids = set(server_list) if isinstance(server_list, list) else server_cluster_ids
+                            if client_list is not None:
+                                client_cluster_ids = set(client_list) if isinstance(client_list, list) else set()
+
                     elif hasattr(clusters, "__iter__"):
                         for c in clusters:
                             if hasattr(c, "cluster_id"):
-                                cluster_ids.add(c.cluster_id)
+                                server_cluster_ids.add(c.cluster_id)
                             elif isinstance(c, (int, str)):
-                                cluster_ids.add(int(c))
+                                server_cluster_ids.add(int(c))
 
-                    ep_info["clusters"] = sorted(cluster_ids)
-                    ep_info["has_binding_cluster"] = CLUSTER_BINDING in cluster_ids
+                ep_info["server_clusters"] = sorted(server_cluster_ids)
+                ep_info["client_clusters"] = sorted(client_cluster_ids)
+                # Binding cluster can be either server or client - check both
+                ep_info["has_binding_cluster"] = (
+                    CLUSTER_BINDING in server_cluster_ids or CLUSTER_BINDING in client_cluster_ids
+                )
 
                 # Try to get device types
                 device_types = None
@@ -615,11 +651,12 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
 
                 endpoints.append(ep_info)
                 _LOGGER.debug(
-                    "  Node %s Endpoint %d: device_types=%s, clusters=%s, has_binding=%s",
+                    "  Node %s Endpoint %d: device_types=%s, server_clusters=%s, client_clusters=%s, has_binding=%s",
                     node_id,
                     ep_info["endpoint_id"],
                     ep_info["device_types"],
-                    ep_info["clusters"],
+                    ep_info["server_clusters"],
+                    ep_info["client_clusters"],
                     ep_info["has_binding_cluster"],
                 )
 
@@ -631,6 +668,33 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
         _LOGGER.debug("Error extracting from endpoints property: %s", err)
 
     return endpoints
+
+
+def _get_cluster_attribute(cluster: Any, attribute_id: int) -> Any:
+    """Get an attribute value from a cluster object."""
+    try:
+        # Try as dict first
+        if isinstance(cluster, dict):
+            return cluster.get(attribute_id) or cluster.get(str(attribute_id))
+
+        # Try attributes dict on cluster object
+        if hasattr(cluster, "attributes"):
+            attrs = cluster.attributes
+            if isinstance(attrs, dict):
+                return attrs.get(attribute_id) or attrs.get(str(attribute_id))
+
+        # Try direct attribute access
+        attr_names = {
+            ATTR_SERVER_LIST: ["server_list", "serverList", "ServerList"],
+            ATTR_CLIENT_LIST: ["client_list", "clientList", "ClientList"],
+        }
+        for name in attr_names.get(attribute_id, []):
+            if hasattr(cluster, name):
+                return getattr(cluster, name)
+
+    except Exception:
+        pass
+    return None
 
 
 def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[str, Any]]:
@@ -652,20 +716,25 @@ def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[s
                             "endpoint_id": endpoint_id,
                             "device_types": [],
                             "has_binding_cluster": False,
-                            "clusters": set(),
+                            "server_clusters": set(),
+                            "client_clusters": set(),
                         }
 
-                    endpoints_dict[endpoint_id]["clusters"].add(cluster_id)
+                    # By default, clusters we see in attributes are server clusters
+                    endpoints_dict[endpoint_id]["server_clusters"].add(cluster_id)
 
                     # Check for binding cluster
                     if cluster_id == CLUSTER_BINDING:
                         endpoints_dict[endpoint_id]["has_binding_cluster"] = True
 
-                    # Get device types from Descriptor cluster (29), attribute 0
-                    if cluster_id == 29 and len(parts) >= 3 and parts[2] == "0":
-                        device_type_list = attributes.get(attr_key)
-                        if isinstance(device_type_list, list):
-                            for dt in device_type_list:
+                    # Get data from Descriptor cluster (29)
+                    if cluster_id == CLUSTER_DESCRIPTOR and len(parts) >= 3:
+                        attr_id = parts[2]
+                        attr_value = attributes.get(attr_key)
+
+                        # Attribute 0: DeviceTypeList
+                        if attr_id == "0" and isinstance(attr_value, list):
+                            for dt in attr_value:
                                 if isinstance(dt, dict):
                                     dt_id = dt.get(0) or dt.get("deviceType")
                                     dt_rev = dt.get(1) or dt.get("revision", 1)
@@ -674,6 +743,18 @@ def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[s
                                             "id": dt_id,
                                             "revision": dt_rev,
                                         })
+
+                        # Attribute 1: ServerList
+                        elif attr_id == "1" and isinstance(attr_value, list):
+                            endpoints_dict[endpoint_id]["server_clusters"] = set(attr_value)
+
+                        # Attribute 2: ClientList
+                        elif attr_id == "2" and isinstance(attr_value, list):
+                            endpoints_dict[endpoint_id]["client_clusters"] = set(attr_value)
+                            # Update has_binding_cluster if binding is in client list
+                            if CLUSTER_BINDING in attr_value:
+                                endpoints_dict[endpoint_id]["has_binding_cluster"] = True
+
             except (ValueError, IndexError) as parse_err:
                 _LOGGER.debug("Could not parse attribute key %s: %s", attr_key, parse_err)
                 continue
@@ -682,7 +763,8 @@ def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[s
         endpoints = []
         for endpoint_id in sorted(endpoints_dict.keys()):
             ep_info = endpoints_dict[endpoint_id]
-            ep_info["clusters"] = sorted(ep_info["clusters"])
+            ep_info["server_clusters"] = sorted(ep_info["server_clusters"])
+            ep_info["client_clusters"] = sorted(ep_info["client_clusters"])
             endpoints.append(ep_info)
 
         return endpoints

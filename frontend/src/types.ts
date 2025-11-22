@@ -48,7 +48,8 @@ export interface MatterEndpoint {
   endpoint_id: number;
   device_types: DeviceType[];
   has_binding_cluster: boolean;
-  clusters: number[];
+  server_clusters: number[];
+  client_clusters: number[];
 }
 
 export interface DeviceType {

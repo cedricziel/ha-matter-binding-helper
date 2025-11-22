@@ -234,6 +234,12 @@ export class MatterBindingPanel extends LitElement {
       opacity: 0.8;
     }
 
+    .cluster-role {
+      font-weight: 500;
+      opacity: 0.7;
+      margin-right: 4px;
+    }
+
     .node-info {
       display: flex;
       flex-direction: column;
@@ -786,8 +792,15 @@ export class MatterBindingPanel extends LitElement {
       .filter((name) => endpoint.endpoint_id !== 0 || !name.includes("Root"));
 
     // Get interesting clusters (skip infrastructure ones)
-    const infraClusters = [29, 31, 40, 42, 48, 49, 50, 51, 52, 53, 56, 60, 62, 63, 70];
-    const interestingClusters = endpoint.clusters
+    const infraClusters = [29, 30, 31, 40, 42, 48, 49, 50, 51, 52, 53, 56, 60, 62, 63, 70];
+
+    // Filter and format server clusters
+    const serverClusters = (endpoint.server_clusters || [])
+      .filter((c) => !infraClusters.includes(c))
+      .map((c) => getClusterName(c));
+
+    // Filter and format client clusters
+    const clientClusters = (endpoint.client_clusters || [])
       .filter((c) => !infraClusters.includes(c))
       .map((c) => getClusterName(c));
 
@@ -807,8 +820,11 @@ export class MatterBindingPanel extends LitElement {
         ${deviceTypes.length > 0
           ? html`<div class="endpoint-device-types">${deviceTypes.join(", ")}</div>`
           : nothing}
-        ${interestingClusters.length > 0
-          ? html`<div class="endpoint-clusters">${interestingClusters.join(" · ")}</div>`
+        ${serverClusters.length > 0
+          ? html`<div class="endpoint-clusters"><span class="cluster-role">Server:</span> ${serverClusters.join(" · ")}</div>`
+          : nothing}
+        ${clientClusters.length > 0
+          ? html`<div class="endpoint-clusters"><span class="cluster-role">Client:</span> ${clientClusters.join(" · ")}</div>`
           : nothing}
       </div>
     `;
