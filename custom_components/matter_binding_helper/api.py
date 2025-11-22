@@ -35,6 +35,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_debug_devices)
     websocket_api.async_register_command(hass, ws_debug_match)
     websocket_api.async_register_command(hass, ws_debug_bindings)
+    websocket_api.async_register_command(hass, ws_debug_client)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -386,6 +387,34 @@ async def ws_list_bindings(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "matter_binding_helper/debug_client",
+    }
+)
+@websocket_api.async_response
+async def ws_debug_client(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Show available methods on Matter client."""
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    # Get all public methods
+    methods = [m for m in dir(client) if not m.startswith('_') and callable(getattr(client, m, None))]
+    attrs = [a for a in dir(client) if not a.startswith('_') and not callable(getattr(client, a, None))]
+
+    connection.send_result(msg["id"], {
+        "client_type": type(client).__name__,
+        "methods": methods,
+        "attributes": attrs,
+    })
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): WS_TYPE_CREATE_BINDING,
         vol.Required("source_node_id"): vol.Coerce(int),
         vol.Required("source_endpoint_id"): vol.Coerce(int),
@@ -402,6 +431,7 @@ async def ws_create_binding(
     msg: dict[str, Any],
 ) -> None:
     """Create a new binding."""
+    _LOGGER.info("ws_create_binding called with: %s", msg)
     success = await matter_client.create_binding(
         hass,
         source_node_id=msg["source_node_id"],
@@ -411,6 +441,7 @@ async def ws_create_binding(
         target_endpoint_id=msg.get("target_endpoint_id"),
         target_group_id=msg.get("target_group_id"),
     )
+    _LOGGER.info("ws_create_binding result: %s", success)
     if success:
         connection.send_result(msg["id"], {"success": True})
     else:

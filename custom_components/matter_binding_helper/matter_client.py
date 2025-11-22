@@ -1028,42 +1028,64 @@ async def create_binding(
 
     client = get_matter_client(hass)
     if not client:
+        _LOGGER.error("create_binding: Matter client not available")
         return False
 
     try:
+        _LOGGER.info(
+            "create_binding: Creating binding from node %s ep %s to node %s ep %s (cluster %s)",
+            source_node_id, source_endpoint_id, target_node_id, target_endpoint_id, cluster_id
+        )
+
         # Get current bindings
         current_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
+        _LOGGER.debug("create_binding: Current bindings count: %d", len(current_bindings))
 
-        # Build new binding entry
-        new_binding: dict[str, Any] = {"Cluster": cluster_id}
+        # Build new binding entry - use the TargetStruct format
+        new_binding: dict[str, Any] = {
+            "cluster": cluster_id,
+            "fabricIndex": 0,  # Will be set by the device
+        }
         if target_node_id is not None:
-            new_binding["Node"] = target_node_id
+            new_binding["node"] = target_node_id
         if target_endpoint_id is not None:
-            new_binding["Endpoint"] = target_endpoint_id
+            new_binding["endpoint"] = target_endpoint_id
         if target_group_id is not None:
-            new_binding["Group"] = target_group_id
+            new_binding["group"] = target_group_id
 
-        # Build the full binding list
-        binding_list = [
-            {
-                "Cluster": b.cluster_id,
-                **({"Node": b.target_node_id} if b.target_node_id else {}),
-                **({"Endpoint": b.target_endpoint_id} if b.target_endpoint_id else {}),
-                **({"Group": b.target_group_id} if b.target_group_id else {}),
+        _LOGGER.debug("create_binding: New binding entry: %s", new_binding)
+
+        # Build the full binding list with lowercase keys (Matter SDK format)
+        binding_list = []
+        for b in current_bindings:
+            entry = {
+                "cluster": b.cluster_id,
+                "fabricIndex": 0,
             }
-            for b in current_bindings
-        ]
+            if b.target_node_id is not None:
+                entry["node"] = b.target_node_id
+            if b.target_endpoint_id is not None:
+                entry["endpoint"] = b.target_endpoint_id
+            if b.target_group_id is not None:
+                entry["group"] = b.target_group_id
+            binding_list.append(entry)
+
         binding_list.append(new_binding)
+        _LOGGER.debug("create_binding: Full binding list to write: %s", binding_list)
 
         # Write the binding attribute
-        await client.write_attribute(
+        attribute_path = f"{source_endpoint_id}/{CLUSTER_BINDING}/0"
+        _LOGGER.info("create_binding: Writing to attribute path: %s", attribute_path)
+
+        result = await client.write_attribute(
             node_id=source_node_id,
-            attribute_path=f"{source_endpoint_id}/{CLUSTER_BINDING}/0",
+            attribute_path=attribute_path,
             value=binding_list,
         )
+        _LOGGER.info("create_binding: write_attribute result: %s", result)
         return True
     except Exception as err:
-        _LOGGER.error("Error creating binding: %s", err)
+        _LOGGER.error("Error creating binding: %s", err, exc_info=True)
         return False
 
 

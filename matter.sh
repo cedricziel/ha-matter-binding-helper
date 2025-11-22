@@ -126,6 +126,10 @@ debug_bindings() {
   ws_call "matter_binding_helper/debug_bindings" "{\"node_id\": $NODE_ID, \"endpoint_id\": $ENDPOINT_ID}"
 }
 
+debug_client() {
+  ws_call "matter_binding_helper/debug_client"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -138,6 +142,7 @@ show_help() {
   echo "  node <node_id>                     Debug info for a specific node"
   echo "  bindings <node_id> <ep_id>         List bindings for node endpoint"
   echo "  debug-bindings <node_id> <ep_id>   Debug: Dump raw binding cluster data"
+  echo "  debug-client                       Debug: Show Matter client API methods"
   echo "  groups                             List all Matter groups"
   echo "  devices                            Debug: List HA devices with Matter identifiers"
   echo "  match <node_id>                    Debug: Test device matching for a node"
@@ -159,6 +164,9 @@ case "${1:-}" in
     ;;
   debug-bindings)
     debug_bindings "${2:-}" "${3:-}"
+    ;;
+  debug-client)
+    debug_client
     ;;
   groups)
     list_groups
