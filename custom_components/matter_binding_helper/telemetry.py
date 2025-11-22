@@ -8,6 +8,7 @@ from typing import Any
 
 import aiohttp
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_TELEMETRY_ENABLED,
@@ -82,7 +83,7 @@ async def _get_or_create_installation_id(hass: HomeAssistant) -> str:
     counting the same installation multiple times. It is not linked to
     any personally identifiable information and cannot be used to track users.
     """
-    store = hass.helpers.storage.Store(STORAGE_VERSION, STORAGE_KEY)
+    store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
     try:
         data = await store.async_load()
