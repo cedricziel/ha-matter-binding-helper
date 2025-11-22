@@ -505,7 +505,8 @@ export class MatterBindingPanel extends LitElement {
     }
   }
 
-  private _selectEndpoint(endpoint: MatterEndpoint): void {
+  private _selectEndpoint(e: Event, endpoint: MatterEndpoint): void {
+    e.stopPropagation(); // Prevent node toggle
     if (!endpoint.has_binding_cluster) return;
     this._selectedSourceEndpoint = endpoint;
     this._loadBindings();
@@ -745,7 +746,7 @@ export class MatterBindingPanel extends LitElement {
         class="endpoint-item ${isSelected ? "selected" : ""} ${!endpoint.has_binding_cluster
           ? "no-binding"
           : ""}"
-        @click=${() => this._selectEndpoint(endpoint)}
+        @click=${(e: Event) => this._selectEndpoint(e, endpoint)}
       >
         <div class="endpoint-header">
           <span class="endpoint-id">Endpoint ${endpoint.endpoint_id}</span>
