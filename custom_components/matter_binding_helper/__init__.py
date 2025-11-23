@@ -116,14 +116,10 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
 async def _async_register_services(hass: HomeAssistant) -> None:
     """Register integration services."""
     from . import telemetry
-    from homeassistant.components.persistent_notification import async_create, async_dismiss
 
     async def handle_submit_survey(call: ServiceCall) -> ServiceResponse:
         """Handle the submit_survey service call."""
         _LOGGER.info("Manual survey submission requested")
-
-        # Dismiss any previous notification
-        async_dismiss(hass, "matter_survey_result")
 
         # Collect data first to report device count
         data = await telemetry.collect_survey_data(hass)
@@ -136,26 +132,6 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         )
 
         success = await telemetry.send_telemetry(hass)
-
-        # Show persistent notification with result
-        if success:
-            if device_count > 0:
-                message = f"Successfully submitted survey data for {device_count} Matter device(s) to matter-survey.org. Thank you for contributing!"
-            else:
-                message = "No Matter devices found to report. Survey skipped."
-            async_create(
-                hass,
-                message,
-                title="Matter Survey",
-                notification_id="matter_survey_result",
-            )
-        else:
-            async_create(
-                hass,
-                "Survey submission failed. Check Home Assistant logs for details (filter by 'matter_binding_helper').",
-                title="Matter Survey Error",
-                notification_id="matter_survey_result",
-            )
 
         return {
             "success": success,

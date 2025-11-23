@@ -36,6 +36,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _recommendations: BindingRecommendation[] = [];
   @state() private _overviewLoading = false;
   @state() private _surveySubmitting = false;
+  @state() private _surveyResult: { success: boolean; message: string } | null = null;
   @state() private _selectedTargetNodeId: number | null = null;
   @state() private _selectedTargetEndpointId: number | null = null;
   @state() private _filterSameAreaOnly = true;
@@ -1438,13 +1439,49 @@ export class MatterBindingPanel extends LitElement {
     this._surveySubmitting = true;
     try {
       await this.hass.callService("matter_binding_helper", "submit_survey", {});
-      // Show success feedback (could use a toast notification in the future)
-      alert("Survey submitted successfully! Thank you for contributing.");
+      this._surveyResult = {
+        success: true,
+        message: "Survey submitted successfully! Thank you for contributing to Matter device research.",
+      };
     } catch (err) {
-      this._error = `Failed to submit survey: ${err}`;
+      this._surveyResult = {
+        success: false,
+        message: `Failed to submit survey: ${err}`,
+      };
     } finally {
       this._surveySubmitting = false;
     }
+  }
+
+  private _closeSurveyResultDialog(): void {
+    this._surveyResult = null;
+  }
+
+  private _renderSurveyResultDialog() {
+    if (!this._surveyResult) return nothing;
+
+    const { success, message } = this._surveyResult;
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeSurveyResultDialog}>
+        <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">
+            <span class="confirm-icon">${success ? "✓" : "✗"}</span>
+            ${success ? "Survey Submitted" : "Survey Failed"}
+          </div>
+          <p style="margin: 16px 0; color: var(--primary-text-color);">${message}</p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click=${this._closeSurveyResultDialog}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   protected render() {
@@ -1508,6 +1545,7 @@ export class MatterBindingPanel extends LitElement {
         ${this._showCreateDialog ? this._renderCreateDialog() : nothing}
         ${this._pendingBindingRecommendation ? this._renderBindingConfirmDialog() : nothing}
         ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
+        ${this._renderSurveyResultDialog()}
       </div>
     `;
   }
