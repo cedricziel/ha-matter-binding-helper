@@ -319,6 +319,18 @@ export class MatterBindingPanel extends LitElement {
       text-overflow: ellipsis;
     }
 
+    .device-link {
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 2px;
+    }
+
+    .device-link:hover {
+      color: var(--primary-color);
+      text-decoration-style: solid;
+    }
+
     .node-meta {
       display: flex;
       align-items: center;
@@ -1413,6 +1425,11 @@ export class MatterBindingPanel extends LitElement {
     return node?.name || `Node ${nodeId}`;
   }
 
+  private _getNodeDeviceId(nodeId: number): string | null | undefined {
+    const node = this._nodes.find((n) => n.node_id === nodeId);
+    return node?.ha_device_id;
+  }
+
   private _getClusterName(clusterId: number): string {
     return CLUSTER_NAMES[clusterId] || `Cluster 0x${clusterId.toString(16)}`;
   }
@@ -1537,9 +1554,19 @@ export class MatterBindingPanel extends LitElement {
       <div class="overview-binding-row readable">
         <div class="binding-description">
           <div class="binding-sentence">
-            <strong>${sourceNode.name}</strong>
+            <strong
+              class="${sourceNode.ha_device_id ? "device-link" : ""}"
+              @click=${sourceNode.ha_device_id
+                ? () => this._navigateToDevice(sourceNode.ha_device_id)
+                : nothing}
+            >${sourceNode.name}</strong>
             <span class="binding-action">${clusterDesc.action}</span>
-            <strong>${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>
+            <strong
+              class="${!isGroupBinding && targetNode?.ha_device_id ? "device-link" : ""}"
+              @click=${!isGroupBinding && targetNode?.ha_device_id
+                ? () => this._navigateToDevice(targetNode.ha_device_id)
+                : nothing}
+            >${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>
           </div>
           <div class="binding-meta">
             EP ${sourceEndpoint.endpoint_id} → ${isGroupBinding ? `Group` : `EP ${binding.target_endpoint_id}`}
@@ -1635,7 +1662,17 @@ export class MatterBindingPanel extends LitElement {
         <div class="binding-description">
           <div class="automation-title">
             <span class="automation-icon">${template.icon}</span>
-            <strong>${sourceNode.name}</strong> + <strong>${targetNode.name}</strong>
+            <strong
+              class="${sourceNode.ha_device_id ? "device-link" : ""}"
+              @click=${sourceNode.ha_device_id
+                ? () => this._navigateToDevice(sourceNode.ha_device_id)
+                : nothing}
+            >${sourceNode.name}</strong> + <strong
+              class="${targetNode.ha_device_id ? "device-link" : ""}"
+              @click=${targetNode.ha_device_id
+                ? () => this._navigateToDevice(targetNode.ha_device_id)
+                : nothing}
+            >${targetNode.name}</strong>
           </div>
           <div class="automation-suggestion">${template.title}</div>
           <div class="automation-why">
@@ -1678,9 +1715,19 @@ export class MatterBindingPanel extends LitElement {
       <div class="overview-binding-row recommendation readable">
         <div class="binding-description">
           <div class="binding-sentence">
-            <strong>${sourceNode.name}</strong>
+            <strong
+              class="${sourceNode.ha_device_id ? "device-link" : ""}"
+              @click=${sourceNode.ha_device_id
+                ? () => this._navigateToDevice(sourceNode.ha_device_id)
+                : nothing}
+            >${sourceNode.name}</strong>
             <span class="binding-action">can ${compatibleClusters.length === 1 ? getClusterBindingDescription(compatibleClusters[0]).action : `access ${actionText} from`}</span>
-            <strong>${targetNode.name}</strong>
+            <strong
+              class="${targetNode.ha_device_id ? "device-link" : ""}"
+              @click=${targetNode.ha_device_id
+                ? () => this._navigateToDevice(targetNode.ha_device_id)
+                : nothing}
+            >${targetNode.name}</strong>
           </div>
           <div class="binding-meta">
             EP ${sourceEndpoint.endpoint_id} → EP ${targetEndpoint.endpoint_id}
@@ -1859,7 +1906,15 @@ export class MatterBindingPanel extends LitElement {
             class="node-status ${node.available ? "" : "unavailable"}"
           ></span>
           <div class="node-info">
-            <span class="node-name">${node.name}</span>
+            <span
+              class="node-name ${node.ha_device_id ? "device-link" : ""}"
+              @click=${node.ha_device_id
+                ? (e: Event) => {
+                    e.stopPropagation();
+                    this._navigateToDevice(node.ha_device_id);
+                  }
+                : nothing}
+            >${node.name}</span>
             <div class="node-meta">
               ${primaryDeviceType
                 ? html`<span class="node-device-type">${primaryDeviceType}</span>`
@@ -1951,6 +2006,13 @@ export class MatterBindingPanel extends LitElement {
     this.dispatchEvent(event);
   }
 
+  private _navigateToDevice(deviceId: string | null | undefined) {
+    if (!deviceId) return;
+    // Navigate to HA device page using History API
+    history.pushState(null, "", `/config/devices/device/${deviceId}`);
+    window.dispatchEvent(new CustomEvent("location-changed"));
+  }
+
   private _renderEndpointItem(endpoint: MatterEndpoint) {
     const isSelected =
       this._selectedSourceEndpoint?.endpoint_id === endpoint.endpoint_id;
@@ -2011,7 +2073,15 @@ export class MatterBindingPanel extends LitElement {
             <span class="binding-target-name">
               ${binding.target_group_id !== null
                 ? `Group ${binding.target_group_id}`
-                : `${this._getNodeName(binding.target_node_id!)} - Endpoint ${binding.target_endpoint_id}`}
+                : html`<span
+                    class="${this._getNodeDeviceId(binding.target_node_id!) ? "device-link" : ""}"
+                    @click=${this._getNodeDeviceId(binding.target_node_id!)
+                      ? (e: Event) => {
+                          e.stopPropagation();
+                          this._navigateToDevice(this._getNodeDeviceId(binding.target_node_id!));
+                        }
+                      : nothing}
+                  >${this._getNodeName(binding.target_node_id!)}</span> - Endpoint ${binding.target_endpoint_id}`}
             </span>
             <span class="binding-cluster">
               ${this._getClusterName(binding.cluster_id)}
