@@ -1,6 +1,6 @@
 services:
   homeassistant:
-    container_name: ha-matter-helper-dev
+    container_name: ha-matter-binding-helper-dev
     image: ghcr.io/home-assistant/home-assistant:stable
     volumes:
       # Mount custom component for development
@@ -28,7 +28,7 @@ services:
 
   # Frontend development with hot reload
   frontend-dev:
-    container_name: ha-matter-helper-frontend
+    container_name: ha-matter-binding-helper-frontend
     image: node:20-alpine
     working_dir: /app
     volumes:

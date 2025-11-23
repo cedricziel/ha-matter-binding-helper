@@ -113,7 +113,7 @@ npm run build
 ### Project Structure
 
 ```
-ha-matter-helper/
+ha-matter-binding-helper/
 ├── custom_components/
 │   └── matter_binding_helper/
 │       ├── __init__.py          # Integration setup
