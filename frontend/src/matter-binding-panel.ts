@@ -283,8 +283,8 @@ export class MatterBindingPanel extends LitElement {
       border: 1px solid var(--divider-color);
       border-radius: 12px;
       font-size: 11px;
+      font-family: inherit;
       color: var(--primary-text-color);
-      text-decoration: none;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -1924,20 +1924,31 @@ export class MatterBindingPanel extends LitElement {
             .filter((e) => !e.disabled)
             .map(
               (entity) => html`
-                <a
+                <button
                   class="entity-chip"
-                  href="/config/entities/entity/${entity.entity_id}"
-                  target="_top"
-                  @click=${(e: Event) => e.stopPropagation()}
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    this._openEntityMoreInfo(entity.entity_id);
+                  }}
                 >
                   <span class="domain-icon">${domainIcons[entity.domain] || "📦"}</span>
                   <span>${entity.name || entity.entity_id}</span>
-                </a>
+                </button>
               `
             )}
         </div>
       </div>
     `;
+  }
+
+  private _openEntityMoreInfo(entityId: string) {
+    // Fire the hass-more-info event to open the entity dialog
+    const event = new CustomEvent("hass-more-info", {
+      detail: { entityId },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
   }
 
   private _renderEndpointItem(endpoint: MatterEndpoint) {
