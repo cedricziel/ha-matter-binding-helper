@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES } from "./types";
 import { computeBindingRecommendations } from "./recommendation-logic";
+import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters } from "./binding-ui-logic";
 import * as api from "./api";
 
 @customElement("matter-binding-helper-panel")
@@ -44,6 +45,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _actionInProgress: string | null = null;
   @state() private _pendingBindingRecommendation: BindingRecommendation | null = null;
   @state() private _selectedClusterForBinding: number | null = null;
+  @state() private _pendingManualBinding: { sourceNode: MatterNode; sourceEndpoint: MatterEndpoint; targetNode: MatterNode; targetEndpoint: MatterEndpoint; clusterId: number } | null = null;
   @state() private _pendingDeleteBinding: BindingWithContext | null = null;
   @state() private _automationRecommendations: AutomationRecommendation[] = [];
 
@@ -1262,20 +1264,16 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _openCreateDialog(): void {
-    // Set default target node (first node that isn't the source)
+    // Set default target node (first node that isn't the source and has compatible endpoints)
     const availableTargets = this._nodes.filter(
       (n) => n.node_id !== this._selectedSourceNode?.node_id
     );
     if (availableTargets.length > 0) {
       this._selectedTargetNodeId = availableTargets[0].node_id;
-      // Set default endpoint (first one with server clusters)
+      // Set default endpoint (first valid endpoint)
       const targetNode = availableTargets[0];
-      const validEndpoints = targetNode.endpoints.filter(
-        (ep) => ep.server_clusters && ep.server_clusters.length > 0
-      );
-      this._selectedTargetEndpointId = validEndpoints.length > 0
-        ? validEndpoints[0].endpoint_id
-        : (targetNode.endpoints[0]?.endpoint_id ?? null);
+      const firstValidEndpoint = getFirstValidTargetEndpoint(targetNode);
+      this._selectedTargetEndpointId = firstValidEndpoint?.endpoint_id ?? null;
     }
     this._showCreateDialog = true;
   }
@@ -1292,12 +1290,8 @@ export class MatterBindingPanel extends LitElement {
     // Reset endpoint selection when node changes
     const targetNode = this._nodes.find((n) => n.node_id === this._selectedTargetNodeId);
     if (targetNode) {
-      const validEndpoints = targetNode.endpoints.filter(
-        (ep) => ep.server_clusters && ep.server_clusters.length > 0
-      );
-      this._selectedTargetEndpointId = validEndpoints.length > 0
-        ? validEndpoints[0].endpoint_id
-        : (targetNode.endpoints[0]?.endpoint_id ?? null);
+      const firstValidEndpoint = getFirstValidTargetEndpoint(targetNode);
+      this._selectedTargetEndpointId = firstValidEndpoint?.endpoint_id ?? null;
     }
   }
 
@@ -1327,7 +1321,7 @@ export class MatterBindingPanel extends LitElement {
     return sourceClientClusters.filter((c) => targetServerClusters.includes(c));
   }
 
-  private async _handleCreateBinding(e: Event): Promise<void> {
+  private _handleReviewBinding(e: Event): void {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
@@ -1354,20 +1348,52 @@ export class MatterBindingPanel extends LitElement {
       return;
     }
 
+    if (!targetNode || !targetEndpoint) {
+      this._error = "Invalid target selection";
+      return;
+    }
+
+    // Set pending manual binding for confirmation dialog
+    this._pendingManualBinding = {
+      sourceNode: this._selectedSourceNode,
+      sourceEndpoint: this._selectedSourceEndpoint,
+      targetNode,
+      targetEndpoint,
+      clusterId,
+    };
+
+    // Close create dialog
+    this._showCreateDialog = false;
+  }
+
+  private async _confirmManualBinding(): Promise<void> {
+    if (!this._pendingManualBinding) return;
+
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId } = this._pendingManualBinding;
+    const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}-${clusterId}`;
+
+    this._actionInProgress = actionKey;
+
     try {
       await api.createBinding(
         this.hass,
-        this._selectedSourceNode.node_id,
-        this._selectedSourceEndpoint.endpoint_id,
+        sourceNode.node_id,
+        sourceEndpoint.endpoint_id,
         clusterId,
-        targetNodeId,
-        targetEndpointId
+        targetNode.node_id,
+        targetEndpoint.endpoint_id
       );
-      this._closeCreateDialog();
+      this._pendingManualBinding = null;
       await this._loadBindings();
     } catch (err) {
       this._error = `Failed to create binding: ${err}`;
+    } finally {
+      this._actionInProgress = null;
     }
+  }
+
+  private _closeManualBindingConfirmDialog(): void {
+    this._pendingManualBinding = null;
   }
 
   private _getNodeName(nodeId: number): string {
@@ -1493,6 +1519,7 @@ export class MatterBindingPanel extends LitElement {
             : this._renderGroupsTab()}
         ${this._showCreateDialog ? this._renderCreateDialog() : nothing}
         ${this._pendingBindingRecommendation ? this._renderBindingConfirmDialog() : nothing}
+        ${this._pendingManualBinding ? this._renderManualBindingConfirmDialog() : nothing}
         ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
         ${this._renderSurveyResultDialog()}
       </div>
@@ -2215,6 +2242,73 @@ export class MatterBindingPanel extends LitElement {
     `;
   }
 
+  private _renderManualBindingConfirmDialog() {
+    if (!this._pendingManualBinding) return nothing;
+
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId } = this._pendingManualBinding;
+    const clusterDesc = getClusterBindingDescription(clusterId);
+    const isLoading = this._actionInProgress !== null;
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeManualBindingConfirmDialog}>
+        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">
+            <span class="confirm-icon">🔗</span>
+            Create Binding
+          </div>
+
+          <div class="binding-devices">
+            <div class="binding-device-card source">
+              <div class="binding-device-name">${sourceNode.name}</div>
+              <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
+              ${sourceNode.area_name
+                ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
+                : nothing}
+            </div>
+            <div class="binding-arrow-container">
+              <span class="binding-cluster-label">${getClusterName(clusterId)}</span>
+              <span class="binding-arrow-large">→</span>
+            </div>
+            <div class="binding-device-card target">
+              <div class="binding-device-name">${targetNode.name}</div>
+              <div class="binding-device-endpoint">Endpoint ${targetEndpoint.endpoint_id}</div>
+              ${targetNode.area_name
+                ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
+                : nothing}
+            </div>
+          </div>
+
+          <div class="binding-explanation">
+            <div class="binding-explanation-header">What this binding does:</div>
+            <div class="binding-explanation-content">
+              <strong>${sourceNode.name}</strong> will ${clusterDesc.action}
+              <strong>${targetNode.name}</strong> using ${clusterDesc.dataType}.
+            </div>
+          </div>
+
+          <div class="dialog-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click=${this._closeManualBindingConfirmDialog}
+              ?disabled=${isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary ${isLoading ? "btn-loading" : ""}"
+              @click=${this._confirmManualBinding}
+              ?disabled=${isLoading}
+            >
+              Create Binding
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private _renderDeleteConfirmDialog() {
     if (!this._pendingDeleteBinding) return nothing;
 
@@ -2295,7 +2389,8 @@ export class MatterBindingPanel extends LitElement {
     );
 
     const targetNode = this._nodes.find((n) => n.node_id === this._selectedTargetNodeId);
-    const targetEndpoints = targetNode?.endpoints || [];
+    // Filter endpoints: exclude root node (0) and those without server clusters
+    const targetEndpoints = filterValidTargetEndpoints(targetNode?.endpoints || []);
 
     // Get compatible clusters based on source client + target server
     const compatibleClusters = this._getCompatibleClusters();
@@ -2307,18 +2402,28 @@ export class MatterBindingPanel extends LitElement {
     return html`
       <div class="dialog-overlay" @click=${this._closeCreateDialog}>
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
-          <div class="dialog-header">Create Binding</div>
+          <div class="dialog-header">
+            Create Binding from ${this._selectedSourceNode?.name} EP${this._selectedSourceEndpoint?.endpoint_id}
+          </div>
 
           ${!hasClientClusters
             ? html`
                 <div class="dialog-warning">
-                  <strong>Note:</strong> This endpoint has no client clusters.
-                  Bindings are typically used by devices with client clusters to control other devices.
+                  <strong>Note:</strong> This endpoint can't control other devices (no client clusters).
+                  Try selecting a different endpoint.
                 </div>
               `
             : nothing}
 
-          <form @submit=${this._handleCreateBinding}>
+          ${compatibleClusters.length > 0
+            ? html`
+                <div style="color: var(--success-color, #4caf50); padding: 8px 0; font-size: 14px;">
+                  ✓ ${compatibleClusters.length} compatible cluster${compatibleClusters.length !== 1 ? 's' : ''} found
+                </div>
+              `
+            : nothing}
+
+          <form @submit=${this._handleReviewBinding}>
             <div class="form-group">
               <label class="form-label">Target Node</label>
               <select
@@ -2327,16 +2432,24 @@ export class MatterBindingPanel extends LitElement {
                 required
                 @change=${this._handleTargetNodeChange}
               >
-                ${availableTargetNodes.map(
-                  (node) => html`
+                ${availableTargetNodes.map((node) => {
+                  // Get primary device type from first non-root endpoint
+                  const primaryEndpoint = node.endpoints.find(ep => ep.endpoint_id !== 0);
+                  const deviceType = primaryEndpoint?.device_types[0]
+                    ? getDeviceTypeName(primaryEndpoint.device_types[0].id)
+                    : null;
+                  const area = node.area_name;
+                  const context = [deviceType, area].filter(Boolean).join(' · ');
+
+                  return html`
                     <option
                       value=${node.node_id}
                       ?selected=${node.node_id === this._selectedTargetNodeId}
                     >
-                      ${node.name}
+                      ${node.name}${context ? ` (${context})` : ''}
                     </option>
-                  `
-                )}
+                  `;
+                })}
               </select>
             </div>
 
@@ -2352,13 +2465,14 @@ export class MatterBindingPanel extends LitElement {
                   const deviceTypes = ep.device_types
                     .map((dt) => getDeviceTypeName(dt.id))
                     .join(", ");
-                  const hasServerClusters = (ep.server_clusters || []).length > 0;
+                  const compatCount = countCompatibleClusters(sourceClientClusters, ep);
+
                   return html`
                     <option
                       value=${ep.endpoint_id}
                       ?selected=${ep.endpoint_id === this._selectedTargetEndpointId}
                     >
-                      Endpoint ${ep.endpoint_id}${deviceTypes ? ` (${deviceTypes})` : ""}${!hasServerClusters ? " - no server clusters" : ""}
+                      Endpoint ${ep.endpoint_id}${deviceTypes ? ` (${deviceTypes})` : ''} · ${compatCount} compatible cluster${compatCount !== 1 ? 's' : ''}
                     </option>
                   `;
                 })}
@@ -2370,17 +2484,21 @@ export class MatterBindingPanel extends LitElement {
               ${compatibleClusters.length > 0
                 ? html`
                     <select name="cluster" class="form-select" required>
-                      ${compatibleClusters.map(
-                        (clusterId) => html`
-                          <option value=${clusterId}>${getClusterName(clusterId)}</option>
-                        `
-                      )}
+                      ${compatibleClusters.map((clusterId) => {
+                        const clusterName = getClusterName(clusterId);
+                        const clusterDesc = getClusterBindingDescription(clusterId);
+                        return html`
+                          <option value=${clusterId} title="${clusterName}: ${clusterDesc.dataType}">
+                            ${clusterName} - ${clusterDesc.dataType}
+                          </option>
+                        `;
+                      })}
                     </select>
                   `
                 : html`
                     <div class="no-clusters-warning">
-                      No compatible clusters found. The source endpoint needs a <strong>client</strong> cluster
-                      that matches a <strong>server</strong> cluster on the target endpoint.
+                      No compatible clusters found. These devices can't communicate.
+                      Try selecting a different target endpoint.
                     </div>
                     <select name="cluster" class="form-select" disabled>
                       <option>No compatible clusters</option>
@@ -2401,7 +2519,7 @@ export class MatterBindingPanel extends LitElement {
                 class="btn btn-primary"
                 ?disabled=${compatibleClusters.length === 0}
               >
-                Create Binding
+                Review Binding
               </button>
             </div>
           </form>
