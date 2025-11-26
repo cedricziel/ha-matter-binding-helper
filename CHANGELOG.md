@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.5.0...v0.6.0) (2025-11-26)
+
+
+### Features
+
+* complete UX overhaul for Bindings tab create dialog ([0a989fa](https://github.com/cedricziel/ha-matter-binding-helper/commit/0a989fae502a0c1704db2ca84c0d57666a922656))
+
 ## [0.5.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.4.1...v0.5.0) (2025-11-26)
 
 
