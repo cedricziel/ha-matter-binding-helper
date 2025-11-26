@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.4.1...v0.5.0) (2025-11-26)
+
+
+### Features
+
+* add cluster visibility badges to binding recommendations ([47536be](https://github.com/cedricziel/ha-matter-binding-helper/commit/47536be956223b1c13fc76db96410e2cd5d4857c))
+* allow multiple bindings per cluster and add test suite ([4650886](https://github.com/cedricziel/ha-matter-binding-helper/commit/4650886ed6db5669220ed919d453e41995232bf6))
+
+
+### Miscellaneous
+
+* add dependabot ([d892236](https://github.com/cedricziel/ha-matter-binding-helper/commit/d892236271f480413b0a52a013f03dd5cef8cc97))
+* add dependabot for component ([4715988](https://github.com/cedricziel/ha-matter-binding-helper/commit/4715988378bdd0591fca3195434b7b0a8b686751))
+* add github actions flow ([55fe5e4](https://github.com/cedricziel/ha-matter-binding-helper/commit/55fe5e4fb25bb583d28c7d4da00e2c41d396e545))
+* **deps:** bump actions/checkout from 4 to 6 ([#11](https://github.com/cedricziel/ha-matter-binding-helper/issues/11)) ([af50f6e](https://github.com/cedricziel/ha-matter-binding-helper/commit/af50f6e1a90daf116cc546c51814a74015055a17))
+* **deps:** bump actions/checkout from 4 to 6 ([#4](https://github.com/cedricziel/ha-matter-binding-helper/issues/4)) ([ecb19fc](https://github.com/cedricziel/ha-matter-binding-helper/commit/ecb19fc5199920a81dddfe89b030a72f8df32740))
+* **deps:** bump actions/setup-node from 4 to 6 ([#10](https://github.com/cedricziel/ha-matter-binding-helper/issues/10)) ([556af73](https://github.com/cedricziel/ha-matter-binding-helper/commit/556af73f6a9552ef83d44f582ab86abedfdcd8ab))
+* **deps:** bump actions/setup-python from 5 to 6 ([#12](https://github.com/cedricziel/ha-matter-binding-helper/issues/12)) ([d663797](https://github.com/cedricziel/ha-matter-binding-helper/commit/d6637977431f24c97f74c273362361a9dda99ef8))
+
 ## [0.4.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.4.0...v0.4.1) (2025-11-23)
 
 
