@@ -237,6 +237,9 @@ const ae={attribute:!0,type:String,converter:b,reflect:!1,hasChanged:f},de=(e=ae
               class="${n.ha_device_id?"device-link":""}"
               @click=${n.ha_device_id?()=>this._navigateToDevice(n.ha_device_id):F}
             >${n.name}</strong>
+            <span class="cluster-badges">
+              ${s.map(e=>{const t=Be(e),i=`${t}: ${Re(e).dataType}`;return L`<span class="cluster-badge" title="${i}">${t}</span>`})}
+            </span>
           </div>
           <div class="binding-meta">
             EP ${i.endpoint_id} → EP ${o.endpoint_id}
@@ -1173,6 +1176,28 @@ const ae={attribute:!0,type:String,converter:b,reflect:!1,hasChanged:f},de=(e=ae
       padding: 2px 8px;
       border-radius: 12px;
       font-weight: normal;
+    }
+
+    .cluster-badges {
+      display: inline-flex;
+      gap: 6px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .cluster-badge {
+      background: var(--primary-color);
+      color: white;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: help;
+      white-space: nowrap;
+    }
+
+    .cluster-badge:hover {
+      filter: brightness(1.15);
     }
 
     .empty-state {

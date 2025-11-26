@@ -608,6 +608,28 @@ export class MatterBindingPanel extends LitElement {
       font-weight: normal;
     }
 
+    .cluster-badges {
+      display: inline-flex;
+      gap: 6px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .cluster-badge {
+      background: var(--primary-color);
+      color: white;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: help;
+      white-space: nowrap;
+    }
+
+    .cluster-badge:hover {
+      filter: brightness(1.15);
+    }
+
     .empty-state {
       padding: 24px;
       text-align: center;
@@ -1693,6 +1715,14 @@ export class MatterBindingPanel extends LitElement {
                 ? () => this._navigateToDevice(targetNode.ha_device_id)
                 : nothing}
             >${targetNode.name}</strong>
+            <span class="cluster-badges">
+              ${compatibleClusters.map((clusterId) => {
+                const clusterName = getClusterName(clusterId);
+                const clusterDesc = getClusterBindingDescription(clusterId);
+                const tooltip = `${clusterName}: ${clusterDesc.dataType}`;
+                return html`<span class="cluster-badge" title="${tooltip}">${clusterName}</span>`;
+              })}
+            </span>
           </div>
           <div class="binding-meta">
             EP ${sourceEndpoint.endpoint_id} → EP ${targetEndpoint.endpoint_id}
