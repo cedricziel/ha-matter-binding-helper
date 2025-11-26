@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.6.0...v0.6.1) (2025-11-26)
+
+
+### Bug Fixes
+
+* update README features list to reflect current capabilities ([6ee1094](https://github.com/cedricziel/ha-matter-binding-helper/commit/6ee10945f6ff28e6bcab2639175b396631663916))
+
 ## [0.6.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.5.0...v0.6.0) (2025-11-26)
 
 
