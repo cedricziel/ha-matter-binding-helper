@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES } from "./types";
 import { computeBindingRecommendations } from "./recommendation-logic";
-import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters } from "./binding-ui-logic";
+import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters, filterControlClusters } from "./binding-ui-logic";
 import * as api from "./api";
 
 @customElement("matter-binding-helper-panel")
@@ -630,6 +630,26 @@ export class MatterBindingPanel extends LitElement {
 
     .cluster-badge:hover {
       filter: brightness(1.15);
+    }
+
+    .device-type-badge {
+      display: inline-block;
+      background: var(--primary-color);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .dialog-subheader {
+      padding: 0 16px 12px 16px;
+      color: var(--secondary-text-color);
+      font-size: 14px;
+      border-bottom: 1px solid var(--divider-color);
+      margin-bottom: 16px;
     }
 
     .empty-state {
@@ -2399,12 +2419,30 @@ export class MatterBindingPanel extends LitElement {
     const sourceClientClusters = this._selectedSourceEndpoint?.client_clusters || [];
     const hasClientClusters = sourceClientClusters.length > 0;
 
+    // Extract source endpoint device type for header
+    const sourceDeviceType = this._selectedSourceEndpoint?.device_types[0]
+      ? getDeviceTypeName(this._selectedSourceEndpoint.device_types[0].id)
+      : null;
+
+    // Extract and filter client clusters (exclude infrastructure clusters)
+    const controlClusters = filterControlClusters(sourceClientClusters)
+      .map((c) => getClusterName(c));
+
     return html`
       <div class="dialog-overlay" @click=${this._closeCreateDialog}>
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
             Create Binding from ${this._selectedSourceNode?.name} EP${this._selectedSourceEndpoint?.endpoint_id}
+            ${sourceDeviceType ? html`<span class="device-type-badge">${sourceDeviceType}</span>` : nothing}
           </div>
+
+          ${controlClusters.length > 0
+            ? html`
+                <div class="dialog-subheader">
+                  Can control: ${controlClusters.join(', ')}
+                </div>
+              `
+            : nothing}
 
           ${!hasClientClusters
             ? html`

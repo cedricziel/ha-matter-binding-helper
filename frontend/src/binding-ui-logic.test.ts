@@ -8,6 +8,7 @@ import {
   getFirstValidTargetEndpoint,
   countCompatibleClusters,
   findFirstValidTargetNode,
+  filterControlClusters,
 } from './binding-ui-logic';
 import type { MatterNode, MatterEndpoint } from './types';
 
@@ -335,5 +336,105 @@ describe('Integration tests - Real-world scenarios', () => {
     const allNodes = [switchNode, ...lights];
     const firstTarget = findFirstValidTargetNode(allNodes, 1);
     expect(firstTarget?.node_id).toBe(2);
+  });
+});
+
+describe('filterControlClusters', () => {
+  it('filters out Descriptor cluster', () => {
+    const clusters = [0x001d, CLUSTER_ON_OFF]; // Descriptor + On/Off
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_ON_OFF]);
+  });
+
+  it('filters out Basic Information cluster', () => {
+    const clusters = [0x0028, CLUSTER_LEVEL_CONTROL]; // Basic Info + Level Control
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_LEVEL_CONTROL]);
+  });
+
+  it('filters out Binding cluster itself', () => {
+    const clusters = [0x001e, CLUSTER_ON_OFF]; // Binding + On/Off
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_ON_OFF]);
+  });
+
+  it('filters out multiple infrastructure clusters', () => {
+    const clusters = [
+      0x001d, // Descriptor
+      0x0028, // Basic Information
+      0x001e, // Binding
+      0x0003, // Identify
+      0x0004, // Groups
+      CLUSTER_ON_OFF,
+      CLUSTER_LEVEL_CONTROL,
+      0x0300, // Color Control
+    ];
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL, 0x0300]);
+  });
+
+  it('filters out all diagnostic clusters', () => {
+    const clusters = [
+      0x0033, // General Diagnostics
+      0x0034, // Software Diagnostics
+      0x0035, // Thread Network Diagnostics
+      0x0036, // WiFi Network Diagnostics
+      0x0037, // Ethernet Network Diagnostics
+      CLUSTER_ON_OFF,
+    ];
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_ON_OFF]);
+  });
+
+  it('returns empty array when only infrastructure clusters', () => {
+    const clusters = [
+      0x001d, // Descriptor
+      0x0028, // Basic Information
+      0x001e, // Binding
+      0x0003, // Identify
+    ];
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([]);
+  });
+
+  it('returns all clusters when no infrastructure clusters', () => {
+    const clusters = [CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL, 0x0300]; // Color Control
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL, 0x0300]);
+  });
+
+  it('returns empty array for empty input', () => {
+    const clusters: number[] = [];
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([]);
+  });
+
+  it('filters out Switch cluster (server cluster for switches)', () => {
+    const clusters = [0x003b, CLUSTER_ON_OFF]; // Switch + On/Off
+    const filtered = filterControlClusters(clusters);
+
+    expect(filtered).toEqual([CLUSTER_ON_OFF]);
+  });
+
+  it('preserves order of control clusters', () => {
+    const clusters = [
+      0x001d, // Descriptor (infrastructure)
+      CLUSTER_LEVEL_CONTROL,
+      0x0028, // Basic Info (infrastructure)
+      CLUSTER_ON_OFF,
+      0x0300, // Color Control
+    ];
+    const filtered = filterControlClusters(clusters);
+
+    // Should preserve the order: Level Control, On/Off, Color Control
+    expect(filtered).toEqual([CLUSTER_LEVEL_CONTROL, CLUSTER_ON_OFF, 0x0300]);
   });
 });
