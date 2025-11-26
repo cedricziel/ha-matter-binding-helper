@@ -4,10 +4,12 @@ A Home Assistant custom integration that provides a user interface for managing 
 
 ## Features
 
-- **View Bindings**: List all existing Matter bindings between devices
-- **Create Bindings**: Set up new bindings between Matter devices for direct device-to-device communication
+- **View Bindings**: List all existing Matter bindings between devices with cluster details
+- **Create Bindings**: Set up new bindings with smart recommendations and compatibility checking
 - **Delete Bindings**: Remove existing bindings
-- **Group Management**: Support for Matter group bindings (coming soon)
+- **Binding Recommendations**: Automatic suggestions for compatible device bindings
+- **Automation Templates**: Pre-built automation templates for common scenarios (switches, buttons, etc.)
+- **Telemetry**: Optional anonymous device telemetry to improve Matter ecosystem understanding
 
 ## What are Matter Bindings?
 
