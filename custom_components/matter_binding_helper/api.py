@@ -24,6 +24,13 @@ from .const import (
     WS_TYPE_REMOVE_FROM_GROUP,
 )
 from . import matter_client
+from .eve_schedule import (
+    EVE_CLUSTER_ID,
+    EVE_SCHEDULE_ATTR,
+    EVE_VENDOR_ID,
+    is_eve_thermostat,
+    parse_eve_schedule,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +45,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_debug_client)
     websocket_api.async_register_command(hass, ws_debug_cluster_commands)
     websocket_api.async_register_command(hass, ws_debug_cluster_attributes)
+    websocket_api.async_register_command(hass, ws_get_eve_schedule)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -654,6 +662,119 @@ async def ws_debug_cluster_attributes(
                     raw_attrs[attr_id] = _serialize_value(value)
             if raw_attrs:
                 result["raw_attributes"] = raw_attrs
+
+        connection.send_result(msg["id"], result)
+        return
+
+    result["error"] = f"Node {target_node_id} not found"
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/get_eve_schedule",
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_get_eve_schedule(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get Eve thermostat schedule data."""
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    target_node_id = msg["node_id"]
+    target_endpoint_id = msg["endpoint_id"]
+
+    result: dict[str, Any] = {
+        "node_id": target_node_id,
+        "endpoint_id": target_endpoint_id,
+        "has_eve_cluster": False,
+        "schedule": None,
+    }
+
+    for node in client.get_nodes():
+        if node.node_id != target_node_id:
+            continue
+
+        # Check vendor ID
+        node_data = getattr(node, "node_data", None)
+        vendor_id = None
+        if node_data:
+            basic_info = getattr(node_data, "attributes", {})
+            # Try to get vendor ID from basic info cluster
+            for key, value in basic_info.items():
+                if hasattr(key, "ClusterId") and key.ClusterId == 40:  # Basic Info
+                    if hasattr(key, "AttributeId") and key.AttributeId == 1:  # VendorID
+                        vendor_id = value
+                        break
+
+        # Get endpoint and check for Eve cluster
+        endpoints = getattr(node, "endpoints", None)
+        if not endpoints:
+            result["error"] = "Node has no endpoints"
+            connection.send_result(msg["id"], result)
+            return
+
+        endpoint = endpoints.get(target_endpoint_id)
+        if not endpoint:
+            result["error"] = f"Endpoint {target_endpoint_id} not found"
+            connection.send_result(msg["id"], result)
+            return
+
+        clusters = getattr(endpoint, "clusters", {})
+        cluster_ids = list(clusters.keys())
+
+        # Also check raw node_data for clusters
+        if node_data:
+            node_attrs = getattr(node_data, "attributes", {})
+            for key in node_attrs.keys():
+                if hasattr(key, "EndpointId") and key.EndpointId == target_endpoint_id:
+                    if hasattr(key, "ClusterId") and key.ClusterId not in cluster_ids:
+                        cluster_ids.append(key.ClusterId)
+
+        result["cluster_ids"] = cluster_ids
+        result["vendor_id"] = vendor_id
+
+        # Check if this is an Eve thermostat
+        if not is_eve_thermostat(vendor_id, cluster_ids) and EVE_CLUSTER_ID not in cluster_ids:
+            # Try to detect by cluster presence even without vendor ID
+            if EVE_CLUSTER_ID not in cluster_ids:
+                result["error"] = "Not an Eve thermostat (Eve cluster not found)"
+                connection.send_result(msg["id"], result)
+                return
+
+        result["has_eve_cluster"] = True
+
+        # Read schedule attribute from node_data
+        schedule_data = None
+        if node_data:
+            node_attrs = getattr(node_data, "attributes", {})
+            for key, value in node_attrs.items():
+                if hasattr(key, "EndpointId") and key.EndpointId == target_endpoint_id:
+                    if hasattr(key, "ClusterId") and key.ClusterId == EVE_CLUSTER_ID:
+                        if hasattr(key, "AttributeId") and key.AttributeId == EVE_SCHEDULE_ATTR:
+                            schedule_data = value
+                            break
+
+        if schedule_data is None:
+            result["error"] = "Schedule attribute not found"
+            connection.send_result(msg["id"], result)
+            return
+
+        # Parse the schedule
+        schedule = parse_eve_schedule(schedule_data)
+        if schedule:
+            result["schedule"] = schedule.to_dict()
+        else:
+            result["error"] = "Failed to parse schedule data"
+            result["raw_data"] = str(schedule_data)[:200]
 
         connection.send_result(msg["id"], result)
         return

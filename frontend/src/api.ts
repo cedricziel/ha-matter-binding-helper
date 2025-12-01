@@ -8,6 +8,7 @@ import type {
   ListBindingsResponse,
   ListGroupsResponse,
   SuccessResponse,
+  EveScheduleResponse,
 } from "./types";
 
 const DOMAIN = "matter_binding_helper";
@@ -119,6 +120,18 @@ export async function removeFromGroup(
   return hass.callWS({
     type: `${DOMAIN}/remove_from_group`,
     group_id: groupId,
+    node_id: nodeId,
+    endpoint_id: endpointId,
+  });
+}
+
+export async function getEveSchedule(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number = 1
+): Promise<EveScheduleResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/get_eve_schedule`,
     node_id: nodeId,
     endpoint_id: endpointId,
   });

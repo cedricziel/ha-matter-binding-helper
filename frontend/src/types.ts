@@ -393,3 +393,37 @@ export interface AutomationRecommendation {
   targetNode: MatterNode;
   targetEndpoint: MatterEndpoint;
 }
+
+// Eve thermostat schedule types
+export interface EveTimeSlot {
+  time: string;  // HH:MM format
+  minutes: number;  // Minutes from midnight
+  profile_id: string;  // Profile character (e.g., '$', '%', '&')
+}
+
+export interface EveDayAssignment {
+  day: string;  // Day name
+  profile_id: string;  // Profile character
+}
+
+export interface EveSchedule {
+  name: string | null;
+  device_serial: string | null;
+  zone_id: string | null;
+  time_slots: EveTimeSlot[];
+  day_assignments: EveDayAssignment[];
+}
+
+export interface EveScheduleResponse {
+  node_id: number;
+  endpoint_id: number;
+  has_eve_cluster: boolean;
+  schedule: EveSchedule | null;
+  vendor_id?: number | null;
+  cluster_ids?: number[];
+  error?: string;
+}
+
+// Eve vendor and cluster constants
+export const EVE_VENDOR_ID = 4874;
+export const EVE_CLUSTER_ID = 319486977;  // 0x130AFC01

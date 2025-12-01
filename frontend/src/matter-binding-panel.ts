@@ -14,8 +14,9 @@ import type {
   BindingRecommendation,
   MatterGroup,
   AutomationRecommendation,
+  EveSchedule,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID } from "./types";
 import { computeBindingRecommendations } from "./recommendation-logic";
 import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters, filterControlClusters } from "./binding-ui-logic";
 import * as api from "./api";
@@ -48,6 +49,8 @@ export class MatterBindingPanel extends LitElement {
   @state() private _pendingManualBinding: { sourceNode: MatterNode; sourceEndpoint: MatterEndpoint; targetNode: MatterNode; targetEndpoint: MatterEndpoint; clusterId: number } | null = null;
   @state() private _pendingDeleteBinding: BindingWithContext | null = null;
   @state() private _automationRecommendations: AutomationRecommendation[] = [];
+  @state() private _eveSchedules: Map<number, EveSchedule> = new Map();
+  @state() private _eveScheduleLoading: Set<number> = new Set();
 
   static styles = css`
     :host {
@@ -1073,6 +1076,96 @@ export class MatterBindingPanel extends LitElement {
       text-decoration: none;
       display: inline-block;
     }
+
+    /* Eve Schedule Styles */
+    .eve-schedule {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--secondary-background-color);
+      border-radius: 8px;
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .eve-schedule-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .eve-schedule-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .eve-schedule-name {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+    }
+
+    .eve-schedule-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .eve-day-slot {
+      background: var(--card-background-color);
+      border-radius: 4px;
+      padding: 6px 8px;
+      text-align: center;
+      font-size: 11px;
+    }
+
+    .eve-day-name {
+      font-weight: 500;
+      color: var(--primary-text-color);
+      margin-bottom: 2px;
+    }
+
+    .eve-day-profile {
+      color: var(--secondary-text-color);
+      font-size: 10px;
+    }
+
+    .eve-time-slots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .eve-time-slot {
+      background: var(--card-background-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .eve-time {
+      font-weight: 500;
+      color: var(--primary-text-color);
+    }
+
+    .eve-profile {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .eve-schedule-loading {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+      padding: 8px 0;
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1126,6 +1219,119 @@ export class MatterBindingPanel extends LitElement {
     } finally {
       this._loading = false;
     }
+  }
+
+  private _isEveDevice(node: MatterNode): boolean {
+    // Check if any endpoint has the Eve cluster
+    return node.endpoints.some((ep) =>
+      ep.server_clusters.includes(EVE_CLUSTER_ID)
+    );
+  }
+
+  private async _loadEveSchedule(node: MatterNode): Promise<void> {
+    if (this._eveSchedules.has(node.node_id) || this._eveScheduleLoading.has(node.node_id)) {
+      return;
+    }
+
+    // Find the thermostat endpoint (usually endpoint 1)
+    const thermostatEndpoint = node.endpoints.find((ep) =>
+      ep.server_clusters.includes(EVE_CLUSTER_ID) && ep.endpoint_id > 0
+    );
+
+    if (!thermostatEndpoint) return;
+
+    this._eveScheduleLoading = new Set([...this._eveScheduleLoading, node.node_id]);
+
+    try {
+      const response = await api.getEveSchedule(
+        this.hass,
+        node.node_id,
+        thermostatEndpoint.endpoint_id
+      );
+
+      if (response.schedule) {
+        this._eveSchedules = new Map(this._eveSchedules).set(node.node_id, response.schedule);
+      }
+    } catch (err) {
+      console.error(`Failed to load Eve schedule for node ${node.node_id}:`, err);
+    } finally {
+      const newLoading = new Set(this._eveScheduleLoading);
+      newLoading.delete(node.node_id);
+      this._eveScheduleLoading = newLoading;
+    }
+  }
+
+  private _renderEveSchedule(node: MatterNode) {
+    // Only show for Eve devices
+    if (!this._isEveDevice(node)) {
+      return nothing;
+    }
+
+    // Show loading state
+    if (this._eveScheduleLoading.has(node.node_id)) {
+      return html`
+        <div class="eve-schedule">
+          <div class="eve-schedule-loading">Loading Eve schedule...</div>
+        </div>
+      `;
+    }
+
+    const schedule = this._eveSchedules.get(node.node_id);
+    if (!schedule) {
+      return nothing;
+    }
+
+    // Group time slots by profile
+    const profileNames: Record<string, string> = {
+      '"': 'Comfort',
+      '$': 'Eco',
+      '%': 'Boost',
+      '&': 'Off',
+      '*': 'Custom',
+    };
+
+    return html`
+      <div class="eve-schedule">
+        <div class="eve-schedule-header">
+          <span class="eve-schedule-title">
+            <span>📅</span> Heating Schedule
+          </span>
+          ${schedule.name
+            ? html`<span class="eve-schedule-name">${schedule.name}</span>`
+            : nothing}
+        </div>
+
+        ${schedule.day_assignments.length > 0
+          ? html`
+              <div class="eve-schedule-grid">
+                ${schedule.day_assignments.map(
+                  (day) => html`
+                    <div class="eve-day-slot">
+                      <div class="eve-day-name">${day.day.slice(0, 3)}</div>
+                      <div class="eve-day-profile">${profileNames[day.profile_id] || day.profile_id}</div>
+                    </div>
+                  `
+                )}
+              </div>
+            `
+          : nothing}
+
+        ${schedule.time_slots.length > 0
+          ? html`
+              <div class="eve-time-slots">
+                ${schedule.time_slots.map(
+                  (slot) => html`
+                    <div class="eve-time-slot">
+                      <span class="eve-time">${slot.time}</span>
+                      <span class="eve-profile">${profileNames[slot.profile_id] || slot.profile_id}</span>
+                    </div>
+                  `
+                )}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
   }
 
   private async _loadOverviewData(): Promise<void> {
@@ -1250,6 +1456,11 @@ export class MatterBindingPanel extends LitElement {
       this._selectedSourceNode = node;
       this._selectedSourceEndpoint = null;
       this._bindings = [];
+
+      // Load Eve schedule if this is an Eve device
+      if (this._isEveDevice(node)) {
+        this._loadEveSchedule(node);
+      }
     }
   }
 
@@ -1986,6 +2197,7 @@ export class MatterBindingPanel extends LitElement {
                     `
                   : html`<div class="no-endpoints">No endpoints found</div>`}
                 ${this._renderEntityList(node)}
+                ${this._renderEveSchedule(node)}
               </div>
             `
           : nothing}
