@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.9.0...v0.10.0) (2025-12-01)
+
+
+### Features
+
+* add Eve thermostat schedule display ([fc8f289](https://github.com/cedricziel/ha-matter-binding-helper/commit/fc8f289977ab6c0d0ff86b14379e390003a96ef0))
+
 ## [0.9.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.8.0...v0.9.0) (2025-12-01)
 
 
