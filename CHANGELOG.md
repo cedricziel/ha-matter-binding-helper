@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.10.1...v0.11.0) (2025-12-01)
+
+
+### Features
+
+* redesign Devices tab with right-panel device details ([e00bcb8](https://github.com/cedricziel/ha-matter-binding-helper/commit/e00bcb8e4b4dc789fecd1fcf2ed47ff931925c4d))
+
 ## [0.10.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.10.0...v0.10.1) (2025-12-01)
 
 
