@@ -145,6 +145,17 @@ cluster_commands() {
   fi
 }
 
+cluster_attrs() {
+  local NODE_ID="$1"
+  local ENDPOINT_ID="$2"
+  local CLUSTER_ID="$3"
+  if [[ -z "$NODE_ID" || -z "$ENDPOINT_ID" || -z "$CLUSTER_ID" ]]; then
+    echo "Usage: $0 cluster <node_id> <endpoint_id> <cluster_id>"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/debug_cluster_attributes" "{\"node_id\": $NODE_ID, \"endpoint_id\": $ENDPOINT_ID, \"cluster_id\": $CLUSTER_ID}"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -157,6 +168,7 @@ show_help() {
   echo "  node <node_id>                     Debug info for a specific node"
   echo "  bindings <node_id> <ep_id>         List bindings for node endpoint"
   echo "  commands <node_id> <ep_id> [cid]   List accepted commands for clusters"
+  echo "  cluster <node_id> <ep_id> <cid>    Dump all attributes from a cluster"
   echo "  debug-bindings <node_id> <ep_id>   Debug: Dump raw binding cluster data"
   echo "  debug-client                       Debug: Show Matter client API methods"
   echo "  groups                             List all Matter groups"
@@ -180,6 +192,9 @@ case "${1:-}" in
     ;;
   commands)
     cluster_commands "${2:-}" "${3:-}" "${4:-}"
+    ;;
+  cluster)
+    cluster_attrs "${2:-}" "${3:-}" "${4:-}"
     ;;
   debug-bindings)
     debug_bindings "${2:-}" "${3:-}"

@@ -37,6 +37,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_debug_bindings)
     websocket_api.async_register_command(hass, ws_debug_client)
     websocket_api.async_register_command(hass, ws_debug_cluster_commands)
+    websocket_api.async_register_command(hass, ws_debug_cluster_attributes)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -512,6 +513,148 @@ async def ws_debug_cluster_commands(
                 pass
 
             result["clusters"].append(cluster_info)
+
+        connection.send_result(msg["id"], result)
+        return
+
+    result["error"] = f"Node {target_node_id} not found"
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_cluster_attributes",
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+        vol.Required("cluster_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_debug_cluster_attributes(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Dump all attributes from a specific cluster (including proprietary)."""
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    target_node_id = msg["node_id"]
+    target_endpoint_id = msg["endpoint_id"]
+    target_cluster_id = msg["cluster_id"]
+
+    result = {
+        "node_id": target_node_id,
+        "endpoint_id": target_endpoint_id,
+        "cluster_id": target_cluster_id,
+        "cluster_hex": f"0x{target_cluster_id:08X}",
+        "vendor_id": (target_cluster_id >> 16) & 0xFFFF if target_cluster_id > 0xFFFF else None,
+    }
+
+    for node in client.get_nodes():
+        if node.node_id != target_node_id:
+            continue
+
+        endpoints = getattr(node, "endpoints", None)
+        if not endpoints:
+            result["error"] = "Node has no endpoints"
+            connection.send_result(msg["id"], result)
+            return
+
+        endpoint = endpoints.get(target_endpoint_id)
+        if not endpoint:
+            result["error"] = f"Endpoint {target_endpoint_id} not found"
+            connection.send_result(msg["id"], result)
+            return
+
+        clusters = getattr(endpoint, "clusters", {})
+        cluster = clusters.get(target_cluster_id)
+
+        if not cluster:
+            result["error"] = f"Cluster {target_cluster_id} not found on endpoint"
+            result["available_clusters"] = list(clusters.keys())
+            connection.send_result(msg["id"], result)
+            return
+
+        result["cluster_class"] = type(cluster).__name__
+        result["cluster_module"] = type(cluster).__module__
+
+        # Get all attributes from the cluster object
+        cluster_attrs = {}
+        attr_descriptors = {}
+
+        # Method 1: Try to get Attributes class for descriptor info
+        if hasattr(cluster, "Attributes"):
+            attrs_class = cluster.Attributes
+            for name in dir(attrs_class):
+                if not name.startswith('_'):
+                    attr_obj = getattr(attrs_class, name, None)
+                    if attr_obj and hasattr(attr_obj, "attribute_id"):
+                        attr_descriptors[attr_obj.attribute_id] = {
+                            "name": name,
+                            "type": type(attr_obj).__name__,
+                        }
+
+        result["attribute_descriptors"] = attr_descriptors
+
+        # Method 2: Get actual attribute values from cluster instance
+        for attr_name in dir(cluster):
+            if attr_name.startswith('_'):
+                continue
+            if attr_name in ('Attributes', 'Commands', 'Events', 'Enums', 'Bitmaps', 'Structs'):
+                continue
+
+            try:
+                attr_value = getattr(cluster, attr_name)
+                # Skip methods
+                if callable(attr_value):
+                    continue
+
+                # Convert to serializable format
+                if hasattr(attr_value, '__dict__'):
+                    cluster_attrs[attr_name] = {
+                        "type": type(attr_value).__name__,
+                        "value": str(attr_value)[:500],
+                    }
+                elif isinstance(attr_value, (list, tuple)):
+                    cluster_attrs[attr_name] = {
+                        "type": "list",
+                        "length": len(attr_value),
+                        "value": str(attr_value)[:500],
+                    }
+                elif isinstance(attr_value, bytes):
+                    cluster_attrs[attr_name] = {
+                        "type": "bytes",
+                        "length": len(attr_value),
+                        "hex": attr_value.hex()[:200],
+                    }
+                else:
+                    cluster_attrs[attr_name] = {
+                        "type": type(attr_value).__name__,
+                        "value": attr_value if isinstance(attr_value, (int, float, bool, str, type(None))) else str(attr_value)[:500],
+                    }
+            except Exception as e:
+                cluster_attrs[attr_name] = {"error": str(e)}
+
+        result["attributes"] = cluster_attrs
+
+        # Method 3: Check for raw data in node attributes dict
+        node_attributes = getattr(node, "attributes", {})
+        if node_attributes:
+            raw_attrs = {}
+            prefix = f"{target_endpoint_id}/{target_cluster_id}/"
+            for key, value in node_attributes.items():
+                key_str = str(key)
+                if key_str.startswith(prefix):
+                    attr_id = key_str.replace(prefix, "")
+                    raw_attrs[attr_id] = {
+                        "type": type(value).__name__,
+                        "value": str(value)[:500] if not isinstance(value, (int, float, bool, str, type(None))) else value,
+                    }
+            if raw_attrs:
+                result["raw_attributes"] = raw_attrs
 
         connection.send_result(msg["id"], result)
         return
