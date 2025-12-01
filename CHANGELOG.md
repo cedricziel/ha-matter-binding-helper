@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.8.0...v0.9.0) (2025-12-01)
+
+
+### Features
+
+* add raw node_data attribute inspection for unknown clusters ([bb924a1](https://github.com/cedricziel/ha-matter-binding-helper/commit/bb924a16650481b74e1940d4d12fd69e0d433fd0))
+
 ## [0.8.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.7.0...v0.8.0) (2025-12-01)
 
 
