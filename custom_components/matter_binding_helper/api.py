@@ -36,6 +36,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_debug_match)
     websocket_api.async_register_command(hass, ws_debug_bindings)
     websocket_api.async_register_command(hass, ws_debug_client)
+    websocket_api.async_register_command(hass, ws_debug_cluster_commands)
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
@@ -411,6 +412,112 @@ async def ws_debug_client(
         "methods": methods,
         "attributes": attrs,
     })
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_cluster_commands",
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+        vol.Optional("cluster_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_debug_cluster_commands(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: List accepted commands for clusters on a node endpoint."""
+    # AcceptedCommandList attribute ID
+    ATTR_ACCEPTED_COMMAND_LIST = 65529  # 0xFFF9
+    ATTR_GENERATED_COMMAND_LIST = 65528  # 0xFFF8
+
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    target_node_id = msg["node_id"]
+    target_endpoint_id = msg["endpoint_id"]
+    target_cluster_id = msg.get("cluster_id")
+
+    result = {
+        "node_id": target_node_id,
+        "endpoint_id": target_endpoint_id,
+        "clusters": [],
+    }
+
+    for node in client.get_nodes():
+        if node.node_id != target_node_id:
+            continue
+
+        endpoints = getattr(node, "endpoints", None)
+        if not endpoints:
+            result["error"] = "Node has no endpoints"
+            connection.send_result(msg["id"], result)
+            return
+
+        endpoint = endpoints.get(target_endpoint_id)
+        if not endpoint:
+            result["error"] = f"Endpoint {target_endpoint_id} not found"
+            connection.send_result(msg["id"], result)
+            return
+
+        clusters = getattr(endpoint, "clusters", {})
+        if not isinstance(clusters, dict):
+            result["error"] = "Clusters not available as dict"
+            connection.send_result(msg["id"], result)
+            return
+
+        # Filter to specific cluster if requested
+        cluster_ids = [target_cluster_id] if target_cluster_id else list(clusters.keys())
+
+        for cluster_id in cluster_ids:
+            cluster = clusters.get(cluster_id)
+            if not cluster:
+                continue
+
+            cluster_info = {
+                "cluster_id": cluster_id,
+                "cluster_name": type(cluster).__name__,
+                "accepted_commands": [],
+                "generated_commands": [],
+            }
+
+            # Try to get AcceptedCommandList
+            try:
+                if hasattr(endpoint, "get_attribute_value"):
+                    accepted = endpoint.get_attribute_value(cluster_id, ATTR_ACCEPTED_COMMAND_LIST)
+                    if accepted is not None:
+                        cluster_info["accepted_commands"] = list(accepted) if hasattr(accepted, '__iter__') else [accepted]
+                    generated = endpoint.get_attribute_value(cluster_id, ATTR_GENERATED_COMMAND_LIST)
+                    if generated is not None:
+                        cluster_info["generated_commands"] = list(generated) if hasattr(generated, '__iter__') else [generated]
+            except Exception as e:
+                cluster_info["error"] = str(e)
+
+            # Try to get command names from cluster class
+            try:
+                if hasattr(cluster, "Commands"):
+                    commands_class = cluster.Commands
+                    command_names = {}
+                    for name in dir(commands_class):
+                        if not name.startswith('_'):
+                            cmd_obj = getattr(commands_class, name, None)
+                            if cmd_obj and hasattr(cmd_obj, "command_id"):
+                                command_names[cmd_obj.command_id] = name
+                    cluster_info["command_names"] = command_names
+            except Exception:
+                pass
+
+            result["clusters"].append(cluster_info)
+
+        connection.send_result(msg["id"], result)
+        return
+
+    result["error"] = f"Node {target_node_id} not found"
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(
