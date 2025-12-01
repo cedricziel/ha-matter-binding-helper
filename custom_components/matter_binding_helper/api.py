@@ -757,14 +757,21 @@ async def ws_get_eve_schedule(
         if node_data:
             node_attrs = getattr(node_data, "attributes", {})
             for key, value in node_attrs.items():
-                if hasattr(key, "EndpointId") and key.EndpointId == target_endpoint_id:
-                    if hasattr(key, "ClusterId") and key.ClusterId == EVE_CLUSTER_ID:
-                        if hasattr(key, "AttributeId") and key.AttributeId == EVE_SCHEDULE_ATTR:
+                # Try AttributePath object format
+                if hasattr(key, "EndpointId") and hasattr(key, "ClusterId") and hasattr(key, "AttributeId"):
+                    if key.EndpointId == target_endpoint_id and key.ClusterId == EVE_CLUSTER_ID:
+                        if key.AttributeId == EVE_SCHEDULE_ATTR:
                             schedule_data = value
                             break
+                # Try string format "endpoint/cluster/attribute"
+                key_str = str(key)
+                if f"{target_endpoint_id}/{EVE_CLUSTER_ID}/{EVE_SCHEDULE_ATTR}" in key_str:
+                    schedule_data = value
+                    break
 
         if schedule_data is None:
             result["error"] = "Schedule attribute not found"
+            result["debug_keys"] = [str(k)[:100] for k in list(node_attrs.keys())[:10]] if node_data else []
             connection.send_result(msg["id"], result)
             return
 
