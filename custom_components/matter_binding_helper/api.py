@@ -557,6 +557,25 @@ async def ws_debug_cluster_attributes(
         if node.node_id != target_node_id:
             continue
 
+        # Try to get raw attributes from node_data first (works for all clusters)
+        node_data = getattr(node, "node_data", None)
+        if node_data:
+            node_data_attrs = getattr(node_data, "attributes", None)
+            if node_data_attrs:
+                raw_attrs = {}
+                for key, value in node_data_attrs.items():
+                    key_str = str(key)
+                    # Match format: "endpoint/cluster/attribute" or AttributePath objects
+                    if hasattr(key, 'EndpointId') and hasattr(key, 'ClusterId'):
+                        if key.EndpointId == target_endpoint_id and key.ClusterId == target_cluster_id:
+                            attr_id = key.AttributeId
+                            raw_attrs[f"0x{attr_id:04X} ({attr_id})"] = _serialize_value(value)
+                    elif f"{target_endpoint_id}/{target_cluster_id}/" in key_str:
+                        attr_id = key_str.split("/")[-1]
+                        raw_attrs[attr_id] = _serialize_value(value)
+                if raw_attrs:
+                    result["raw_attributes_from_node_data"] = raw_attrs
+
         endpoints = getattr(node, "endpoints", None)
         if not endpoints:
             result["error"] = "Node has no endpoints"
@@ -573,6 +592,11 @@ async def ws_debug_cluster_attributes(
         cluster = clusters.get(target_cluster_id)
 
         if not cluster:
+            # Cluster not instantiated - check if we found raw attributes
+            if "raw_attributes_from_node_data" in result:
+                result["note"] = "Cluster not parsed by python-matter-server, showing raw data"
+                connection.send_result(msg["id"], result)
+                return
             result["error"] = f"Cluster {target_cluster_id} not found on endpoint"
             result["available_clusters"] = list(clusters.keys())
             connection.send_result(msg["id"], result)
@@ -612,29 +636,7 @@ async def ws_debug_cluster_attributes(
                 if callable(attr_value):
                     continue
 
-                # Convert to serializable format
-                if hasattr(attr_value, '__dict__'):
-                    cluster_attrs[attr_name] = {
-                        "type": type(attr_value).__name__,
-                        "value": str(attr_value)[:500],
-                    }
-                elif isinstance(attr_value, (list, tuple)):
-                    cluster_attrs[attr_name] = {
-                        "type": "list",
-                        "length": len(attr_value),
-                        "value": str(attr_value)[:500],
-                    }
-                elif isinstance(attr_value, bytes):
-                    cluster_attrs[attr_name] = {
-                        "type": "bytes",
-                        "length": len(attr_value),
-                        "hex": attr_value.hex()[:200],
-                    }
-                else:
-                    cluster_attrs[attr_name] = {
-                        "type": type(attr_value).__name__,
-                        "value": attr_value if isinstance(attr_value, (int, float, bool, str, type(None))) else str(attr_value)[:500],
-                    }
+                cluster_attrs[attr_name] = _serialize_value(attr_value)
             except Exception as e:
                 cluster_attrs[attr_name] = {"error": str(e)}
 
@@ -649,10 +651,7 @@ async def ws_debug_cluster_attributes(
                 key_str = str(key)
                 if key_str.startswith(prefix):
                     attr_id = key_str.replace(prefix, "")
-                    raw_attrs[attr_id] = {
-                        "type": type(value).__name__,
-                        "value": str(value)[:500] if not isinstance(value, (int, float, bool, str, type(None))) else value,
-                    }
+                    raw_attrs[attr_id] = _serialize_value(value)
             if raw_attrs:
                 result["raw_attributes"] = raw_attrs
 
@@ -661,6 +660,40 @@ async def ws_debug_cluster_attributes(
 
     result["error"] = f"Node {target_node_id} not found"
     connection.send_result(msg["id"], result)
+
+
+def _serialize_value(value: Any) -> dict[str, Any]:
+    """Serialize a value to JSON-compatible format."""
+    if value is None:
+        return {"type": "NoneType", "value": None}
+    elif isinstance(value, bytes):
+        return {
+            "type": "bytes",
+            "length": len(value),
+            "hex": value.hex()[:200],
+        }
+    elif isinstance(value, (list, tuple)):
+        return {
+            "type": "list",
+            "length": len(value),
+            "value": str(value)[:500],
+        }
+    elif isinstance(value, dict):
+        return {
+            "type": "dict",
+            "keys": list(value.keys())[:20],
+            "value": str(value)[:500],
+        }
+    elif isinstance(value, (int, float, bool, str)):
+        return {"type": type(value).__name__, "value": value}
+    elif hasattr(value, '__dict__'):
+        return {
+            "type": type(value).__name__,
+            "value": str(value)[:500],
+            "dict": {k: str(v)[:100] for k, v in vars(value).items() if not k.startswith('_')} if hasattr(value, '__dict__') else None,
+        }
+    else:
+        return {"type": type(value).__name__, "value": str(value)[:500]}
 
 
 @websocket_api.websocket_command(
