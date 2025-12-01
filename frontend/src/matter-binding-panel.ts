@@ -393,6 +393,110 @@ export class MatterBindingPanel extends LitElement {
       min-height: 400px;
     }
 
+    .device-panel {
+      min-height: 400px;
+    }
+
+    .device-details {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .device-header {
+      border-bottom: 1px solid var(--divider-color);
+      padding-bottom: 16px;
+    }
+
+    .device-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .device-title h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+    }
+
+    .device-ha-link {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-size: 16px;
+      opacity: 0.7;
+    }
+
+    .device-ha-link:hover {
+      opacity: 1;
+    }
+
+    .device-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .device-type-tag {
+      background: var(--primary-color);
+      color: white;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .device-area-tag {
+      background: var(--secondary-background-color);
+      color: var(--primary-text-color);
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+
+    .device-version {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    .device-section {
+      background: var(--secondary-background-color);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      margin-bottom: 12px;
+    }
+
+    .section-context {
+      font-size: 12px;
+      font-weight: normal;
+      color: var(--secondary-text-color);
+      background: var(--card-background-color);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .section-header .btn {
+      margin-left: auto;
+    }
+
+    .empty-state-small {
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+      padding: 8px 0;
+    }
+
     .binding-list {
       display: flex;
       flex-direction: column;
@@ -1270,7 +1374,8 @@ export class MatterBindingPanel extends LitElement {
     // Show loading state
     if (this._eveScheduleLoading.has(node.node_id)) {
       return html`
-        <div class="eve-schedule">
+        <div class="device-section">
+          <div class="section-header">Heating Schedule</div>
           <div class="eve-schedule-loading">Loading Eve schedule...</div>
         </div>
       `;
@@ -1291,13 +1396,11 @@ export class MatterBindingPanel extends LitElement {
     };
 
     return html`
-      <div class="eve-schedule">
-        <div class="eve-schedule-header">
-          <span class="eve-schedule-title">
-            <span>📅</span> Heating Schedule
-          </span>
+      <div class="device-section">
+        <div class="section-header">
+          Heating Schedule
           ${schedule.name
-            ? html`<span class="eve-schedule-name">${schedule.name}</span>`
+            ? html`<span class="section-context">${schedule.name}</span>`
             : nothing}
         </div>
 
@@ -1730,7 +1833,7 @@ export class MatterBindingPanel extends LitElement {
             class="tab ${this._activeTab === "bindings" ? "active" : ""}"
             @click=${() => (this._activeTab = "bindings")}
           >
-            Bindings
+            Devices
           </button>
           <button
             class="tab ${this._activeTab === "groups" ? "active" : ""}"
@@ -2081,7 +2184,7 @@ export class MatterBindingPanel extends LitElement {
     return html`
       <div class="content">
         <div class="card">
-          <div class="card-header">Matter Nodes</div>
+          <div class="card-header">Matter Devices</div>
           ${this._loading && this._nodes.length === 0
             ? html`<div class="loading">Loading...</div>`
             : html`
@@ -2091,23 +2194,83 @@ export class MatterBindingPanel extends LitElement {
               `}
         </div>
 
-        <div class="card bindings-panel">
-          <div class="card-header">
+        <div class="card device-panel">
+          ${this._selectedSourceNode
+            ? this._renderDeviceDetails(this._selectedSourceNode)
+            : html`
+                <div class="empty-state">
+                  Select a device to view details and manage bindings.
+                </div>
+              `}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderDeviceDetails(node: MatterNode) {
+    const deviceInfo = node.device_info;
+    const primaryDeviceType = this._getPrimaryDeviceType(node);
+    const totalEndpoints = node.endpoints.length;
+
+    return html`
+      <div class="device-details">
+        <div class="device-header">
+          <div class="device-title">
+            <h2>${node.name}</h2>
+            ${node.ha_device_id
+              ? html`<a
+                  class="device-ha-link"
+                  href="/config/devices/device/${node.ha_device_id}"
+                  title="View in Home Assistant"
+                >↗</a>`
+              : nothing}
+          </div>
+          <div class="device-meta">
+            ${primaryDeviceType
+              ? html`<span class="device-type-tag">${primaryDeviceType}</span>`
+              : nothing}
+            ${node.area_name
+              ? html`<span class="device-area-tag">${node.area_name}</span>`
+              : nothing}
+            ${deviceInfo?.software_version
+              ? html`<span class="device-version">v${deviceInfo.software_version}</span>`
+              : nothing}
+          </div>
+        </div>
+
+        <div class="device-section">
+          <div class="section-header">Endpoints</div>
+          ${totalEndpoints > 0
+            ? html`
+                <div class="endpoint-list">
+                  ${node.endpoints.map((endpoint) =>
+                    this._renderEndpointItem(endpoint)
+                  )}
+                </div>
+              `
+            : html`<div class="no-endpoints">No endpoints found</div>`}
+        </div>
+
+        ${this._renderEntityList(node)}
+        ${this._renderEveSchedule(node)}
+
+        <div class="device-section">
+          <div class="section-header">
+            Bindings
             ${this._selectedSourceEndpoint
               ? html`
-                  Bindings for ${this._selectedSourceNode?.name} - Endpoint
-                  ${this._selectedSourceEndpoint.endpoint_id}
+                  <span class="section-context">
+                    Endpoint ${this._selectedSourceEndpoint.endpoint_id}
+                  </span>
                   <button
-                    class="btn btn-primary"
-                    style="float: right; margin-top: -8px;"
+                    class="btn btn-small btn-primary"
                     @click=${this._openCreateDialog}
                   >
                     Add Binding
                   </button>
                 `
-              : "Select a node and endpoint to view bindings"}
+              : nothing}
           </div>
-
           ${this._selectedSourceEndpoint
             ? this._bindings.length > 0
               ? html`
@@ -2118,13 +2281,13 @@ export class MatterBindingPanel extends LitElement {
                   </div>
                 `
               : html`
-                  <div class="empty-state">
+                  <div class="empty-state-small">
                     No bindings configured for this endpoint.
                   </div>
                 `
             : html`
-                <div class="empty-state">
-                  Select a node with binding support to manage its bindings.
+                <div class="empty-state-small">
+                  Select an endpoint with binding support to manage bindings.
                 </div>
               `}
         </div>
@@ -2144,9 +2307,6 @@ export class MatterBindingPanel extends LitElement {
 
   private _renderNodeItem(node: MatterNode) {
     const isSelected = this._selectedSourceNode?.node_id === node.node_id;
-    const bindableEndpoints = node.endpoints.filter((e) => e.has_binding_cluster);
-    const totalEndpoints = node.endpoints.length;
-    const deviceInfo = node.device_info;
     const primaryDeviceType = this._getPrimaryDeviceType(node);
 
     return html`
@@ -2159,15 +2319,7 @@ export class MatterBindingPanel extends LitElement {
             class="node-status ${node.available ? "" : "unavailable"}"
           ></span>
           <div class="node-info">
-            <span
-              class="node-name ${node.ha_device_id ? "device-link" : ""}"
-              @click=${node.ha_device_id
-                ? (e: Event) => {
-                    e.stopPropagation();
-                    this._navigateToDevice(node.ha_device_id);
-                  }
-                : nothing}
-            >${node.name}</span>
+            <span class="node-name">${node.name}</span>
             <div class="node-meta">
               ${primaryDeviceType
                 ? html`<span class="node-device-type">${primaryDeviceType}</span>`
@@ -2178,29 +2330,9 @@ export class MatterBindingPanel extends LitElement {
               ${node.area_name
                 ? html`<span class="node-area">${node.area_name}</span>`
                 : nothing}
-              ${deviceInfo?.software_version
-                ? html`<span class="node-version">v${deviceInfo.software_version}</span>`
-                : nothing}
             </div>
           </div>
         </div>
-        ${isSelected
-          ? html`
-              <div class="node-details">
-                ${totalEndpoints > 0
-                  ? html`
-                      <div class="endpoint-list">
-                        ${node.endpoints.map((endpoint) =>
-                          this._renderEndpointItem(endpoint)
-                        )}
-                      </div>
-                    `
-                  : html`<div class="no-endpoints">No endpoints found</div>`}
-                ${this._renderEntityList(node)}
-                ${this._renderEveSchedule(node)}
-              </div>
-            `
-          : nothing}
       </li>
     `;
   }
@@ -2226,8 +2358,8 @@ export class MatterBindingPanel extends LitElement {
     };
 
     return html`
-      <div class="entity-list">
-        <div class="entity-list-header">Home Assistant Entities</div>
+      <div class="device-section">
+        <div class="section-header">Home Assistant Entities</div>
         <div class="entity-chips">
           ${entities
             .filter((e) => !e.disabled)
