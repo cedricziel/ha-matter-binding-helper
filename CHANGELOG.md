@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.7.0...v0.8.0) (2025-12-01)
+
+
+### Features
+
+* add cluster attribute inspection for proprietary clusters ([4fad099](https://github.com/cedricziel/ha-matter-binding-helper/commit/4fad0995ca43b32fea9dd00ace3637a9ab22caf5))
+
 ## [0.7.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.6.1...v0.7.0) (2025-12-01)
 
 
