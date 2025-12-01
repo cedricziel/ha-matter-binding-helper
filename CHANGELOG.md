@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.10.0...v0.10.1) (2025-12-01)
+
+
+### Bug Fixes
+
+* improve Eve schedule attribute lookup ([8d5fb52](https://github.com/cedricziel/ha-matter-binding-helper/commit/8d5fb52e07781a9ab5fec5eecb20b7ee7faad787))
+
 ## [0.10.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.9.0...v0.10.0) (2025-12-01)
 
 
