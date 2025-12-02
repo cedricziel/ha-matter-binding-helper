@@ -67,6 +67,9 @@ async def async_setup_proprietary_sensors(
     This function scans all Matter nodes for proprietary clusters and creates
     sensor entities for attributes that have sensor metadata defined in the
     device-definitions registry.
+
+    Only creates sensors for devices that match the full fingerprint
+    (vendor ID, required clusters, and device types).
     """
     registry = ProprietaryRegistry.get()
     entities: list[ProprietaryAttributeSensor] = []
@@ -83,13 +86,42 @@ async def async_setup_proprietary_sensors(
             if endpoint_id == 0:
                 continue
 
-            # Check each cluster on the endpoint
+            # Get endpoint info for fingerprint matching
             server_clusters = endpoint.get("server_clusters", [])
+            device_types = [
+                dt.get("id") for dt in endpoint.get("device_types", []) if dt.get("id")
+            ]
 
+            # Find matching device definition by fingerprint
+            device_meta = registry.find_device(
+                vendor_id=vendor_id or 0,
+                cluster_ids=server_clusters,
+                device_types=device_types,
+            )
+
+            if not device_meta:
+                # No matching device definition - skip proprietary sensors
+                continue
+
+            _LOGGER.debug(
+                "Matched device %s for node %d endpoint %d (vendor=%s, clusters=%s, types=%s)",
+                device_meta.id,
+                node_id,
+                endpoint_id,
+                vendor_id,
+                server_clusters[:5],
+                device_types,
+            )
+
+            # Check each cluster on the endpoint
             for cluster_id in server_clusters:
                 # Look up proprietary cluster in registry
                 cluster_meta = registry.get_cluster(cluster_id)
                 if not cluster_meta:
+                    continue
+
+                # Only use clusters from matching vendor
+                if cluster_meta.vendor_id and cluster_meta.vendor_id != vendor_id:
                     continue
 
                 _LOGGER.debug(

@@ -94,12 +94,15 @@ async def async_setup_entry(
     _LOGGER.info("Setting up %d Matter Binding sensors", len(entities))
     async_add_entities(entities)
 
-    # Set up proprietary attribute sensors
-    from .proprietary_sensors import async_setup_proprietary_sensors
+    # Set up proprietary attribute sensors (non-blocking, best effort)
+    try:
+        from .proprietary_sensors import async_setup_proprietary_sensors
 
-    await async_setup_proprietary_sensors(
-        hass, config_entry, coordinator, async_add_entities
-    )
+        await async_setup_proprietary_sensors(
+            hass, config_entry, coordinator, async_add_entities
+        )
+    except Exception as err:
+        _LOGGER.warning("Failed to set up proprietary sensors (non-critical): %s", err)
 
 
 class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -148,11 +151,36 @@ class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         bindings = await get_bindings(self.hass, node_id, endpoint_id)
                         data["bindings"][(node_id, endpoint_id)] = bindings
 
-                    # Fetch proprietary attributes
+                    # Fetch proprietary attributes only for matching devices
                     server_clusters = endpoint.get("server_clusters", [])
+                    device_types = [
+                        dt.get("id")
+                        for dt in endpoint.get("device_types", [])
+                        if dt.get("id")
+                    ]
+                    vendor_id = node.get("device_info", {}).get("vendor_id")
+
+                    # Check if device matches any known definition
+                    device_meta = registry.find_device(
+                        vendor_id=vendor_id or 0,
+                        cluster_ids=server_clusters,
+                        device_types=device_types,
+                    )
+
+                    if not device_meta:
+                        # No matching device definition - skip proprietary attributes
+                        continue
+
                     for cluster_id in server_clusters:
                         cluster_meta = registry.get_cluster(cluster_id)
                         if not cluster_meta:
+                            continue
+
+                        # Only use clusters from matching vendor
+                        if (
+                            cluster_meta.vendor_id
+                            and cluster_meta.vendor_id != vendor_id
+                        ):
                             continue
 
                         # Get exposable attributes for this cluster
