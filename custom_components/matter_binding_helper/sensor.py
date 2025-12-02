@@ -18,7 +18,13 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import DOMAIN
-from .matter_client import BindingEntry, get_bindings, get_nodes
+from .matter_client import (
+    BindingEntry,
+    get_bindings,
+    get_nodes,
+    get_proprietary_attributes,
+)
+from .registry import ProprietaryRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,6 +94,13 @@ async def async_setup_entry(
     _LOGGER.info("Setting up %d Matter Binding sensors", len(entities))
     async_add_entities(entities)
 
+    # Set up proprietary attribute sensors
+    from .proprietary_sensors import async_setup_proprietary_sensors
+
+    await async_setup_proprietary_sensors(
+        hass, config_entry, coordinator, async_add_entities
+    )
+
 
 class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to manage fetching Matter binding data."""
@@ -109,6 +122,7 @@ class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data: dict[str, Any] = {
             "nodes": [],
             "bindings": {},  # Key: (node_id, endpoint_id), Value: list of bindings
+            "proprietary_attributes": {},  # Key: (node, ep, cluster, attr), Value: value
         }
 
         try:
@@ -116,19 +130,52 @@ class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             nodes = await get_nodes(self.hass)
             data["nodes"] = nodes
 
-            # Fetch bindings for each endpoint with binding cluster
+            # Get proprietary registry
+            registry = ProprietaryRegistry.get()
+
+            # Fetch bindings and proprietary attributes for each endpoint
             for node in nodes:
                 node_id = node["node_id"]
                 for endpoint in node.get("endpoints", []):
                     endpoint_id = endpoint["endpoint_id"]
-                    if endpoint.get("has_binding_cluster") and endpoint_id != 0:
+
+                    # Skip root node endpoint
+                    if endpoint_id == 0:
+                        continue
+
+                    # Fetch bindings if endpoint has binding cluster
+                    if endpoint.get("has_binding_cluster"):
                         bindings = await get_bindings(self.hass, node_id, endpoint_id)
                         data["bindings"][(node_id, endpoint_id)] = bindings
 
+                    # Fetch proprietary attributes
+                    server_clusters = endpoint.get("server_clusters", [])
+                    for cluster_id in server_clusters:
+                        cluster_meta = registry.get_cluster(cluster_id)
+                        if not cluster_meta:
+                            continue
+
+                        # Get exposable attributes for this cluster
+                        exposable = cluster_meta.get_exposable_attributes()
+                        if not exposable:
+                            continue
+
+                        # Read attribute values
+                        attr_ids = [attr.id for attr in exposable]
+                        attr_values = await get_proprietary_attributes(
+                            self.hass, node_id, endpoint_id, cluster_id, attr_ids
+                        )
+
+                        # Store values with full key
+                        for attr_id, value in attr_values.items():
+                            key = (node_id, endpoint_id, cluster_id, attr_id)
+                            data["proprietary_attributes"][key] = value
+
             _LOGGER.debug(
-                "Coordinator update: %d nodes, %d binding endpoints",
+                "Coordinator update: %d nodes, %d binding endpoints, %d proprietary attrs",
                 len(nodes),
                 len(data["bindings"]),
+                len(data["proprietary_attributes"]),
             )
 
         except Exception as err:
