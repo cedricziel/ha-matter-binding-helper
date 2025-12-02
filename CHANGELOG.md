@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.13.0...v0.13.1) (2025-12-02)
+
+
+### Bug Fixes
+
+* only create proprietary sensors for matching device fingerprints ([f67743e](https://github.com/cedricziel/ha-matter-binding-helper/commit/f67743e109a3e7fe106fd43ec14f10c35b9ec06c))
+
 ## [0.13.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.12.0...v0.13.0) (2025-12-02)
 
 
