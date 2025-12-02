@@ -1,4 +1,5 @@
 """Matter server client for binding operations."""
+
 from __future__ import annotations
 
 import logging
@@ -152,7 +153,11 @@ def _get_demo_nodes() -> list[dict[str, Any]]:
                     "device_types": [{"id": 257, "revision": 2}],  # Dimmable Light
                     "has_binding_cluster": True,
                     # Dimmable Light is a SERVER for On/Off and Level Control
-                    "server_clusters": [CLUSTER_ON_OFF, CLUSTER_LEVEL_CONTROL, CLUSTER_BINDING],
+                    "server_clusters": [
+                        CLUSTER_ON_OFF,
+                        CLUSTER_LEVEL_CONTROL,
+                        CLUSTER_BINDING,
+                    ],
                     "client_clusters": [],
                 },
                 {
@@ -235,13 +240,17 @@ def get_matter_client(hass: HomeAssistant) -> MatterClient | None:
         if hasattr(entry_data, "matter_client"):
             return entry_data.matter_client
         # Fallback for different HA versions
-        if hasattr(entry_data, "adapter") and hasattr(entry_data.adapter, "matter_client"):
+        if hasattr(entry_data, "adapter") and hasattr(
+            entry_data.adapter, "matter_client"
+        ):
             return entry_data.adapter.matter_client
 
     return None
 
 
-def _get_entities_for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
+def _get_entities_for_device(
+    hass: HomeAssistant, device_id: str
+) -> list[dict[str, Any]]:
     """Get all entities associated with a device.
 
     Returns a list of entity info dicts with:
@@ -258,14 +267,16 @@ def _get_entities_for_device(hass: HomeAssistant, device_id: str) -> list[dict[s
 
         for entity in entity_registry.entities.values():
             if entity.device_id == device_id:
-                entities.append({
-                    "entity_id": entity.entity_id,
-                    "domain": entity.domain,
-                    "name": entity.name or entity.original_name,
-                    "original_name": entity.original_name,
-                    "platform": entity.platform,
-                    "disabled": entity.disabled,
-                })
+                entities.append(
+                    {
+                        "entity_id": entity.entity_id,
+                        "domain": entity.domain,
+                        "name": entity.name or entity.original_name,
+                        "original_name": entity.original_name,
+                        "platform": entity.platform,
+                        "disabled": entity.disabled,
+                    }
+                )
 
         _LOGGER.debug(
             "Found %d entities for device %s: %s",
@@ -315,7 +326,10 @@ def _get_ha_device_info(hass: HomeAssistant, node_id: int) -> dict[str, Any]:
                     id_value = str(identifier[1])
 
                     # Match deviceid_ format: deviceid_{fabric}-{node_id_hex}-MatterNodeDevice
-                    if id_value.startswith("deviceid_") and f"-{node_id_hex}-" in id_value:
+                    if (
+                        id_value.startswith("deviceid_")
+                        and f"-{node_id_hex}-" in id_value
+                    ):
                         ha_info["ha_device_id"] = device.id
                         ha_info["ha_device_name"] = device.name_by_user or device.name
                         ha_info["area_id"] = device.area_id
@@ -406,10 +420,14 @@ def _get_node_name(node: MatterNodeData) -> str:
         device_info = getattr(node, "device_info", None)
         if device_info:
             # Try node_label first, then product_name
-            node_label = getattr(device_info, "node_label", None) or getattr(device_info, "nodeLabel", None)
+            node_label = getattr(device_info, "node_label", None) or getattr(
+                device_info, "nodeLabel", None
+            )
             if node_label and str(node_label).strip():
                 return str(node_label).strip()
-            product_name = getattr(device_info, "product_name", None) or getattr(device_info, "productName", None)
+            product_name = getattr(device_info, "product_name", None) or getattr(
+                device_info, "productName", None
+            )
             if product_name and str(product_name).strip():
                 return str(product_name).strip()
 
@@ -457,46 +475,63 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
             # Try to access as dict first (some objects support dict-like access)
             if hasattr(node_device_info, "__getitem__"):
                 try:
-                    device_info["vendor_name"] = node_device_info.get("vendorName") or node_device_info.get("vendor_name")
-                    device_info["vendor_id"] = node_device_info.get("vendorID") or node_device_info.get("vendor_id")
-                    device_info["product_name"] = node_device_info.get("productName") or node_device_info.get("product_name")
-                    device_info["product_id"] = node_device_info.get("productID") or node_device_info.get("product_id")
-                    device_info["node_label"] = node_device_info.get("nodeLabel") or node_device_info.get("node_label")
-                    device_info["hardware_version"] = node_device_info.get("hardwareVersionString") or node_device_info.get("hardware_version")
-                    device_info["software_version"] = node_device_info.get("softwareVersionString") or node_device_info.get("software_version")
+                    device_info["vendor_name"] = node_device_info.get(
+                        "vendorName"
+                    ) or node_device_info.get("vendor_name")
+                    device_info["vendor_id"] = node_device_info.get(
+                        "vendorID"
+                    ) or node_device_info.get("vendor_id")
+                    device_info["product_name"] = node_device_info.get(
+                        "productName"
+                    ) or node_device_info.get("product_name")
+                    device_info["product_id"] = node_device_info.get(
+                        "productID"
+                    ) or node_device_info.get("product_id")
+                    device_info["node_label"] = node_device_info.get(
+                        "nodeLabel"
+                    ) or node_device_info.get("node_label")
+                    device_info["hardware_version"] = node_device_info.get(
+                        "hardwareVersionString"
+                    ) or node_device_info.get("hardware_version")
+                    device_info["software_version"] = node_device_info.get(
+                        "softwareVersionString"
+                    ) or node_device_info.get("software_version")
                     if any(v is not None for v in device_info.values()):
-                        _LOGGER.debug("Node %s: extracted device_info via dict access: %s", node.node_id, device_info)
+                        _LOGGER.debug(
+                            "Node %s: extracted device_info via dict access: %s",
+                            node.node_id,
+                            device_info,
+                        )
                         return device_info
                 except (TypeError, KeyError):
                     pass
 
             # Log available attributes to help debug
-            all_attrs = [a for a in dir(node_device_info) if not a.startswith('_')]
-            _LOGGER.debug("Node %s: device_info available attrs: %s", node.node_id, all_attrs[:20])
+            all_attrs = [a for a in dir(node_device_info) if not a.startswith("_")]
+            _LOGGER.debug(
+                "Node %s: device_info available attrs: %s", node.node_id, all_attrs[:20]
+            )
 
             # Try direct attribute access with all possible name formats
-            device_info["vendor_name"] = (
-                getattr(node_device_info, "vendorName", None)
-                or getattr(node_device_info, "vendor_name", None)
-            )
+            device_info["vendor_name"] = getattr(
+                node_device_info, "vendorName", None
+            ) or getattr(node_device_info, "vendor_name", None)
             device_info["vendor_id"] = (
                 getattr(node_device_info, "vendorID", None)
                 or getattr(node_device_info, "vendorId", None)
                 or getattr(node_device_info, "vendor_id", None)
             )
-            device_info["product_name"] = (
-                getattr(node_device_info, "productName", None)
-                or getattr(node_device_info, "product_name", None)
-            )
+            device_info["product_name"] = getattr(
+                node_device_info, "productName", None
+            ) or getattr(node_device_info, "product_name", None)
             device_info["product_id"] = (
                 getattr(node_device_info, "productID", None)
                 or getattr(node_device_info, "productId", None)
                 or getattr(node_device_info, "product_id", None)
             )
-            device_info["node_label"] = (
-                getattr(node_device_info, "nodeLabel", None)
-                or getattr(node_device_info, "node_label", None)
-            )
+            device_info["node_label"] = getattr(
+                node_device_info, "nodeLabel", None
+            ) or getattr(node_device_info, "node_label", None)
             device_info["hardware_version"] = (
                 getattr(node_device_info, "hardwareVersionString", None)
                 or getattr(node_device_info, "hardware_version_string", None)
@@ -510,14 +545,26 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
 
             # If we got any data, return it
             if any(v is not None for v in device_info.values()):
-                _LOGGER.debug("Node %s: extracted device_info from property: %s", node.node_id, device_info)
+                _LOGGER.debug(
+                    "Node %s: extracted device_info from property: %s",
+                    node.node_id,
+                    device_info,
+                )
                 return device_info
 
         # Approach 2: Fall back to attributes dict
-        _LOGGER.debug("Node %s: device_info property had no data, trying attributes dict", node.node_id)
+        _LOGGER.debug(
+            "Node %s: device_info property had no data, trying attributes dict",
+            node.node_id,
+        )
         attributes = getattr(node, "attributes", None)
         if attributes:
-            _LOGGER.debug("Node %s: attributes dict has %d keys, sample keys: %s", node.node_id, len(attributes), list(attributes.keys())[:5])
+            _LOGGER.debug(
+                "Node %s: attributes dict has %d keys, sample keys: %s",
+                node.node_id,
+                len(attributes),
+                list(attributes.keys())[:5],
+            )
 
             # Try string keys first (older format)
             device_info["vendor_name"] = attributes.get("0/40/1")
@@ -530,14 +577,26 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
 
             # If string keys didn't work, try iterating and matching by path components
             if not any(v is not None for v in device_info.values()):
-                _LOGGER.debug("Node %s: string keys didn't work, trying path matching", node.node_id)
+                _LOGGER.debug(
+                    "Node %s: string keys didn't work, trying path matching",
+                    node.node_id,
+                )
                 for attr_key, attr_value in attributes.items():
                     # Convert key to string and parse
                     key_str = str(attr_key)
                     if "/40/" in key_str or "BasicInformation" in key_str:
-                        _LOGGER.debug("Node %s: found Basic Info attr: %s = %s", node.node_id, key_str, attr_value)
+                        _LOGGER.debug(
+                            "Node %s: found Basic Info attr: %s = %s",
+                            node.node_id,
+                            key_str,
+                            attr_value,
+                        )
                     # Check for endpoint 0, cluster 40 (Basic Information)
-                    if hasattr(attr_key, 'endpoint_id') and hasattr(attr_key, 'cluster_id') and hasattr(attr_key, 'attribute_id'):
+                    if (
+                        hasattr(attr_key, "endpoint_id")
+                        and hasattr(attr_key, "cluster_id")
+                        and hasattr(attr_key, "attribute_id")
+                    ):
                         if attr_key.endpoint_id == 0 and attr_key.cluster_id == 40:
                             attr_id = attr_key.attribute_id
                             if attr_id == 1:
@@ -555,7 +614,11 @@ def _get_device_info(node: MatterNodeData) -> dict[str, Any]:
                             elif attr_id == 10:
                                 device_info["software_version"] = attr_value
 
-            _LOGGER.debug("Node %s: extracted device_info from attributes: %s", node.node_id, device_info)
+            _LOGGER.debug(
+                "Node %s: extracted device_info from attributes: %s",
+                node.node_id,
+                device_info,
+            )
         else:
             _LOGGER.debug("Node %s: no attributes dict found", node.node_id)
 
@@ -605,11 +668,15 @@ def _get_endpoints_info(node: MatterNodeData) -> list[dict[str, Any]]:
         return []
 
     except Exception as err:
-        _LOGGER.warning("Error getting endpoints for node %s: %s", node.node_id, err, exc_info=True)
+        _LOGGER.warning(
+            "Error getting endpoints for node %s: %s", node.node_id, err, exc_info=True
+        )
         return []
 
 
-def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[dict[str, Any]]:
+def _extract_from_endpoints_property(
+    node_id: int, endpoints_prop: Any
+) -> list[dict[str, Any]]:
     """Extract endpoint info from node.endpoints property."""
     endpoints: list[dict[str, Any]] = []
 
@@ -619,7 +686,10 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
             items = endpoints_prop.items()
         elif hasattr(endpoints_prop, "__iter__"):
             # Try to iterate if it's some other iterable
-            items = [(getattr(ep, "endpoint_id", i), ep) for i, ep in enumerate(endpoints_prop)]
+            items = [
+                (getattr(ep, "endpoint_id", i), ep)
+                for i, ep in enumerate(endpoints_prop)
+            ]
         else:
             return []
 
@@ -653,13 +723,25 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
                         descriptor = clusters.get(CLUSTER_DESCRIPTOR)
                         if descriptor:
                             # Try to get ServerList and ClientList attributes
-                            server_list = _get_cluster_attribute(descriptor, ATTR_SERVER_LIST)
-                            client_list = _get_cluster_attribute(descriptor, ATTR_CLIENT_LIST)
+                            server_list = _get_cluster_attribute(
+                                descriptor, ATTR_SERVER_LIST
+                            )
+                            client_list = _get_cluster_attribute(
+                                descriptor, ATTR_CLIENT_LIST
+                            )
 
                             if server_list is not None:
-                                server_cluster_ids = set(server_list) if isinstance(server_list, list) else server_cluster_ids
+                                server_cluster_ids = (
+                                    set(server_list)
+                                    if isinstance(server_list, list)
+                                    else server_cluster_ids
+                                )
                             if client_list is not None:
-                                client_cluster_ids = set(client_list) if isinstance(client_list, list) else set()
+                                client_cluster_ids = (
+                                    set(client_list)
+                                    if isinstance(client_list, list)
+                                    else set()
+                                )
 
                     elif hasattr(clusters, "__iter__"):
                         for c in clusters:
@@ -672,7 +754,8 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
                 ep_info["client_clusters"] = sorted(client_cluster_ids)
                 # Binding cluster can be either server or client - check both
                 ep_info["has_binding_cluster"] = (
-                    CLUSTER_BINDING in server_cluster_ids or CLUSTER_BINDING in client_cluster_ids
+                    CLUSTER_BINDING in server_cluster_ids
+                    or CLUSTER_BINDING in client_cluster_ids
                 )
 
                 # Try to get device types
@@ -685,15 +768,19 @@ def _extract_from_endpoints_property(node_id: int, endpoints_prop: Any) -> list[
                 if device_types:
                     for dt in device_types:
                         if hasattr(dt, "device_type"):
-                            ep_info["device_types"].append({
-                                "id": dt.device_type,
-                                "revision": getattr(dt, "revision", 1),
-                            })
+                            ep_info["device_types"].append(
+                                {
+                                    "id": dt.device_type,
+                                    "revision": getattr(dt, "revision", 1),
+                                }
+                            )
                         elif isinstance(dt, dict):
-                            ep_info["device_types"].append({
-                                "id": dt.get("device_type") or dt.get("id"),
-                                "revision": dt.get("revision", 1),
-                            })
+                            ep_info["device_types"].append(
+                                {
+                                    "id": dt.get("device_type") or dt.get("id"),
+                                    "revision": dt.get("revision", 1),
+                                }
+                            )
 
                 endpoints.append(ep_info)
                 _LOGGER.debug(
@@ -743,7 +830,9 @@ def _get_cluster_attribute(cluster: Any, attribute_id: int) -> Any:
     return None
 
 
-def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[str, Any]]:
+def _extract_from_attributes_dict(
+    node_id: int, attributes: dict
+) -> list[dict[str, Any]]:
     """Extract endpoint info from node.attributes dict (legacy approach)."""
     endpoints_dict: dict[int, dict[str, Any]] = {}
 
@@ -785,24 +874,36 @@ def _extract_from_attributes_dict(node_id: int, attributes: dict) -> list[dict[s
                                     dt_id = dt.get(0) or dt.get("deviceType")
                                     dt_rev = dt.get(1) or dt.get("revision", 1)
                                     if dt_id is not None:
-                                        endpoints_dict[endpoint_id]["device_types"].append({
-                                            "id": dt_id,
-                                            "revision": dt_rev,
-                                        })
+                                        endpoints_dict[endpoint_id][
+                                            "device_types"
+                                        ].append(
+                                            {
+                                                "id": dt_id,
+                                                "revision": dt_rev,
+                                            }
+                                        )
 
                         # Attribute 1: ServerList
                         elif attr_id == "1" and isinstance(attr_value, list):
-                            endpoints_dict[endpoint_id]["server_clusters"] = set(attr_value)
+                            endpoints_dict[endpoint_id]["server_clusters"] = set(
+                                attr_value
+                            )
 
                         # Attribute 2: ClientList
                         elif attr_id == "2" and isinstance(attr_value, list):
-                            endpoints_dict[endpoint_id]["client_clusters"] = set(attr_value)
+                            endpoints_dict[endpoint_id]["client_clusters"] = set(
+                                attr_value
+                            )
                             # Update has_binding_cluster if binding is in client list
                             if CLUSTER_BINDING in attr_value:
-                                endpoints_dict[endpoint_id]["has_binding_cluster"] = True
+                                endpoints_dict[endpoint_id]["has_binding_cluster"] = (
+                                    True
+                                )
 
             except (ValueError, IndexError) as parse_err:
-                _LOGGER.debug("Could not parse attribute key %s: %s", attr_key, parse_err)
+                _LOGGER.debug(
+                    "Could not parse attribute key %s: %s", attr_key, parse_err
+                )
                 continue
 
         # Convert to list and convert cluster sets to lists
@@ -826,7 +927,11 @@ async def get_bindings(
     """Get bindings for a specific node endpoint."""
     # Check for demo mode first
     if _is_demo_mode(hass):
-        _LOGGER.debug("Demo mode enabled, returning demo bindings for node %s endpoint %s", node_id, endpoint_id)
+        _LOGGER.debug(
+            "Demo mode enabled, returning demo bindings for node %s endpoint %s",
+            node_id,
+            endpoint_id,
+        )
         return _demo_bindings.get((node_id, endpoint_id), [])
 
     client = get_matter_client(hass)
@@ -837,21 +942,28 @@ async def get_bindings(
     bindings = []
     try:
         # First, try to get bindings from node's cached endpoint data
-        bindings_from_cache = _get_bindings_from_node_cache(client, node_id, endpoint_id)
+        bindings_from_cache = _get_bindings_from_node_cache(
+            client, node_id, endpoint_id
+        )
         if bindings_from_cache is not None:
             _LOGGER.debug(
                 "get_bindings: Found %d bindings from node cache for node %s ep %s",
-                len(bindings_from_cache), node_id, endpoint_id
+                len(bindings_from_cache),
+                node_id,
+                endpoint_id,
             )
             return bindings_from_cache
 
         # Fall back to reading via read_attribute API
         _LOGGER.debug(
             "get_bindings: No cached bindings, trying read_attribute for node %s ep %s",
-            node_id, endpoint_id
+            node_id,
+            endpoint_id,
         )
         attribute_path = f"{endpoint_id}/{CLUSTER_BINDING}/0"
-        _LOGGER.debug("get_bindings: Calling read_attribute with path: %s", attribute_path)
+        _LOGGER.debug(
+            "get_bindings: Calling read_attribute with path: %s", attribute_path
+        )
 
         result = await client.read_attribute(
             node_id=node_id,
@@ -860,7 +972,8 @@ async def get_bindings(
 
         _LOGGER.debug(
             "get_bindings: read_attribute returned type=%s, value=%s",
-            type(result).__name__, result
+            type(result).__name__,
+            result,
         )
 
         if result and isinstance(result, list):
@@ -876,13 +989,26 @@ async def get_bindings(
                 )
                 bindings.append(entry)
     except Exception as err:
-        _LOGGER.error("Error reading bindings for node %s endpoint %s: %s", node_id, endpoint_id, err, exc_info=True)
+        _LOGGER.error(
+            "Error reading bindings for node %s endpoint %s: %s",
+            node_id,
+            endpoint_id,
+            err,
+            exc_info=True,
+        )
 
-    _LOGGER.debug("get_bindings: Returning %d bindings for node %s ep %s", len(bindings), node_id, endpoint_id)
+    _LOGGER.debug(
+        "get_bindings: Returning %d bindings for node %s ep %s",
+        len(bindings),
+        node_id,
+        endpoint_id,
+    )
     return bindings
 
 
-def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_id: int) -> list[BindingEntry] | None:
+def _get_bindings_from_node_cache(
+    client: MatterClient, node_id: int, endpoint_id: int
+) -> list[BindingEntry] | None:
     """Try to get bindings from the node's cached endpoint data.
 
     Uses the MatterEndpoint object's get_cluster() or get_attribute_value() methods
@@ -899,18 +1025,25 @@ def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_i
             # Access the endpoint from node.endpoints dict
             endpoints = getattr(node, "endpoints", None)
             if not endpoints:
-                _LOGGER.debug("_get_bindings_from_node_cache: Node %s has no endpoints", node_id)
+                _LOGGER.debug(
+                    "_get_bindings_from_node_cache: Node %s has no endpoints", node_id
+                )
                 return None
 
             endpoint = endpoints.get(endpoint_id)
             if not endpoint:
-                _LOGGER.debug("_get_bindings_from_node_cache: Node %s has no endpoint %s", node_id, endpoint_id)
+                _LOGGER.debug(
+                    "_get_bindings_from_node_cache: Node %s has no endpoint %s",
+                    node_id,
+                    endpoint_id,
+                )
                 return None
 
             _LOGGER.debug(
                 "_get_bindings_from_node_cache: Found endpoint %s (type=%s), available methods: %s",
-                endpoint_id, type(endpoint).__name__,
-                [m for m in dir(endpoint) if not m.startswith('_')][:15]
+                endpoint_id,
+                type(endpoint).__name__,
+                [m for m in dir(endpoint) if not m.startswith("_")][:15],
             )
 
             binding_value = None
@@ -920,23 +1053,41 @@ def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_i
                 binding_cluster = endpoint.get_cluster(CLUSTER_BINDING)
                 _LOGGER.debug(
                     "_get_bindings_from_node_cache: get_cluster(%s) returned: %s (type=%s)",
-                    CLUSTER_BINDING, binding_cluster, type(binding_cluster).__name__ if binding_cluster else None
+                    CLUSTER_BINDING,
+                    binding_cluster,
+                    type(binding_cluster).__name__ if binding_cluster else None,
                 )
                 if binding_cluster:
                     # Try to get the Binding attribute (attribute 0) from the cluster
                     if hasattr(binding_cluster, "binding"):
                         binding_value = binding_cluster.binding
-                        _LOGGER.debug("_get_bindings_from_node_cache: Found via cluster.binding: %s", binding_value)
+                        _LOGGER.debug(
+                            "_get_bindings_from_node_cache: Found via cluster.binding: %s",
+                            binding_value,
+                        )
                     elif hasattr(binding_cluster, "get_attribute_value"):
                         binding_value = binding_cluster.get_attribute_value(0)
-                        _LOGGER.debug("_get_bindings_from_node_cache: Found via cluster.get_attribute_value(0): %s", binding_value)
+                        _LOGGER.debug(
+                            "_get_bindings_from_node_cache: Found via cluster.get_attribute_value(0): %s",
+                            binding_value,
+                        )
                     elif isinstance(binding_cluster, dict):
-                        binding_value = binding_cluster.get(0) or binding_cluster.get("binding")
-                        _LOGGER.debug("_get_bindings_from_node_cache: Found via cluster dict: %s", binding_value)
+                        binding_value = binding_cluster.get(0) or binding_cluster.get(
+                            "binding"
+                        )
+                        _LOGGER.debug(
+                            "_get_bindings_from_node_cache: Found via cluster dict: %s",
+                            binding_value,
+                        )
                     else:
                         # Log available attributes on the cluster
-                        cluster_attrs = [a for a in dir(binding_cluster) if not a.startswith('_')]
-                        _LOGGER.debug("_get_bindings_from_node_cache: Binding cluster attrs: %s", cluster_attrs)
+                        cluster_attrs = [
+                            a for a in dir(binding_cluster) if not a.startswith("_")
+                        ]
+                        _LOGGER.debug(
+                            "_get_bindings_from_node_cache: Binding cluster attrs: %s",
+                            cluster_attrs,
+                        )
 
             # Method 2: Try endpoint.get_attribute_value() directly
             if binding_value is None and hasattr(endpoint, "get_attribute_value"):
@@ -944,10 +1095,14 @@ def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_i
                     binding_value = endpoint.get_attribute_value(CLUSTER_BINDING, 0)
                     _LOGGER.debug(
                         "_get_bindings_from_node_cache: endpoint.get_attribute_value(%s, 0) returned: %s",
-                        CLUSTER_BINDING, binding_value
+                        CLUSTER_BINDING,
+                        binding_value,
                     )
                 except Exception as attr_err:
-                    _LOGGER.debug("_get_bindings_from_node_cache: get_attribute_value failed: %s", attr_err)
+                    _LOGGER.debug(
+                        "_get_bindings_from_node_cache: get_attribute_value failed: %s",
+                        attr_err,
+                    )
 
             # Method 3: Try accessing clusters dict directly
             if binding_value is None and hasattr(endpoint, "clusters"):
@@ -955,23 +1110,30 @@ def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_i
                 _LOGGER.debug(
                     "_get_bindings_from_node_cache: endpoint.clusters type=%s, keys=%s",
                     type(clusters).__name__,
-                    list(clusters.keys()) if isinstance(clusters, dict) else "N/A"
+                    list(clusters.keys()) if isinstance(clusters, dict) else "N/A",
                 )
                 if isinstance(clusters, dict):
                     binding_cluster = clusters.get(CLUSTER_BINDING)
                     if binding_cluster:
                         _LOGGER.debug(
                             "_get_bindings_from_node_cache: Found binding cluster in dict: %s (type=%s)",
-                            binding_cluster, type(binding_cluster).__name__
+                            binding_cluster,
+                            type(binding_cluster).__name__,
                         )
                         # Try to get binding attribute
                         if hasattr(binding_cluster, "binding"):
                             binding_value = binding_cluster.binding
                         elif isinstance(binding_cluster, dict):
-                            binding_value = binding_cluster.get(0) or binding_cluster.get("binding")
+                            binding_value = binding_cluster.get(
+                                0
+                            ) or binding_cluster.get("binding")
 
             if binding_value is None:
-                _LOGGER.debug("_get_bindings_from_node_cache: No binding value found for node %s ep %s", node_id, endpoint_id)
+                _LOGGER.debug(
+                    "_get_bindings_from_node_cache: No binding value found for node %s ep %s",
+                    node_id,
+                    endpoint_id,
+                )
                 return None
 
             # Parse the binding value into BindingEntry objects
@@ -985,7 +1147,9 @@ def _get_bindings_from_node_cache(client: MatterClient, node_id: int, endpoint_i
         return None
 
 
-def _parse_binding_value(node_id: int, endpoint_id: int, binding_value: Any) -> list[BindingEntry]:
+def _parse_binding_value(
+    node_id: int, endpoint_id: int, binding_value: Any
+) -> list[BindingEntry]:
     """Parse a binding attribute value into BindingEntry objects."""
     bindings = []
 
@@ -997,7 +1161,11 @@ def _parse_binding_value(node_id: int, endpoint_id: int, binding_value: Any) -> 
         binding_value = [binding_value]
 
     for binding in binding_value:
-        _LOGGER.debug("_parse_binding_value: Parsing entry: %s (type=%s)", binding, type(binding).__name__)
+        _LOGGER.debug(
+            "_parse_binding_value: Parsing entry: %s (type=%s)",
+            binding,
+            type(binding).__name__,
+        )
 
         # Handle different binding entry formats
         cluster_id = 0
@@ -1008,20 +1176,29 @@ def _parse_binding_value(node_id: int, endpoint_id: int, binding_value: Any) -> 
         if isinstance(binding, dict):
             # Dict format - try various key names (Matter uses PascalCase)
             cluster_id = (
-                binding.get("Cluster") or binding.get("cluster") or
-                binding.get("ClusterId") or binding.get("clusterId") or 0
+                binding.get("Cluster")
+                or binding.get("cluster")
+                or binding.get("ClusterId")
+                or binding.get("clusterId")
+                or 0
             )
             target_node = (
-                binding.get("Node") or binding.get("node") or
-                binding.get("NodeId") or binding.get("nodeId")
+                binding.get("Node")
+                or binding.get("node")
+                or binding.get("NodeId")
+                or binding.get("nodeId")
             )
             target_endpoint = (
-                binding.get("Endpoint") or binding.get("endpoint") or
-                binding.get("EndpointId") or binding.get("endpointId")
+                binding.get("Endpoint")
+                or binding.get("endpoint")
+                or binding.get("EndpointId")
+                or binding.get("endpointId")
             )
             target_group = (
-                binding.get("Group") or binding.get("group") or
-                binding.get("GroupId") or binding.get("groupId")
+                binding.get("Group")
+                or binding.get("group")
+                or binding.get("GroupId")
+                or binding.get("groupId")
             )
         elif hasattr(binding, "cluster"):
             # Object with snake_case attributes
@@ -1056,7 +1233,11 @@ async def create_binding(
     """Create a new binding."""
     # Handle demo mode
     if _is_demo_mode(hass):
-        _LOGGER.debug("Demo mode: creating binding for node %s endpoint %s", source_node_id, source_endpoint_id)
+        _LOGGER.debug(
+            "Demo mode: creating binding for node %s endpoint %s",
+            source_node_id,
+            source_endpoint_id,
+        )
         key = (source_node_id, source_endpoint_id)
         if key not in _demo_bindings:
             _demo_bindings[key] = []
@@ -1080,12 +1261,18 @@ async def create_binding(
     try:
         _LOGGER.info(
             "create_binding: Creating binding from node %s ep %s to node %s ep %s (cluster %s)",
-            source_node_id, source_endpoint_id, target_node_id, target_endpoint_id, cluster_id
+            source_node_id,
+            source_endpoint_id,
+            target_node_id,
+            target_endpoint_id,
+            cluster_id,
         )
 
         # Get current bindings
         current_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
-        _LOGGER.debug("create_binding: Current bindings count: %d", len(current_bindings))
+        _LOGGER.debug(
+            "create_binding: Current bindings count: %d", len(current_bindings)
+        )
 
         # Build new binding entry - use the TargetStruct format
         new_binding: dict[str, Any] = {
@@ -1146,11 +1333,16 @@ async def delete_binding(
     """Delete a binding."""
     # Handle demo mode
     if _is_demo_mode(hass):
-        _LOGGER.debug("Demo mode: deleting binding for node %s endpoint %s", source_node_id, source_endpoint_id)
+        _LOGGER.debug(
+            "Demo mode: deleting binding for node %s endpoint %s",
+            source_node_id,
+            source_endpoint_id,
+        )
         key = (source_node_id, source_endpoint_id)
         if key in _demo_bindings:
             _demo_bindings[key] = [
-                b for b in _demo_bindings[key]
+                b
+                for b in _demo_bindings[key]
                 if not (
                     b.target_node_id == target_node_id
                     and b.target_endpoint_id == target_endpoint_id
@@ -1169,7 +1361,8 @@ async def delete_binding(
 
         # Filter out the binding to delete
         filtered_bindings = [
-            b for b in current_bindings
+            b
+            for b in current_bindings
             if not (
                 b.target_node_id == target_node_id
                 and b.target_endpoint_id == target_endpoint_id
@@ -1232,7 +1425,9 @@ async def add_to_group(
 ) -> bool:
     """Add an endpoint to a group."""
     # Placeholder for adding to group
-    _LOGGER.debug("Adding node %s endpoint %s to group %s", node_id, endpoint_id, group_id)
+    _LOGGER.debug(
+        "Adding node %s endpoint %s to group %s", node_id, endpoint_id, group_id
+    )
     return False
 
 
@@ -1241,5 +1436,7 @@ async def remove_from_group(
 ) -> bool:
     """Remove an endpoint from a group."""
     # Placeholder for removing from group
-    _LOGGER.debug("Removing node %s endpoint %s from group %s", node_id, endpoint_id, group_id)
+    _LOGGER.debug(
+        "Removing node %s endpoint %s from group %s", node_id, endpoint_id, group_id
+    )
     return False

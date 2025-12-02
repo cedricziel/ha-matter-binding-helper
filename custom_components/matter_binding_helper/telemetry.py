@@ -1,4 +1,5 @@
 """Telemetry module for Matter Survey data collection."""
+
 from __future__ import annotations
 
 import asyncio
@@ -64,13 +65,15 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
     # Anonymize endpoints - only keep capability data
     anonymized_endpoints = []
     for endpoint in node.get("endpoints", []):
-        anonymized_endpoints.append({
-            "endpoint_id": endpoint.get("endpoint_id"),
-            "device_types": endpoint.get("device_types", []),
-            "server_clusters": endpoint.get("server_clusters", []),
-            "client_clusters": endpoint.get("client_clusters", []),
-            "has_binding_cluster": endpoint.get("has_binding_cluster", False),
-        })
+        anonymized_endpoints.append(
+            {
+                "endpoint_id": endpoint.get("endpoint_id"),
+                "device_types": endpoint.get("device_types", []),
+                "server_clusters": endpoint.get("server_clusters", []),
+                "client_clusters": endpoint.get("client_clusters", []),
+                "has_binding_cluster": endpoint.get("has_binding_cluster", False),
+            }
+        )
 
     # Skip devices with no endpoints
     if not anonymized_endpoints:
@@ -115,9 +118,13 @@ def _get_or_create_installation_id(hass: HomeAssistant) -> str:
         return installation_id
 
     # Fallback if no config entry exists (shouldn't happen in normal operation)
-    _LOGGER.warning("No config entry found for %s, generating ephemeral installation_id", DOMAIN)
+    _LOGGER.warning(
+        "No config entry found for %s, generating ephemeral installation_id", DOMAIN
+    )
     ephemeral_id = str(uuid.uuid4())
-    _LOGGER.warning("Using ephemeral installation_id: %s (data won't be deduplicated)", ephemeral_id)
+    _LOGGER.warning(
+        "Using ephemeral installation_id: %s (data won't be deduplicated)", ephemeral_id
+    )
     return ephemeral_id
 
 
@@ -228,7 +235,12 @@ async def send_telemetry(hass: HomeAssistant) -> bool:
         _LOGGER.warning("Telemetry submission failed (network error): %s", err)
         return False
     except Exception as err:
-        _LOGGER.error("Unexpected error sending telemetry (%s): %s", type(err).__name__, err, exc_info=True)
+        _LOGGER.error(
+            "Unexpected error sending telemetry (%s): %s",
+            type(err).__name__,
+            err,
+            exc_info=True,
+        )
         return False
 
 
@@ -260,6 +272,8 @@ async def schedule_initial_telemetry(hass: HomeAssistant) -> None:
     if is_telemetry_enabled(hass):
         _LOGGER.info("Starting scheduled initial telemetry submission")
         result = await send_telemetry(hass)
-        _LOGGER.info("Initial telemetry submission %s", "succeeded" if result else "failed")
+        _LOGGER.info(
+            "Initial telemetry submission %s", "succeeded" if result else "failed"
+        )
     else:
         _LOGGER.info("Telemetry was disabled during delay period, skipping submission")

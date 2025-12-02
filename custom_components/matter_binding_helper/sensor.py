@@ -1,4 +1,5 @@
 """Sensor platform for Matter Binding Helper."""
+
 from __future__ import annotations
 
 import logging

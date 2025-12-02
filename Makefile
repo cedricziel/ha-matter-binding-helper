@@ -1,7 +1,22 @@
-.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-list devices-reset survey-install survey-deploy survey-serve
+.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-list devices-reset survey-install survey-deploy survey-serve venv lint format test
+
+# Python virtual environment
+VENV := .venv
+PYTHON := $(VENV)/bin/python
+PIP := $(VENV)/bin/pip
+RUFF := $(VENV)/bin/ruff
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# Python virtual environment
+$(VENV)/bin/activate: requirements_dev.txt
+	python3 -m venv $(VENV)
+	$(PIP) install --upgrade pip
+	$(PIP) install -r requirements_dev.txt
+	touch $(VENV)/bin/activate
+
+venv: $(VENV)/bin/activate ## Create Python virtual environment
 
 # Docker commands
 start: frontend-build ## Start Home Assistant development server
@@ -22,13 +37,16 @@ logs-component: ## Show only Matter Binding Helper logs
 
 # Frontend commands
 frontend-build: ## Build frontend for production
-	cd frontend && npm install && npm run build
+	cd frontend && npm ci && npm run build
 
 frontend-watch: ## Start frontend dev server with watch mode
 	docker compose --profile dev up frontend-dev
 
 frontend-install: ## Install frontend dependencies
-	cd frontend && npm install
+	cd frontend && npm ci
+
+frontend-test: ## Run frontend tests
+	cd frontend && npm test
 
 # Development
 dev: ## Start HA + frontend watch mode
@@ -41,13 +59,17 @@ clean: ## Clean all generated files and containers
 	rm -rf frontend/node_modules
 	rm -rf custom_components/matter_binding_helper/frontend/*.js
 	rm -rf custom_components/matter_binding_helper/frontend/*.map
+	rm -rf $(VENV)
 
 # Python development
-lint: ## Run Python linters
-	cd custom_components/matter_binding_helper && ruff check .
+lint: venv ## Run Python linters
+	$(RUFF) check custom_components/matter_binding_helper
 
-format: ## Format Python code
-	cd custom_components/matter_binding_helper && ruff format .
+format: venv ## Format Python code
+	$(RUFF) format custom_components/matter_binding_helper
+
+test: venv ## Run Python tests
+	$(PYTHON) -m pytest tests/ -v
 
 # Utility
 shell: ## Open a shell in the HA container

@@ -1,4 +1,5 @@
 """WebSocket API for Matter Binding Helper."""
+
 from __future__ import annotations
 
 import logging
@@ -7,27 +8,25 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 
 from .const import (
-    DOMAIN,
-    WS_TYPE_LIST_NODES,
-    WS_TYPE_LIST_BINDINGS,
-    WS_TYPE_CREATE_BINDING,
-    WS_TYPE_DELETE_BINDING,
-    WS_TYPE_LIST_GROUPS,
-    WS_TYPE_CREATE_GROUP,
-    WS_TYPE_DELETE_GROUP,
     WS_TYPE_ADD_TO_GROUP,
+    WS_TYPE_CREATE_BINDING,
+    WS_TYPE_CREATE_GROUP,
+    WS_TYPE_DELETE_BINDING,
+    WS_TYPE_DELETE_GROUP,
+    WS_TYPE_LIST_BINDINGS,
+    WS_TYPE_LIST_GROUPS,
+    WS_TYPE_LIST_NODES,
     WS_TYPE_REMOVE_FROM_GROUP,
 )
 from . import matter_client
 from .devices.parsers.eve import (
     EVE_CLUSTER_ID,
     EVE_SCHEDULE_ATTR,
-    EVE_VENDOR_ID,
     is_eve_thermostat,
     parse_eve_schedule,
 )
@@ -109,7 +108,9 @@ async def ws_debug_node(
             endpoints_prop = getattr(node, "endpoints", None)
             endpoints_info = {
                 "has_endpoints": endpoints_prop is not None,
-                "endpoints_type": type(endpoints_prop).__name__ if endpoints_prop else None,
+                "endpoints_type": type(endpoints_prop).__name__
+                if endpoints_prop
+                else None,
                 "endpoints_len": len(endpoints_prop) if endpoints_prop else 0,
             }
 
@@ -125,13 +126,17 @@ async def ws_debug_node(
                             first_endpoint_info = {
                                 "endpoint_id": first_ep_id,
                                 "type": type(first_ep).__name__,
-                                "attrs": [a for a in dir(first_ep) if not a.startswith("_")],
+                                "attrs": [
+                                    a for a in dir(first_ep) if not a.startswith("_")
+                                ],
                             }
                     elif isinstance(endpoints_prop, list) and len(endpoints_prop) > 0:
                         first_ep = endpoints_prop[0]
                         first_endpoint_info = {
                             "type": type(first_ep).__name__,
-                            "attrs": [a for a in dir(first_ep) if not a.startswith("_")],
+                            "attrs": [
+                                a for a in dir(first_ep) if not a.startswith("_")
+                            ],
                         }
                 except Exception as ep_err:
                     first_endpoint_info = {"error": str(ep_err)}
@@ -143,15 +148,18 @@ async def ws_debug_node(
                 "node_data_type": type(node_data).__name__ if node_data else None,
             }
 
-            connection.send_result(msg["id"], {
-                "node_id": node.node_id,
-                "node_type": type(node).__name__,
-                "available_attrs": node_attrs,
-                "attributes_info": attr_info,
-                "endpoints_info": endpoints_info,
-                "first_endpoint": first_endpoint_info,
-                "node_data_info": node_data_info,
-            })
+            connection.send_result(
+                msg["id"],
+                {
+                    "node_id": node.node_id,
+                    "node_type": type(node).__name__,
+                    "available_attrs": node_attrs,
+                    "attributes_info": attr_info,
+                    "endpoints_info": endpoints_info,
+                    "first_endpoint": first_endpoint_info,
+                    "node_data_info": node_data_info,
+                },
+            )
             return
 
     connection.send_error(msg["id"], "not_found", f"Node {target_node_id} not found")
@@ -176,7 +184,8 @@ async def ws_debug_devices(
     for device in device_registry.devices.values():
         # Check if any identifier starts with "matter"
         matter_identifiers = [
-            list(ident) for ident in device.identifiers
+            list(ident)
+            for ident in device.identifiers
             if len(ident) >= 2 and ident[0] == "matter"
         ]
 
@@ -187,16 +196,18 @@ async def ws_debug_devices(
                 if area:
                     area_name = area.name
 
-            matter_devices.append({
-                "device_id": device.id,
-                "name": device.name,
-                "name_by_user": device.name_by_user,
-                "identifiers": matter_identifiers,
-                "area_id": device.area_id,
-                "area_name": area_name,
-                "model": device.model,
-                "manufacturer": device.manufacturer,
-            })
+            matter_devices.append(
+                {
+                    "device_id": device.id,
+                    "name": device.name,
+                    "name_by_user": device.name_by_user,
+                    "identifiers": matter_identifiers,
+                    "area_id": device.area_id,
+                    "area_name": area_name,
+                    "model": device.model,
+                    "manufacturer": device.manufacturer,
+                }
+            )
 
     connection.send_result(msg["id"], {"devices": matter_devices})
 
@@ -247,14 +258,16 @@ async def ws_debug_bindings(
 
         endpoint = endpoints.get(target_endpoint_id)
         if not endpoint:
-            result["error"] = f"Endpoint {target_endpoint_id} not found. Available: {list(endpoints.keys())}"
+            result["error"] = (
+                f"Endpoint {target_endpoint_id} not found. Available: {list(endpoints.keys())}"
+            )
             connection.send_result(msg["id"], result)
             return
 
         # Endpoint info
         result["endpoint_info"] = {
             "type": type(endpoint).__name__,
-            "available_attrs": [a for a in dir(endpoint) if not a.startswith('_')][:20],
+            "available_attrs": [a for a in dir(endpoint) if not a.startswith("_")][:20],
         }
 
         # Get clusters on endpoint
@@ -268,7 +281,9 @@ async def ws_debug_bindings(
                 if binding_cluster:
                     result["binding_cluster_info"] = {
                         "type": type(binding_cluster).__name__,
-                        "available_attrs": [a for a in dir(binding_cluster) if not a.startswith('_')][:20],
+                        "available_attrs": [
+                            a for a in dir(binding_cluster) if not a.startswith("_")
+                        ][:20],
                     }
 
                     # Try to get binding attribute value
@@ -285,7 +300,9 @@ async def ws_debug_bindings(
             if binding_cluster:
                 result["binding_cluster_info"] = {
                     "type": type(binding_cluster).__name__,
-                    "available_attrs": [a for a in dir(binding_cluster) if not a.startswith('_')][:20],
+                    "available_attrs": [
+                        a for a in dir(binding_cluster) if not a.startswith("_")
+                    ][:20],
                     "source": "get_cluster()",
                 }
 
@@ -340,12 +357,14 @@ async def ws_debug_match(
                 is_deviceid = id_value.startswith("deviceid_")
                 has_pattern = search_pattern in id_value
 
-                checked.append({
-                    "device_name": device.name,
-                    "identifier": id_value,
-                    "is_deviceid": is_deviceid,
-                    "has_pattern": has_pattern,
-                })
+                checked.append(
+                    {
+                        "device_name": device.name,
+                        "identifier": id_value,
+                        "is_deviceid": is_deviceid,
+                        "has_pattern": has_pattern,
+                    }
+                )
 
                 if is_deviceid and has_pattern:
                     area_name = None
@@ -354,22 +373,27 @@ async def ws_debug_match(
                         if area:
                             area_name = area.name
 
-                    matches.append({
-                        "device_id": device.id,
-                        "name": device.name,
-                        "name_by_user": device.name_by_user,
-                        "area_name": area_name,
-                        "matched_identifier": id_value,
-                    })
+                    matches.append(
+                        {
+                            "device_id": device.id,
+                            "name": device.name,
+                            "name_by_user": device.name_by_user,
+                            "area_name": area_name,
+                            "matched_identifier": id_value,
+                        }
+                    )
 
-    connection.send_result(msg["id"], {
-        "node_id": node_id,
-        "node_id_hex": node_id_hex,
-        "search_pattern": search_pattern,
-        "matches": matches,
-        "checked_count": len(checked),
-        "checked_sample": checked[:10],
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "node_id": node_id,
+            "node_id_hex": node_id_hex,
+            "search_pattern": search_pattern,
+            "matches": matches,
+            "checked_count": len(checked),
+            "checked_sample": checked[:10],
+        },
+    )
 
 
 @websocket_api.websocket_command(
@@ -413,14 +437,25 @@ async def ws_debug_client(
         return
 
     # Get all public methods
-    methods = [m for m in dir(client) if not m.startswith('_') and callable(getattr(client, m, None))]
-    attrs = [a for a in dir(client) if not a.startswith('_') and not callable(getattr(client, a, None))]
+    methods = [
+        m
+        for m in dir(client)
+        if not m.startswith("_") and callable(getattr(client, m, None))
+    ]
+    attrs = [
+        a
+        for a in dir(client)
+        if not a.startswith("_") and not callable(getattr(client, a, None))
+    ]
 
-    connection.send_result(msg["id"], {
-        "client_type": type(client).__name__,
-        "methods": methods,
-        "attributes": attrs,
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "client_type": type(client).__name__,
+            "methods": methods,
+            "attributes": attrs,
+        },
+    )
 
 
 @websocket_api.websocket_command(
@@ -480,7 +515,9 @@ async def ws_debug_cluster_commands(
             return
 
         # Filter to specific cluster if requested
-        cluster_ids = [target_cluster_id] if target_cluster_id else list(clusters.keys())
+        cluster_ids = (
+            [target_cluster_id] if target_cluster_id else list(clusters.keys())
+        )
 
         for cluster_id in cluster_ids:
             cluster = clusters.get(cluster_id)
@@ -497,12 +534,24 @@ async def ws_debug_cluster_commands(
             # Try to get AcceptedCommandList
             try:
                 if hasattr(endpoint, "get_attribute_value"):
-                    accepted = endpoint.get_attribute_value(cluster_id, ATTR_ACCEPTED_COMMAND_LIST)
+                    accepted = endpoint.get_attribute_value(
+                        cluster_id, ATTR_ACCEPTED_COMMAND_LIST
+                    )
                     if accepted is not None:
-                        cluster_info["accepted_commands"] = list(accepted) if hasattr(accepted, '__iter__') else [accepted]
-                    generated = endpoint.get_attribute_value(cluster_id, ATTR_GENERATED_COMMAND_LIST)
+                        cluster_info["accepted_commands"] = (
+                            list(accepted)
+                            if hasattr(accepted, "__iter__")
+                            else [accepted]
+                        )
+                    generated = endpoint.get_attribute_value(
+                        cluster_id, ATTR_GENERATED_COMMAND_LIST
+                    )
                     if generated is not None:
-                        cluster_info["generated_commands"] = list(generated) if hasattr(generated, '__iter__') else [generated]
+                        cluster_info["generated_commands"] = (
+                            list(generated)
+                            if hasattr(generated, "__iter__")
+                            else [generated]
+                        )
             except Exception as e:
                 cluster_info["error"] = str(e)
 
@@ -512,7 +561,7 @@ async def ws_debug_cluster_commands(
                     commands_class = cluster.Commands
                     command_names = {}
                     for name in dir(commands_class):
-                        if not name.startswith('_'):
+                        if not name.startswith("_"):
                             cmd_obj = getattr(commands_class, name, None)
                             if cmd_obj and hasattr(cmd_obj, "command_id"):
                                 command_names[cmd_obj.command_id] = name
@@ -558,7 +607,9 @@ async def ws_debug_cluster_attributes(
         "endpoint_id": target_endpoint_id,
         "cluster_id": target_cluster_id,
         "cluster_hex": f"0x{target_cluster_id:08X}",
-        "vendor_id": (target_cluster_id >> 16) & 0xFFFF if target_cluster_id > 0xFFFF else None,
+        "vendor_id": (target_cluster_id >> 16) & 0xFFFF
+        if target_cluster_id > 0xFFFF
+        else None,
     }
 
     for node in client.get_nodes():
@@ -574,10 +625,15 @@ async def ws_debug_cluster_attributes(
                 for key, value in node_data_attrs.items():
                     key_str = str(key)
                     # Match format: "endpoint/cluster/attribute" or AttributePath objects
-                    if hasattr(key, 'EndpointId') and hasattr(key, 'ClusterId'):
-                        if key.EndpointId == target_endpoint_id and key.ClusterId == target_cluster_id:
+                    if hasattr(key, "EndpointId") and hasattr(key, "ClusterId"):
+                        if (
+                            key.EndpointId == target_endpoint_id
+                            and key.ClusterId == target_cluster_id
+                        ):
                             attr_id = key.AttributeId
-                            raw_attrs[f"0x{attr_id:04X} ({attr_id})"] = _serialize_value(value)
+                            raw_attrs[f"0x{attr_id:04X} ({attr_id})"] = (
+                                _serialize_value(value)
+                            )
                     elif f"{target_endpoint_id}/{target_cluster_id}/" in key_str:
                         attr_id = key_str.split("/")[-1]
                         raw_attrs[attr_id] = _serialize_value(value)
@@ -602,7 +658,9 @@ async def ws_debug_cluster_attributes(
         if not cluster:
             # Cluster not instantiated - check if we found raw attributes
             if "raw_attributes_from_node_data" in result:
-                result["note"] = "Cluster not parsed by python-matter-server, showing raw data"
+                result["note"] = (
+                    "Cluster not parsed by python-matter-server, showing raw data"
+                )
                 connection.send_result(msg["id"], result)
                 return
             result["error"] = f"Cluster {target_cluster_id} not found on endpoint"
@@ -621,7 +679,7 @@ async def ws_debug_cluster_attributes(
         if hasattr(cluster, "Attributes"):
             attrs_class = cluster.Attributes
             for name in dir(attrs_class):
-                if not name.startswith('_'):
+                if not name.startswith("_"):
                     attr_obj = getattr(attrs_class, name, None)
                     if attr_obj and hasattr(attr_obj, "attribute_id"):
                         attr_descriptors[attr_obj.attribute_id] = {
@@ -633,9 +691,16 @@ async def ws_debug_cluster_attributes(
 
         # Method 2: Get actual attribute values from cluster instance
         for attr_name in dir(cluster):
-            if attr_name.startswith('_'):
+            if attr_name.startswith("_"):
                 continue
-            if attr_name in ('Attributes', 'Commands', 'Events', 'Enums', 'Bitmaps', 'Structs'):
+            if attr_name in (
+                "Attributes",
+                "Commands",
+                "Events",
+                "Enums",
+                "Bitmaps",
+                "Structs",
+            ):
                 continue
 
             try:
@@ -743,7 +808,10 @@ async def ws_get_eve_schedule(
         result["vendor_id"] = vendor_id
 
         # Check if this is an Eve thermostat
-        if not is_eve_thermostat(vendor_id, cluster_ids) and EVE_CLUSTER_ID not in cluster_ids:
+        if (
+            not is_eve_thermostat(vendor_id, cluster_ids)
+            and EVE_CLUSTER_ID not in cluster_ids
+        ):
             # Try to detect by cluster presence even without vendor ID
             if EVE_CLUSTER_ID not in cluster_ids:
                 result["error"] = "Not an Eve thermostat (Eve cluster not found)"
@@ -758,20 +826,34 @@ async def ws_get_eve_schedule(
             node_attrs = getattr(node_data, "attributes", {})
             for key, value in node_attrs.items():
                 # Try AttributePath object format
-                if hasattr(key, "EndpointId") and hasattr(key, "ClusterId") and hasattr(key, "AttributeId"):
-                    if key.EndpointId == target_endpoint_id and key.ClusterId == EVE_CLUSTER_ID:
+                if (
+                    hasattr(key, "EndpointId")
+                    and hasattr(key, "ClusterId")
+                    and hasattr(key, "AttributeId")
+                ):
+                    if (
+                        key.EndpointId == target_endpoint_id
+                        and key.ClusterId == EVE_CLUSTER_ID
+                    ):
                         if key.AttributeId == EVE_SCHEDULE_ATTR:
                             schedule_data = value
                             break
                 # Try string format "endpoint/cluster/attribute"
                 key_str = str(key)
-                if f"{target_endpoint_id}/{EVE_CLUSTER_ID}/{EVE_SCHEDULE_ATTR}" in key_str:
+                if (
+                    f"{target_endpoint_id}/{EVE_CLUSTER_ID}/{EVE_SCHEDULE_ATTR}"
+                    in key_str
+                ):
                     schedule_data = value
                     break
 
         if schedule_data is None:
             result["error"] = "Schedule attribute not found"
-            result["debug_keys"] = [str(k)[:100] for k in list(node_attrs.keys())[:10]] if node_data else []
+            result["debug_keys"] = (
+                [str(k)[:100] for k in list(node_attrs.keys())[:10]]
+                if node_data
+                else []
+            )
             connection.send_result(msg["id"], result)
             return
 
@@ -814,11 +896,15 @@ def _serialize_value(value: Any) -> dict[str, Any]:
         }
     elif isinstance(value, (int, float, bool, str)):
         return {"type": type(value).__name__, "value": value}
-    elif hasattr(value, '__dict__'):
+    elif hasattr(value, "__dict__"):
         return {
             "type": type(value).__name__,
             "value": str(value)[:500],
-            "dict": {k: str(v)[:100] for k, v in vars(value).items() if not k.startswith('_')} if hasattr(value, '__dict__') else None,
+            "dict": {
+                k: str(v)[:100] for k, v in vars(value).items() if not k.startswith("_")
+            }
+            if hasattr(value, "__dict__")
+            else None,
         }
     else:
         return {"type": type(value).__name__, "value": str(value)[:500]}

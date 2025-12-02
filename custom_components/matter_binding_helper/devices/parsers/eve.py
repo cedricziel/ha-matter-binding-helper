@@ -1,4 +1,5 @@
 """Eve Thermo schedule decoder for proprietary schedule format."""
+
 from __future__ import annotations
 
 import base64
@@ -126,7 +127,11 @@ def _parse_schedule_blob(data: bytes) -> EveSchedule:
         elif idx == 2:
             # Look for zone ID (8-char string after 0x3B 0x08)
             for i in range(len(section) - 10):
-                if i + 1 < len(section) and section[i] == 0x3B and section[i + 1] == 0x08:
+                if (
+                    i + 1 < len(section)
+                    and section[i] == 0x3B
+                    and section[i + 1] == 0x08
+                ):
                     zone_id = _find_string(section, i + 2, 8)
                     if zone_id:
                         schedule.zone_id = zone_id
@@ -145,11 +150,19 @@ def _parse_schedule_blob(data: bytes) -> EveSchedule:
 
                         for j, day_byte in enumerate(day_bytes):
                             if j < len(day_names):
-                                profile = chr(day_byte) if 32 <= day_byte < 127 else f"0x{day_byte:02x}"
-                                schedule.day_assignments.append(
-                                    EveDayAssignment(day=day_names[j], profile_id=profile)
+                                profile = (
+                                    chr(day_byte)
+                                    if 32 <= day_byte < 127
+                                    else f"0x{day_byte:02x}"
                                 )
-                        _LOGGER.debug("Found %d day assignments", len(schedule.day_assignments))
+                                schedule.day_assignments.append(
+                                    EveDayAssignment(
+                                        day=day_names[j], profile_id=profile
+                                    )
+                                )
+                        _LOGGER.debug(
+                            "Found %d day assignments", len(schedule.day_assignments)
+                        )
                     break
 
         # Section 4: Schedule entries (look for Tag 0x47)
@@ -171,13 +184,23 @@ def _parse_schedule_blob(data: bytes) -> EveSchedule:
                                 if time_byte == 0:
                                     continue
 
-                                profile = chr(profile_byte) if 32 <= profile_byte < 127 else f"0x{profile_byte:02x}"
+                                profile = (
+                                    chr(profile_byte)
+                                    if 32 <= profile_byte < 127
+                                    else f"0x{profile_byte:02x}"
+                                )
                                 time_str, minutes = _time_from_byte(time_byte)
                                 schedule.time_slots.append(
-                                    EveTimeSlot(time=time_str, minutes=minutes, profile_id=profile)
+                                    EveTimeSlot(
+                                        time=time_str,
+                                        minutes=minutes,
+                                        profile_id=profile,
+                                    )
                                 )
 
-                            _LOGGER.debug("Found %d time slots", len(schedule.time_slots))
+                            _LOGGER.debug(
+                                "Found %d time slots", len(schedule.time_slots)
+                            )
                     break
 
         # Section 5 (or last section): Schedule name
@@ -218,7 +241,11 @@ def parse_eve_schedule(raw_value: str | bytes) -> EveSchedule | None:
             data = raw_value
 
         schedule = _parse_schedule_blob(data)
-        schedule.raw_data = base64.b64encode(data).decode("ascii") if isinstance(raw_value, bytes) else raw_value
+        schedule.raw_data = (
+            base64.b64encode(data).decode("ascii")
+            if isinstance(raw_value, bytes)
+            else raw_value
+        )
 
         return schedule
 

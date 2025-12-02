@@ -1,4 +1,5 @@
 """Config flow for Matter Binding Helper integration."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -50,9 +51,7 @@ class MatterBindingHelperConfigFlow(ConfigFlow, domain=DOMAIN):
                 step_id="user",
                 data_schema=vol.Schema({}),
                 errors=errors,
-                description_placeholders={
-                    "matter_integration": "Matter"
-                },
+                description_placeholders={"matter_integration": "Matter"},
             )
 
         if user_input is not None:
@@ -62,9 +61,7 @@ class MatterBindingHelperConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({}),
-            description_placeholders={
-                "matter_integration": "Matter"
-            },
+            description_placeholders={"matter_integration": "Matter"},
         )
 
     async def async_step_telemetry(

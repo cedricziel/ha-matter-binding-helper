@@ -40,6 +40,6 @@ CLUSTER_DESCRIPTOR = 0x001D  # Descriptor cluster
 
 # Descriptor cluster attribute IDs
 ATTR_DEVICE_TYPE_LIST = 0  # DeviceTypeList
-ATTR_SERVER_LIST = 1       # ServerList - cluster IDs this endpoint implements as server
-ATTR_CLIENT_LIST = 2       # ClientList - cluster IDs this endpoint implements as client
-ATTR_PARTS_LIST = 3        # PartsList - child endpoints
+ATTR_SERVER_LIST = 1  # ServerList - cluster IDs this endpoint implements as server
+ATTR_CLIENT_LIST = 2  # ClientList - cluster IDs this endpoint implements as client
+ATTR_PARTS_LIST = 3  # PartsList - child endpoints
