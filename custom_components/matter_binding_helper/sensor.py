@@ -22,9 +22,7 @@ from .matter_client import (
     BindingEntry,
     get_bindings,
     get_nodes,
-    get_proprietary_attributes,
 )
-from .registry import ProprietaryRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,15 +92,10 @@ async def async_setup_entry(
     _LOGGER.info("Setting up %d Matter Binding sensors", len(entities))
     async_add_entities(entities)
 
-    # Set up proprietary attribute sensors (non-blocking, best effort)
-    try:
-        from .proprietary_sensors import async_setup_proprietary_sensors
-
-        await async_setup_proprietary_sensors(
-            hass, config_entry, coordinator, async_add_entities
-        )
-    except Exception as err:
-        _LOGGER.warning("Failed to set up proprietary sensors (non-critical): %s", err)
+    # NOTE: Proprietary sensors DISABLED - was causing Matter integration to crash
+    # The issue is that reading proprietary attributes via Matter client triggers
+    # something in the Matter integration that causes validation errors.
+    # TODO: Investigate alternative approach that doesn't use Matter client directly
 
 
 class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -125,7 +118,6 @@ class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data: dict[str, Any] = {
             "nodes": [],
             "bindings": {},  # Key: (node_id, endpoint_id), Value: list of bindings
-            "proprietary_attributes": {},  # Key: (node, ep, cluster, attr), Value: value
         }
 
         try:
@@ -133,77 +125,19 @@ class MatterBindingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             nodes = await get_nodes(self.hass)
             data["nodes"] = nodes
 
-            # Get proprietary registry
-            registry = ProprietaryRegistry.get()
-
-            # Fetch bindings and proprietary attributes for each endpoint
+            # Fetch bindings for each endpoint with binding cluster
             for node in nodes:
                 node_id = node["node_id"]
                 for endpoint in node.get("endpoints", []):
                     endpoint_id = endpoint["endpoint_id"]
-
-                    # Skip root node endpoint
-                    if endpoint_id == 0:
-                        continue
-
-                    # Fetch bindings if endpoint has binding cluster
-                    if endpoint.get("has_binding_cluster"):
+                    if endpoint.get("has_binding_cluster") and endpoint_id != 0:
                         bindings = await get_bindings(self.hass, node_id, endpoint_id)
                         data["bindings"][(node_id, endpoint_id)] = bindings
 
-                    # Fetch proprietary attributes only for matching devices
-                    server_clusters = endpoint.get("server_clusters", [])
-                    device_types = [
-                        dt.get("id")
-                        for dt in endpoint.get("device_types", [])
-                        if dt.get("id")
-                    ]
-                    vendor_id = node.get("device_info", {}).get("vendor_id")
-
-                    # Check if device matches any known definition
-                    device_meta = registry.find_device(
-                        vendor_id=vendor_id or 0,
-                        cluster_ids=server_clusters,
-                        device_types=device_types,
-                    )
-
-                    if not device_meta:
-                        # No matching device definition - skip proprietary attributes
-                        continue
-
-                    for cluster_id in server_clusters:
-                        cluster_meta = registry.get_cluster(cluster_id)
-                        if not cluster_meta:
-                            continue
-
-                        # Only use clusters from matching vendor
-                        if (
-                            cluster_meta.vendor_id
-                            and cluster_meta.vendor_id != vendor_id
-                        ):
-                            continue
-
-                        # Get exposable attributes for this cluster
-                        exposable = cluster_meta.get_exposable_attributes()
-                        if not exposable:
-                            continue
-
-                        # Read attribute values
-                        attr_ids = [attr.id for attr in exposable]
-                        attr_values = await get_proprietary_attributes(
-                            self.hass, node_id, endpoint_id, cluster_id, attr_ids
-                        )
-
-                        # Store values with full key
-                        for attr_id, value in attr_values.items():
-                            key = (node_id, endpoint_id, cluster_id, attr_id)
-                            data["proprietary_attributes"][key] = value
-
             _LOGGER.debug(
-                "Coordinator update: %d nodes, %d binding endpoints, %d proprietary attrs",
+                "Coordinator update: %d nodes, %d binding endpoints",
                 len(nodes),
                 len(data["bindings"]),
-                len(data["proprietary_attributes"]),
             )
 
         except Exception as err:
