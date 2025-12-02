@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.matter import DOMAIN as MATTER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers.event import async_track_time_interval
 
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
     from homeassistant.components.matter import MatterEntryData
 
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -65,6 +68,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
+    # Set up platforms (sensors)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     return True
 
 
@@ -76,16 +82,20 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Remove panel
-    frontend.async_remove_panel(hass, PANEL_NAME)
+    # Unload platforms
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    # Remove services
-    hass.services.async_remove(DOMAIN, "submit_survey")
+    if unload_ok:
+        # Remove panel
+        frontend.async_remove_panel(hass, PANEL_NAME)
 
-    # Clean up stored data
-    hass.data[DOMAIN].pop(entry.entry_id, None)
+        # Remove services
+        hass.services.async_remove(DOMAIN, "submit_survey")
 
-    return True
+        # Clean up stored data
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+
+    return unload_ok
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
