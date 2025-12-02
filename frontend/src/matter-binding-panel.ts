@@ -16,7 +16,8 @@ import type {
   AutomationRecommendation,
   EveSchedule,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo } from "./types";
+import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
 import { computeBindingRecommendations } from "./recommendation-logic";
 import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters, filterControlClusters } from "./binding-ui-logic";
 import * as api from "./api";
@@ -233,6 +234,16 @@ export class MatterBindingPanel extends LitElement {
       color: white;
     }
 
+    .endpoint-badge.proprietary {
+      background: var(--warning-color, #ff9800);
+      color: white;
+    }
+
+    .cluster-proprietary {
+      color: var(--warning-color, #ff9800);
+      font-weight: 500;
+    }
+
     .endpoint-device-types {
       font-size: 12px;
       color: var(--secondary-text-color);
@@ -309,6 +320,71 @@ export class MatterBindingPanel extends LitElement {
     .entity-chip.disabled {
       opacity: 0.5;
       text-decoration: line-through;
+    }
+
+    /* Device Registry Info */
+    .registry-info {
+      background: linear-gradient(135deg, rgba(var(--rgb-primary-color), 0.05), transparent);
+      border-left: 3px solid var(--primary-color);
+      padding-left: 12px;
+    }
+
+    .registry-badge {
+      background: var(--primary-color);
+      color: var(--text-primary-color);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .registry-details {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .registry-model {
+      font-size: 14px;
+    }
+
+    .registry-description {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      line-height: 1.4;
+    }
+
+    .registry-features {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .feature-label {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+    }
+
+    .feature-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--warning-color, #ff9800);
+      color: white;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .registry-link {
+      font-size: 12px;
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .registry-link:hover {
+      text-decoration: underline;
     }
 
     .node-info {
@@ -2252,6 +2328,7 @@ export class MatterBindingPanel extends LitElement {
         </div>
 
         ${this._renderEntityList(node)}
+        ${this._renderDeviceRegistryInfo(node)}
         ${this._renderEveSchedule(node)}
 
         <div class="device-section">
@@ -2392,6 +2469,74 @@ export class MatterBindingPanel extends LitElement {
     this.dispatchEvent(event);
   }
 
+  private _getMatchingDeviceDefinition(node: MatterNode): DeviceDefinition | undefined {
+    const vendorId = node.device_info?.vendor_id;
+    if (!vendorId) return undefined;
+
+    // Collect all cluster IDs from all endpoints
+    const allClusterIds = new Set<number>();
+    const allDeviceTypes = new Set<number>();
+    for (const endpoint of node.endpoints) {
+      for (const clusterId of endpoint.server_clusters || []) {
+        allClusterIds.add(clusterId);
+      }
+      for (const dt of endpoint.device_types) {
+        allDeviceTypes.add(dt.id);
+      }
+    }
+
+    return findMatchingDevice(vendorId, Array.from(allClusterIds), Array.from(allDeviceTypes));
+  }
+
+  private _renderDeviceRegistryInfo(node: MatterNode) {
+    const deviceDef = this._getMatchingDeviceDefinition(node);
+    if (!deviceDef) {
+      return nothing;
+    }
+
+    // Check if device has extensions with proprietary data
+    const hasExtensions = deviceDef.extends && deviceDef.extends.length > 0;
+
+    return html`
+      <div class="device-section registry-info">
+        <div class="section-header">
+          Device Database
+          <span class="registry-badge">Matched</span>
+        </div>
+        <div class="registry-details">
+          <div class="registry-model">
+            <strong>${deviceDef.vendor}</strong> ${deviceDef.model}
+          </div>
+          ${deviceDef.description
+            ? html`<div class="registry-description">${deviceDef.description}</div>`
+            : nothing}
+          ${hasExtensions
+            ? html`
+                <div class="registry-features">
+                  <span class="feature-label">Features:</span>
+                  ${deviceDef.extends!.map(
+                    (ext) => html`<span class="feature-tag">${ext.name}</span>`
+                  )}
+                </div>
+              `
+            : nothing}
+          ${deviceDef.productUrl
+            ? html`
+                <a
+                  class="registry-link"
+                  href="${deviceDef.productUrl}"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Product Page ↗
+                </a>
+              `
+            : nothing}
+        </div>
+      </div>
+    `;
+  }
+
   private _navigateToDevice(deviceId: string | null | undefined) {
     if (!deviceId) return;
     // Navigate to HA device page using History API
@@ -2411,15 +2556,18 @@ export class MatterBindingPanel extends LitElement {
     // Get interesting clusters (skip infrastructure ones)
     const infraClusters = [29, 30, 31, 40, 42, 48, 49, 50, 51, 52, 53, 56, 60, 62, 63, 70];
 
-    // Filter and format server clusters
-    const serverClusters = (endpoint.server_clusters || [])
+    // Filter server clusters and identify proprietary ones
+    const serverClusterData = (endpoint.server_clusters || [])
       .filter((c) => !infraClusters.includes(c))
-      .map((c) => getClusterName(c));
+      .map((c) => ({ id: c, name: getClusterName(c), isProprietary: isProprietaryCluster(c) }));
 
-    // Filter and format client clusters
-    const clientClusters = (endpoint.client_clusters || [])
+    // Filter client clusters and identify proprietary ones
+    const clientClusterData = (endpoint.client_clusters || [])
       .filter((c) => !infraClusters.includes(c))
-      .map((c) => getClusterName(c));
+      .map((c) => ({ id: c, name: getClusterName(c), isProprietary: isProprietaryCluster(c) }));
+
+    // Check if endpoint has any proprietary clusters
+    const hasProprietary = serverClusterData.some(c => c.isProprietary) || clientClusterData.some(c => c.isProprietary);
 
     return html`
       <div
@@ -2433,15 +2581,28 @@ export class MatterBindingPanel extends LitElement {
           ${endpoint.has_binding_cluster
             ? html`<span class="endpoint-badge binding">Binding</span>`
             : nothing}
+          ${hasProprietary
+            ? html`<span class="endpoint-badge proprietary">Proprietary</span>`
+            : nothing}
         </div>
         ${deviceTypes.length > 0
           ? html`<div class="endpoint-device-types">${deviceTypes.join(", ")}</div>`
           : nothing}
-        ${serverClusters.length > 0
-          ? html`<div class="endpoint-clusters"><span class="cluster-role">Server:</span> ${serverClusters.join(" · ")}</div>`
+        ${serverClusterData.length > 0
+          ? html`<div class="endpoint-clusters">
+              <span class="cluster-role">Server:</span>
+              ${serverClusterData.map((c, i) => html`${i > 0 ? " · " : ""}${c.isProprietary
+                ? html`<span class="cluster-proprietary" title="Vendor-specific cluster">${c.name}</span>`
+                : c.name}`)}
+            </div>`
           : nothing}
-        ${clientClusters.length > 0
-          ? html`<div class="endpoint-clusters"><span class="cluster-role">Client:</span> ${clientClusters.join(" · ")}</div>`
+        ${clientClusterData.length > 0
+          ? html`<div class="endpoint-clusters">
+              <span class="cluster-role">Client:</span>
+              ${clientClusterData.map((c, i) => html`${i > 0 ? " · " : ""}${c.isProprietary
+                ? html`<span class="cluster-proprietary" title="Vendor-specific cluster">${c.name}</span>`
+                : c.name}`)}
+            </div>`
           : nothing}
       </div>
     `;

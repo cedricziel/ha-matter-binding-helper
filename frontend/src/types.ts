@@ -272,9 +272,20 @@ export const CLUSTER_BINDING_DESCRIPTIONS: Record<number, { action: string; data
   },
 };
 
+// Import device registry for proprietary cluster lookups
+import { getEnhancedClusterName, getClusterInfo, isProprietaryCluster } from "./device-registry";
+
+// Re-export device registry functions
+export { getEnhancedClusterName, getClusterInfo, isProprietaryCluster };
+
 // Helper functions
 export function getClusterName(clusterId: number): string {
-  return CLUSTER_NAMES[clusterId] || `0x${clusterId.toString(16).padStart(4, "0")}`;
+  // First check standard cluster names
+  if (CLUSTER_NAMES[clusterId]) {
+    return CLUSTER_NAMES[clusterId];
+  }
+  // Fall back to device registry for proprietary clusters
+  return getEnhancedClusterName(clusterId);
 }
 
 export function getDeviceTypeName(deviceTypeId: number): string {
