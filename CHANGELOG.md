@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.13.1...v0.13.2) (2025-12-02)
+
+
+### Bug Fixes
+
+* disable proprietary sensors - was crashing Matter integration ([489e28f](https://github.com/cedricziel/ha-matter-binding-helper/commit/489e28f62f819bbcd2e18b50b6e19819f4c03352))
+
 ## [0.13.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.13.0...v0.13.1) (2025-12-02)
 
 
