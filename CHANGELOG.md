@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.12.0...v0.13.0) (2025-12-02)
+
+
+### Features
+
+* add generic proprietary sensor framework ([d888d99](https://github.com/cedricziel/ha-matter-binding-helper/commit/d888d993f10dfa5d9a676e9dc1df3a2a77a46af1))
+
 ## [0.12.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.11.0...v0.12.0) (2025-12-02)
 
 
