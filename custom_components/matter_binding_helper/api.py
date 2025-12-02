@@ -24,7 +24,7 @@ from .const import (
     WS_TYPE_REMOVE_FROM_GROUP,
 )
 from . import matter_client
-from .eve_schedule import (
+from .devices.parsers.eve import (
     EVE_CLUSTER_ID,
     EVE_SCHEDULE_ATTR,
     EVE_VENDOR_ID,
