@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.11.0...v0.12.0) (2025-12-02)
+
+
+### Features
+
+* add diagnostic sensor to show Matter bindings on device page ([289b7d1](https://github.com/cedricziel/ha-matter-binding-helper/commit/289b7d181a6766da17751d77763c38d943691470))
+* integrate device registry in frontend ([5850696](https://github.com/cedricziel/ha-matter-binding-helper/commit/585069662c065017e7bd9662007d7201e2f1c65b))
+* integrate matter-device-definitions registry ([d35d929](https://github.com/cedricziel/ha-matter-binding-helper/commit/d35d929a895ed29faf21b5e2e192d66fe6674675))
+
+
+### Bug Fixes
+
+* update build pipeline and add Makefile venv support ([517d1ff](https://github.com/cedricziel/ha-matter-binding-helper/commit/517d1ff7e5ede1a17ee3454ecb5128601119c23c))
+
+
+### Miscellaneous
+
+* update device-definitions to include dist/ ([6d06591](https://github.com/cedricziel/ha-matter-binding-helper/commit/6d065915b41d0449c08947ee78928c79e4be3265))
+
 ## [0.11.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.10.1...v0.11.0) (2025-12-01)
 
 
