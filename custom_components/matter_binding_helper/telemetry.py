@@ -60,17 +60,41 @@ def _get_cluster_details_v3(
 
     client = get_matter_client(hass)
     if not client:
+        _LOGGER.debug("_get_cluster_details_v3: No Matter client available")
         return cluster_details
 
     try:
         nodes = client.get_nodes()
+        _LOGGER.debug(
+            "_get_cluster_details_v3: Looking for node %s in %d nodes",
+            node_id,
+            len(nodes),
+        )
         node = next((n for n in nodes if n.node_id == node_id), None)
         if not node:
+            _LOGGER.debug("_get_cluster_details_v3: Node %s not found", node_id)
             return cluster_details
 
-        attributes = getattr(node, "attributes", {})
+        # Try node.attributes first, then node.node_data.attributes
+        attributes = getattr(node, "attributes", None)
         if not attributes:
+            node_data = getattr(node, "node_data", None)
+            if node_data:
+                attributes = getattr(node_data, "attributes", None)
+
+        if not attributes:
+            _LOGGER.debug("Node %s has no attributes dict", node_id)
             return cluster_details
+
+        # Log sample keys to understand format
+        sample_keys = list(attributes.keys())[:5]
+        _LOGGER.info(
+            "_get_cluster_details_v3: Node %s attributes: %d keys, samples: %s (types: %s)",
+            node_id,
+            len(attributes),
+            sample_keys,
+            [type(k).__name__ for k in sample_keys],
+        )
 
         # Global attribute IDs we want to extract
         global_attrs = {
@@ -98,6 +122,13 @@ def _get_cluster_details_v3(
                         # Check if this is a global attribute we want
                         if at_id in global_attrs:
                             field_name = global_attrs[at_id]
+                            _LOGGER.info(
+                                "_get_cluster_details_v3: Found %s for ep %s cluster %s: %s",
+                                field_name,
+                                ep_id,
+                                cl_id,
+                                attr_value,
+                            )
                             if field_name == "feature_map":
                                 cluster_details[cl_id][field_name] = int(attr_value)
                             elif isinstance(attr_value, (list, tuple)):
