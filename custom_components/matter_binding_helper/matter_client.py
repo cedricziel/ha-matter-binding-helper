@@ -968,6 +968,7 @@ def _extract_from_attributes_dict(
                             "has_binding_cluster": False,
                             "server_clusters": set(),
                             "client_clusters": set(),
+                            "cluster_commands": {},
                         }
 
                     # By default, clusters we see in attributes are server clusters
@@ -1015,11 +1016,63 @@ def _extract_from_attributes_dict(
                                     True
                                 )
 
+                    # Check for AcceptedCommandList (attribute 65529 / 0xFFF9)
+                    if len(parts) >= 3:
+                        attr_id_int = int(parts[2])
+                        if attr_id_int == ATTR_ACCEPTED_COMMAND_LIST:
+                            attr_value = attributes.get(attr_key)
+                            if isinstance(attr_value, (list, tuple)):
+                                cmd_list = list(attr_value)
+                                if (
+                                    cluster_id
+                                    not in endpoints_dict[endpoint_id][
+                                        "cluster_commands"
+                                    ]
+                                ):
+                                    endpoints_dict[endpoint_id]["cluster_commands"][
+                                        cluster_id
+                                    ] = {
+                                        "accepted": cmd_list,
+                                        "names": {},
+                                    }
+                                else:
+                                    endpoints_dict[endpoint_id]["cluster_commands"][
+                                        cluster_id
+                                    ]["accepted"] = cmd_list
+
             except (ValueError, IndexError) as parse_err:
                 _LOGGER.debug(
                     "Could not parse attribute key %s: %s", attr_key, parse_err
                 )
                 continue
+
+        # Try to get command names from chip clusters module
+        cluster_command_names: dict[int, dict[int, str]] = {}
+        try:
+            from chip.clusters import Objects as clusters
+
+            # Build mapping of cluster_id -> {cmd_id -> name}
+            for attr_name in dir(clusters):
+                if attr_name.startswith("_"):
+                    continue
+                cluster_class = getattr(clusters, attr_name, None)
+                if (
+                    cluster_class
+                    and hasattr(cluster_class, "id")
+                    and hasattr(cluster_class, "Commands")
+                ):
+                    cluster_id = cluster_class.id
+                    commands_class = cluster_class.Commands
+                    cmd_names = {}
+                    for cmd_name in dir(commands_class):
+                        if not cmd_name.startswith("_"):
+                            cmd_obj = getattr(commands_class, cmd_name, None)
+                            if cmd_obj and hasattr(cmd_obj, "command_id"):
+                                cmd_names[cmd_obj.command_id] = cmd_name
+                    if cmd_names:
+                        cluster_command_names[cluster_id] = cmd_names
+        except Exception as e:
+            _LOGGER.debug("Could not load chip clusters for command names: %s", e)
 
         # Convert to list and convert cluster sets to lists
         endpoints = []
@@ -1027,6 +1080,12 @@ def _extract_from_attributes_dict(
             ep_info = endpoints_dict[endpoint_id]
             ep_info["server_clusters"] = sorted(ep_info["server_clusters"])
             ep_info["client_clusters"] = sorted(ep_info["client_clusters"])
+
+            # Add command names to cluster_commands
+            for cluster_id, cmd_info in ep_info.get("cluster_commands", {}).items():
+                if cluster_id in cluster_command_names:
+                    cmd_info["names"] = cluster_command_names[cluster_id]
+
             endpoints.append(ep_info)
 
         return endpoints
