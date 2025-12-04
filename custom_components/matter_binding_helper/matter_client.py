@@ -12,12 +12,15 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    ATTR_ACCEPTED_COMMAND_LIST,
     ATTR_CLIENT_LIST,
     ATTR_SERVER_LIST,
     CLUSTER_BINDING,
     CLUSTER_DESCRIPTOR,
     CLUSTER_LEVEL_CONTROL,
     CLUSTER_ON_OFF,
+    CLUSTER_THERMOSTAT,
+    CMD_GET_WEEKLY_SCHEDULE,
     CONF_DEMO_MODE,
     DEFAULT_DEMO_MODE,
     DOMAIN,
@@ -1563,6 +1566,88 @@ def _get_mode_bitmap(heat: bool = True, cool: bool = False) -> int:
     return bitmap
 
 
+def get_cluster_accepted_commands(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+    cluster_id: int,
+) -> list[int] | None:
+    """Get the list of accepted commands for a cluster on an endpoint.
+
+    Reads the AcceptedCommandList global attribute (0xFFF9) from the cluster.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID
+        cluster_id: Cluster ID to check
+
+    Returns:
+        List of command IDs the cluster accepts, or None if not available
+    """
+    client = get_matter_client(hass)
+    if not client:
+        return None
+
+    try:
+        nodes = client.get_nodes()
+        node = next((n for n in nodes if n.node_id == node_id), None)
+        if not node:
+            return None
+
+        # Build attribute path: endpoint/cluster/AcceptedCommandList
+        attr_key = f"{endpoint_id}/{cluster_id}/{ATTR_ACCEPTED_COMMAND_LIST}"
+        attributes = getattr(node, "attributes", None)
+        if not attributes:
+            return None
+
+        commands = attributes.get(attr_key)
+        if commands is not None:
+            _LOGGER.debug(
+                "get_cluster_accepted_commands: node %s ep %s cluster %s commands: %s",
+                node_id,
+                endpoint_id,
+                hex(cluster_id),
+                commands,
+            )
+            return list(commands) if commands else []
+
+        return None
+
+    except Exception as err:
+        _LOGGER.debug(
+            "get_cluster_accepted_commands: Error reading commands for node %s: %s",
+            node_id,
+            err,
+        )
+        return None
+
+
+def supports_thermostat_schedule(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+) -> bool | None:
+    """Check if a thermostat endpoint supports weekly schedules.
+
+    Checks if GetWeeklySchedule command (0x02) is in the AcceptedCommandList.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID with thermostat cluster
+
+    Returns:
+        True if supported, False if not, None if can't determine
+    """
+    commands = get_cluster_accepted_commands(
+        hass, node_id, endpoint_id, CLUSTER_THERMOSTAT
+    )
+    if commands is None:
+        return None  # Can't determine - attribute not available
+    return CMD_GET_WEEKLY_SCHEDULE in commands
+
+
 async def get_thermostat_schedule(
     hass: HomeAssistant,
     node_id: int,
@@ -1656,6 +1741,16 @@ async def get_thermostat_schedule(
         )
 
     except Exception as err:
+        err_str = str(err)
+        # Check if the device doesn't support this command
+        if "UnsupportedCommand" in err_str or "0x81" in err_str:
+            _LOGGER.info(
+                "get_thermostat_schedule: Device does not support GetWeeklySchedule command "
+                "(node %s endpoint %s)",
+                node_id,
+                endpoint_id,
+            )
+            return False  # type: ignore[return-value]
         _LOGGER.error(
             "get_thermostat_schedule: Error getting schedule for node %s endpoint %s: %s",
             node_id,

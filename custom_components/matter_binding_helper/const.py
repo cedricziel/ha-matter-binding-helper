@@ -49,3 +49,12 @@ ATTR_DEVICE_TYPE_LIST = 0  # DeviceTypeList
 ATTR_SERVER_LIST = 1  # ServerList - cluster IDs this endpoint implements as server
 ATTR_CLIENT_LIST = 2  # ClientList - cluster IDs this endpoint implements as client
 ATTR_PARTS_LIST = 3  # PartsList - child endpoints
+
+# Global cluster attribute IDs (apply to all clusters)
+ATTR_ACCEPTED_COMMAND_LIST = 0xFFF9  # 65529 - List of commands the cluster accepts
+ATTR_GENERATED_COMMAND_LIST = 0xFFF8  # 65528 - List of commands the cluster generates
+
+# Thermostat cluster command IDs
+CMD_SET_WEEKLY_SCHEDULE = 0x01
+CMD_GET_WEEKLY_SCHEDULE = 0x02
+CMD_CLEAR_WEEKLY_SCHEDULE = 0x03

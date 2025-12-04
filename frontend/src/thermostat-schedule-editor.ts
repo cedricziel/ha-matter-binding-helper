@@ -58,6 +58,7 @@ export class ThermostatScheduleEditor extends LitElement {
   @state() private _saving = false;
   @state() private _error: string | null = null;
   @state() private _success: string | null = null;
+  @state() private _notSupported = false;
 
   // Current schedule from device
   @state() private _schedule: WeeklySchedule | null = null;
@@ -410,6 +411,38 @@ export class ThermostatScheduleEditor extends LitElement {
       color: var(--info-color);
     }
 
+    /* Not Supported Card */
+    .not-supported-card {
+      background: var(--card-background-color);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .not-supported-card .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .not-supported-card .header ha-icon {
+      color: var(--warning-color);
+      font-size: 24px;
+    }
+
+    .not-supported-card .title {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+    }
+
+    .not-supported-card .description {
+      color: var(--secondary-text-color);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
     /* Loading */
     .loading {
       display: flex;
@@ -473,6 +506,7 @@ export class ThermostatScheduleEditor extends LitElement {
   private async _loadSchedule() {
     this._loading = true;
     this._error = null;
+    this._notSupported = false;
 
     try {
       const response = await api.getThermostatSchedule(
@@ -488,9 +522,20 @@ export class ThermostatScheduleEditor extends LitElement {
         this._transitions = [...response.schedule.transitions];
         this._hasChanges = false;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to load schedule:", err);
-      this._error = `Failed to load schedule: ${err}`;
+      const errObj = err as { code?: string; message?: string };
+
+      // Check if device doesn't support schedules
+      if (errObj.code === "schedule_not_supported") {
+        this._notSupported = true;
+        return;
+      }
+
+      const message = err instanceof Error
+        ? err.message
+        : errObj?.message || String(err);
+      this._error = `Failed to load schedule: ${message}`;
     } finally {
       this._loading = false;
     }
@@ -535,9 +580,12 @@ export class ThermostatScheduleEditor extends LitElement {
       } else {
         this._error = "Failed to save schedule";
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to save schedule:", err);
-      this._error = `Failed to save schedule: ${err}`;
+      const message = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message || String(err);
+      this._error = `Failed to save schedule: ${message}`;
     } finally {
       this._saving = false;
     }
@@ -567,9 +615,12 @@ export class ThermostatScheduleEditor extends LitElement {
       } else {
         this._error = "Failed to clear schedule";
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to clear schedule:", err);
-      this._error = `Failed to clear schedule: ${err}`;
+      const message = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message || String(err);
+      this._error = `Failed to clear schedule: ${message}`;
     } finally {
       this._saving = false;
     }
@@ -686,6 +737,23 @@ export class ThermostatScheduleEditor extends LitElement {
   }
 
   render() {
+    // Show explicit message if device doesn't support Matter weekly schedules
+    if (this._notSupported) {
+      return html`
+        <div class="not-supported-card">
+          <div class="header">
+            <ha-icon icon="mdi:calendar-remove"></ha-icon>
+            <span class="title">Weekly Schedule Not Supported</span>
+          </div>
+          <div class="description">
+            This thermostat does not support the standard Matter weekly schedule commands.
+            The manufacturer may use a proprietary scheduling method or the device may not
+            support programmable schedules through Matter.
+          </div>
+        </div>
+      `;
+    }
+
     return html`
       <div class="schedule-editor">
         <div class="header">

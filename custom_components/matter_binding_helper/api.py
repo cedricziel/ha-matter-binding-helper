@@ -1158,8 +1158,15 @@ async def ws_get_schedule(
         cool=msg.get("cool", False),
     )
 
-    if schedule:
+    if schedule is not None:
         connection.send_result(msg["id"], {"schedule": schedule.to_dict()})
+    elif schedule is False:
+        # Device explicitly doesn't support this command
+        connection.send_error(
+            msg["id"],
+            "schedule_not_supported",
+            "This thermostat does not support Matter weekly schedules",
+        )
     else:
         connection.send_error(
             msg["id"], "get_schedule_failed", "Failed to get thermostat schedule"
