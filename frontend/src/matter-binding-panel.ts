@@ -273,6 +273,16 @@ export class MatterBindingPanel extends LitElement {
       margin-right: 4px;
     }
 
+    .cluster-name {
+      cursor: help;
+    }
+
+    .cluster-cmd-count {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-left: 2px;
+    }
+
     .entity-list {
       margin-top: 12px;
       padding: 12px;
@@ -2585,19 +2595,36 @@ export class MatterBindingPanel extends LitElement {
 
     // Get interesting clusters (skip infrastructure ones)
     const infraClusters = [29, 30, 31, 40, 42, 48, 49, 50, 51, 52, 53, 56, 60, 62, 63, 70];
+    const clusterCommands = endpoint.cluster_commands || {};
 
     // Filter server clusters and identify proprietary ones
     const serverClusterData = (endpoint.server_clusters || [])
       .filter((c) => !infraClusters.includes(c))
-      .map((c) => ({ id: c, name: getClusterName(c), isProprietary: isProprietaryCluster(c) }));
+      .map((c) => ({
+        id: c,
+        name: getClusterName(c),
+        isProprietary: isProprietaryCluster(c),
+        commands: clusterCommands[c] || [],
+      }));
 
     // Filter client clusters and identify proprietary ones
     const clientClusterData = (endpoint.client_clusters || [])
       .filter((c) => !infraClusters.includes(c))
-      .map((c) => ({ id: c, name: getClusterName(c), isProprietary: isProprietaryCluster(c) }));
+      .map((c) => ({
+        id: c,
+        name: getClusterName(c),
+        isProprietary: isProprietaryCluster(c),
+        commands: clusterCommands[c] || [],
+      }));
 
     // Check if endpoint has any proprietary clusters
     const hasProprietary = serverClusterData.some(c => c.isProprietary) || clientClusterData.some(c => c.isProprietary);
+
+    // Helper to format commands tooltip
+    const formatCommandsTooltip = (cluster: { id: number; name: string; commands: number[] }) => {
+      if (cluster.commands.length === 0) return `${cluster.name} (0x${cluster.id.toString(16).toUpperCase()})`;
+      return `${cluster.name} (0x${cluster.id.toString(16).toUpperCase()})\nAccepted commands: ${cluster.commands.join(", ")}`;
+    };
 
     return html`
       <div
@@ -2621,17 +2648,19 @@ export class MatterBindingPanel extends LitElement {
         ${serverClusterData.length > 0
           ? html`<div class="endpoint-clusters">
               <span class="cluster-role">Server:</span>
-              ${serverClusterData.map((c, i) => html`${i > 0 ? " · " : ""}${c.isProprietary
-                ? html`<span class="cluster-proprietary" title="Vendor-specific cluster">${c.name}</span>`
-                : c.name}`)}
+              ${serverClusterData.map((c, i) => html`${i > 0 ? " · " : ""}<span
+                class="${c.isProprietary ? "cluster-proprietary" : "cluster-name"}"
+                title="${formatCommandsTooltip(c)}"
+              >${c.name}${c.commands.length > 0 ? html`<span class="cluster-cmd-count">(${c.commands.length})</span>` : nothing}</span>`)}
             </div>`
           : nothing}
         ${clientClusterData.length > 0
           ? html`<div class="endpoint-clusters">
               <span class="cluster-role">Client:</span>
-              ${clientClusterData.map((c, i) => html`${i > 0 ? " · " : ""}${c.isProprietary
-                ? html`<span class="cluster-proprietary" title="Vendor-specific cluster">${c.name}</span>`
-                : c.name}`)}
+              ${clientClusterData.map((c, i) => html`${i > 0 ? " · " : ""}<span
+                class="${c.isProprietary ? "cluster-proprietary" : "cluster-name"}"
+                title="${formatCommandsTooltip(c)}"
+              >${c.name}${c.commands.length > 0 ? html`<span class="cluster-cmd-count">(${c.commands.length})</span>` : nothing}</span>`)}
             </div>`
           : nothing}
       </div>

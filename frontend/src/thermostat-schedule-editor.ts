@@ -523,18 +523,29 @@ export class ThermostatScheduleEditor extends LitElement {
         this._hasChanges = false;
       }
     } catch (err: unknown) {
-      console.error("Failed to load schedule:", err);
+      console.error("Failed to load schedule - full error:", JSON.stringify(err, null, 2));
+      console.error("Failed to load schedule - raw:", err);
+
+      // HA WebSocket errors have { code, message } structure
       const errObj = err as { code?: string; message?: string };
 
       // Check if device doesn't support schedules
-      if (errObj.code === "schedule_not_supported") {
+      if (errObj?.code === "schedule_not_supported") {
         this._notSupported = true;
         return;
       }
 
-      const message = err instanceof Error
-        ? err.message
-        : errObj?.message || String(err);
+      // Extract message from various error formats
+      let message: string;
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === "object" && err !== null) {
+        const obj = err as Record<string, unknown>;
+        message = (obj.message as string) || (obj.error as string) || (obj.code as string) || JSON.stringify(err);
+      } else {
+        message = String(err);
+      }
+
       this._error = `Failed to load schedule: ${message}`;
     } finally {
       this._loading = false;

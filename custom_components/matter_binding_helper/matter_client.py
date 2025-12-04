@@ -775,6 +775,7 @@ def _extract_from_endpoints_property(
                     "has_binding_cluster": False,
                     "server_clusters": [],
                     "client_clusters": [],
+                    "cluster_commands": {},  # Map of cluster_id -> list of accepted command IDs
                 }
 
                 # Try to get clusters from endpoint
@@ -831,6 +832,27 @@ def _extract_from_endpoints_property(
                     CLUSTER_BINDING in server_cluster_ids
                     or CLUSTER_BINDING in client_cluster_ids
                 )
+
+                # Extract accepted commands for each server cluster
+                if clusters and isinstance(clusters, dict):
+                    for cluster_id in server_cluster_ids:
+                        cluster = clusters.get(cluster_id)
+                        if cluster:
+                            try:
+                                # Try to get AcceptedCommandList attribute
+                                accepted_cmds = None
+                                if hasattr(endpoint, "get_attribute_value"):
+                                    accepted_cmds = endpoint.get_attribute_value(
+                                        cluster_id, ATTR_ACCEPTED_COMMAND_LIST
+                                    )
+                                if accepted_cmds is not None:
+                                    ep_info["cluster_commands"][cluster_id] = (
+                                        list(accepted_cmds)
+                                        if hasattr(accepted_cmds, "__iter__")
+                                        else [accepted_cmds]
+                                    )
+                            except Exception:
+                                pass  # Skip if can't get commands
 
                 # Try to get device types
                 device_types = None

@@ -60,6 +60,7 @@ export interface MatterEndpoint {
   has_binding_cluster: boolean;
   server_clusters: number[];
   client_clusters: number[];
+  cluster_commands?: Record<number, number[]>;  // Map of cluster_id -> accepted command IDs
 }
 
 export interface DeviceType {
