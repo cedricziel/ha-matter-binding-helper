@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.18.0...v0.18.1) (2025-12-04)
+
+
+### Bug Fixes
+
+* check AttributePath objects first in v3 cluster extraction ([8df3e06](https://github.com/cedricziel/ha-matter-binding-helper/commit/8df3e062ae05b90a9876e401865fdef9f45524d4))
+
+
+### Miscellaneous
+
+* add debug logging for v3 cluster extraction ([cefa027](https://github.com/cedricziel/ha-matter-binding-helper/commit/cefa027e27d43514095dd3200ed061eb57cc3971))
+
 ## [0.18.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.17.0...v0.18.0) (2025-12-04)
 
 
