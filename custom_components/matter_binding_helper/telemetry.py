@@ -54,68 +54,76 @@ def _get_cluster_details_v3(
     """
     cluster_details: dict[int, dict[str, Any]] = {}
 
+    # Initialize all clusters with just their ID
+    for cluster_id in cluster_ids:
+        cluster_details[cluster_id] = {"id": cluster_id}
+
     client = get_matter_client(hass)
     if not client:
-        # Return basic cluster info without details
-        for cluster_id in cluster_ids:
-            cluster_details[cluster_id] = {"id": cluster_id}
         return cluster_details
 
     try:
         nodes = client.get_nodes()
         node = next((n for n in nodes if n.node_id == node_id), None)
         if not node:
-            for cluster_id in cluster_ids:
-                cluster_details[cluster_id] = {"id": cluster_id}
             return cluster_details
 
         attributes = getattr(node, "attributes", {})
         if not attributes:
-            for cluster_id in cluster_ids:
-                cluster_details[cluster_id] = {"id": cluster_id}
             return cluster_details
 
-        for cluster_id in cluster_ids:
-            details: dict[str, Any] = {"id": cluster_id}
+        # Global attribute IDs we want to extract
+        global_attrs = {
+            ATTR_FEATURE_MAP: "feature_map",
+            ATTR_ATTRIBUTE_LIST: "attribute_list",
+            ATTR_ACCEPTED_COMMAND_LIST: "accepted_command_list",
+            ATTR_GENERATED_COMMAND_LIST: "generated_command_list",
+        }
 
-            # Try to get global attributes for this cluster
-            # Attribute keys are in format "endpoint/cluster/attribute"
-            feature_map_key = f"{endpoint_id}/{cluster_id}/{ATTR_FEATURE_MAP}"
-            attribute_list_key = f"{endpoint_id}/{cluster_id}/{ATTR_ATTRIBUTE_LIST}"
-            accepted_cmd_key = (
-                f"{endpoint_id}/{cluster_id}/{ATTR_ACCEPTED_COMMAND_LIST}"
-            )
-            generated_cmd_key = (
-                f"{endpoint_id}/{cluster_id}/{ATTR_GENERATED_COMMAND_LIST}"
-            )
+        # Iterate through all attributes to find matches
+        # Keys can be strings like "1/6/65532" or objects with properties
+        for attr_key, attr_value in attributes.items():
+            try:
+                # Try to parse the key
+                key_str = str(attr_key)
+                parts = key_str.split("/")
 
-            # Feature map
-            feature_map = attributes.get(feature_map_key)
-            if feature_map is not None:
-                details["feature_map"] = int(feature_map)
+                if len(parts) >= 3:
+                    ep_id = int(parts[0])
+                    cl_id = int(parts[1])
+                    at_id = int(parts[2])
 
-            # Attribute list
-            attr_list = attributes.get(attribute_list_key)
-            if attr_list is not None and isinstance(attr_list, (list, tuple)):
-                details["attribute_list"] = list(attr_list)
+                    # Check if this is an endpoint/cluster we care about
+                    if ep_id == endpoint_id and cl_id in cluster_details:
+                        # Check if this is a global attribute we want
+                        if at_id in global_attrs:
+                            field_name = global_attrs[at_id]
+                            if field_name == "feature_map":
+                                cluster_details[cl_id][field_name] = int(attr_value)
+                            elif isinstance(attr_value, (list, tuple)):
+                                cluster_details[cl_id][field_name] = list(attr_value)
 
-            # Accepted command list
-            accepted_cmds = attributes.get(accepted_cmd_key)
-            if accepted_cmds is not None and isinstance(accepted_cmds, (list, tuple)):
-                details["accepted_command_list"] = list(accepted_cmds)
+            except (ValueError, IndexError, TypeError):
+                # Try object-style key parsing
+                if (
+                    hasattr(attr_key, "EndpointId")
+                    and hasattr(attr_key, "ClusterId")
+                    and hasattr(attr_key, "AttributeId")
+                ):
+                    ep_id = attr_key.EndpointId
+                    cl_id = attr_key.ClusterId
+                    at_id = attr_key.AttributeId
 
-            # Generated command list
-            generated_cmds = attributes.get(generated_cmd_key)
-            if generated_cmds is not None and isinstance(generated_cmds, (list, tuple)):
-                details["generated_command_list"] = list(generated_cmds)
-
-            cluster_details[cluster_id] = details
+                    if ep_id == endpoint_id and cl_id in cluster_details:
+                        if at_id in global_attrs:
+                            field_name = global_attrs[at_id]
+                            if field_name == "feature_map":
+                                cluster_details[cl_id][field_name] = int(attr_value)
+                            elif isinstance(attr_value, (list, tuple)):
+                                cluster_details[cl_id][field_name] = list(attr_value)
 
     except Exception as err:
         _LOGGER.debug("Error getting cluster details for node %s: %s", node_id, err)
-        for cluster_id in cluster_ids:
-            if cluster_id not in cluster_details:
-                cluster_details[cluster_id] = {"id": cluster_id}
 
     return cluster_details
 
