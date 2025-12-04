@@ -81,46 +81,49 @@ def _get_cluster_details_v3(
         }
 
         # Iterate through all attributes to find matches
-        # Keys can be strings like "1/6/65532" or objects with properties
+        # Keys are typically AttributePath objects with EndpointId/ClusterId/AttributeId
         for attr_key, attr_value in attributes.items():
-            try:
-                # Try to parse the key
-                key_str = str(attr_key)
-                parts = key_str.split("/")
+            ep_id = None
+            cl_id = None
+            at_id = None
 
-                if len(parts) >= 3:
-                    ep_id = int(parts[0])
-                    cl_id = int(parts[1])
-                    at_id = int(parts[2])
+            # Try AttributePath object first (most common case)
+            if (
+                hasattr(attr_key, "EndpointId")
+                and hasattr(attr_key, "ClusterId")
+                and hasattr(attr_key, "AttributeId")
+            ):
+                ep_id = attr_key.EndpointId
+                cl_id = attr_key.ClusterId
+                at_id = attr_key.AttributeId
+            else:
+                # Fall back to string parsing "endpoint/cluster/attribute"
+                try:
+                    key_str = str(attr_key)
+                    parts = key_str.split("/")
+                    if len(parts) >= 3:
+                        ep_id = int(parts[0])
+                        cl_id = int(parts[1])
+                        at_id = int(parts[2])
+                except (ValueError, IndexError, TypeError):
+                    continue
 
-                    # Check if this is an endpoint/cluster we care about
-                    if ep_id == endpoint_id and cl_id in cluster_details:
-                        # Check if this is a global attribute we want
-                        if at_id in global_attrs:
-                            field_name = global_attrs[at_id]
-                            if field_name == "feature_map":
-                                cluster_details[cl_id][field_name] = int(attr_value)
-                            elif isinstance(attr_value, (list, tuple)):
-                                cluster_details[cl_id][field_name] = list(attr_value)
+            # Check if we successfully parsed and if this is a match
+            if ep_id is None or cl_id is None or at_id is None:
+                continue
 
-            except (ValueError, IndexError, TypeError):
-                # Try object-style key parsing
-                if (
-                    hasattr(attr_key, "EndpointId")
-                    and hasattr(attr_key, "ClusterId")
-                    and hasattr(attr_key, "AttributeId")
-                ):
-                    ep_id = attr_key.EndpointId
-                    cl_id = attr_key.ClusterId
-                    at_id = attr_key.AttributeId
+            if ep_id != endpoint_id or cl_id not in cluster_details:
+                continue
 
-                    if ep_id == endpoint_id and cl_id in cluster_details:
-                        if at_id in global_attrs:
-                            field_name = global_attrs[at_id]
-                            if field_name == "feature_map":
-                                cluster_details[cl_id][field_name] = int(attr_value)
-                            elif isinstance(attr_value, (list, tuple)):
-                                cluster_details[cl_id][field_name] = list(attr_value)
+            if at_id not in global_attrs:
+                continue
+
+            # Extract the value
+            field_name = global_attrs[at_id]
+            if field_name == "feature_map":
+                cluster_details[cl_id][field_name] = int(attr_value)
+            elif isinstance(attr_value, (list, tuple)):
+                cluster_details[cl_id][field_name] = list(attr_value)
 
     except Exception as err:
         _LOGGER.debug("Error getting cluster details for node %s: %s", node_id, err)
