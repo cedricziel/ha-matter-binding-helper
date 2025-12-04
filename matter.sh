@@ -166,6 +166,10 @@ eve_schedule() {
   ws_call "matter_binding_helper/get_eve_schedule" "{\"node_id\": $NODE_ID, \"endpoint_id\": $ENDPOINT_ID}"
 }
 
+debug_telemetry() {
+  ws_call "matter_binding_helper/debug_telemetry"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -185,6 +189,7 @@ show_help() {
   echo "  devices                            Debug: List HA devices with Matter identifiers"
   echo "  match <node_id>                    Debug: Test device matching for a node"
   echo "  eve-schedule <node_id> [ep_id]     Get parsed Eve thermostat schedule"
+  echo "  telemetry                          Debug: Preview telemetry data (v3)"
   echo ""
   echo "Environment (from .env):"
   echo "  HA_HOST   Home Assistant URL (e.g., http://homeassistant.local:8123)"
@@ -224,6 +229,9 @@ case "${1:-}" in
     ;;
   eve-schedule)
     eve_schedule "${2:-}" "${3:-}"
+    ;;
+  telemetry)
+    debug_telemetry
     ;;
   help|--help|-h)
     show_help

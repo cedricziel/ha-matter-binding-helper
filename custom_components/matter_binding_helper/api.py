@@ -27,6 +27,7 @@ from .const import (
     WS_TYPE_SET_SCHEDULE,
 )
 from . import matter_client
+from .telemetry import collect_survey_data
 from .devices.parsers.eve import (
     EVE_CLUSTER_ID,
     EVE_SCHEDULE_ATTR,
@@ -60,6 +61,8 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_schedule)
     websocket_api.async_register_command(hass, ws_set_schedule)
     websocket_api.async_register_command(hass, ws_clear_schedule)
+    # Debug: telemetry preview
+    websocket_api.async_register_command(hass, ws_debug_telemetry)
 
 
 @websocket_api.websocket_command(
@@ -1287,3 +1290,22 @@ async def ws_clear_schedule(
         connection.send_error(
             msg["id"], "clear_schedule_failed", "Failed to clear thermostat schedule"
         )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_telemetry",
+    }
+)
+@websocket_api.async_response
+async def ws_debug_telemetry(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Preview telemetry data that would be sent.
+
+    Returns the v3 telemetry data structure for inspection.
+    """
+    data = await collect_survey_data(hass)
+    connection.send_result(msg["id"], data)
