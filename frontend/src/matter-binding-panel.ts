@@ -16,8 +16,9 @@ import type {
   AutomationRecommendation,
   EveSchedule,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
+import "./thermostat-schedule-editor";
 import { computeBindingRecommendations } from "./recommendation-logic";
 import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters, filterControlClusters } from "./binding-ui-logic";
 import * as api from "./api";
@@ -1513,6 +1514,34 @@ export class MatterBindingPanel extends LitElement {
     `;
   }
 
+  /**
+   * Render the standard Matter thermostat schedule editor.
+   * Shows for thermostats that support the weekly schedule feature.
+   */
+  private _renderThermostatSchedule(node: MatterNode) {
+    // Skip Eve devices - they use their proprietary schedule format
+    if (this._isEveDevice(node)) {
+      return nothing;
+    }
+
+    // Find the first thermostat endpoint with schedule support
+    const thermostatEndpoint = node.endpoints.find(
+      (ep) => hasThermostatSchedule(ep)
+    );
+
+    if (!thermostatEndpoint) {
+      return nothing;
+    }
+
+    return html`
+      <thermostat-schedule-editor
+        .hass=${this.hass}
+        .node=${node}
+        .endpoint=${thermostatEndpoint}
+      ></thermostat-schedule-editor>
+    `;
+  }
+
   private async _loadOverviewData(): Promise<void> {
     this._overviewLoading = true;
     this._error = null;
@@ -2330,6 +2359,7 @@ export class MatterBindingPanel extends LitElement {
         ${this._renderEntityList(node)}
         ${this._renderDeviceRegistryInfo(node)}
         ${this._renderEveSchedule(node)}
+        ${this._renderThermostatSchedule(node)}
 
         <div class="device-section">
           <div class="section-header">

@@ -14,14 +14,17 @@ from homeassistant.helpers import device_registry as dr
 
 from .const import (
     WS_TYPE_ADD_TO_GROUP,
+    WS_TYPE_CLEAR_SCHEDULE,
     WS_TYPE_CREATE_BINDING,
     WS_TYPE_CREATE_GROUP,
     WS_TYPE_DELETE_BINDING,
     WS_TYPE_DELETE_GROUP,
+    WS_TYPE_GET_SCHEDULE,
     WS_TYPE_LIST_BINDINGS,
     WS_TYPE_LIST_GROUPS,
     WS_TYPE_LIST_NODES,
     WS_TYPE_REMOVE_FROM_GROUP,
+    WS_TYPE_SET_SCHEDULE,
 )
 from . import matter_client
 from .devices.parsers.eve import (
@@ -53,6 +56,10 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete_group)
     websocket_api.async_register_command(hass, ws_add_to_group)
     websocket_api.async_register_command(hass, ws_remove_from_group)
+    # Thermostat schedule commands
+    websocket_api.async_register_command(hass, ws_get_schedule)
+    websocket_api.async_register_command(hass, ws_set_schedule)
+    websocket_api.async_register_command(hass, ws_clear_schedule)
 
 
 @websocket_api.websocket_command(
@@ -1082,3 +1089,194 @@ async def ws_remove_from_group(
         connection.send_result(msg["id"], {"success": True})
     else:
         connection.send_error(msg["id"], "remove_failed", "Failed to remove from group")
+
+
+# =============================================================================
+# Thermostat Schedule WebSocket Commands
+# =============================================================================
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_GET_SCHEDULE,
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+        vol.Optional("days"): vol.All(
+            [
+                vol.In(
+                    [
+                        "sunday",
+                        "monday",
+                        "tuesday",
+                        "wednesday",
+                        "thursday",
+                        "friday",
+                        "saturday",
+                        "away",
+                    ]
+                )
+            ]
+        ),
+        vol.Optional("heat", default=True): bool,
+        vol.Optional("cool", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_get_schedule(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get thermostat weekly schedule.
+
+    Request:
+        node_id: Matter node ID
+        endpoint_id: Endpoint with thermostat cluster
+        days: Optional list of days to retrieve (default: all)
+        heat: Request heat setpoints (default: true)
+        cool: Request cool setpoints (default: false)
+
+    Response:
+        schedule: {
+            day_of_week: int (bitmap),
+            day_names: list of day names,
+            mode: int (bitmap),
+            mode_names: list of mode names,
+            transitions: [{
+                transition_time: minutes from midnight,
+                heat_setpoint: temperature in °C or null,
+                cool_setpoint: temperature in °C or null
+            }]
+        }
+    """
+    schedule = await matter_client.get_thermostat_schedule(
+        hass,
+        node_id=msg["node_id"],
+        endpoint_id=msg["endpoint_id"],
+        days=msg.get("days"),
+        heat=msg.get("heat", True),
+        cool=msg.get("cool", False),
+    )
+
+    if schedule:
+        connection.send_result(msg["id"], {"schedule": schedule.to_dict()})
+    else:
+        connection.send_error(
+            msg["id"], "get_schedule_failed", "Failed to get thermostat schedule"
+        )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_SET_SCHEDULE,
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+        vol.Required("days"): vol.All(
+            [
+                vol.In(
+                    [
+                        "sunday",
+                        "monday",
+                        "tuesday",
+                        "wednesday",
+                        "thursday",
+                        "friday",
+                        "saturday",
+                        "away",
+                    ]
+                )
+            ],
+            vol.Length(min=1),
+        ),
+        vol.Required("transitions"): vol.All(
+            [
+                vol.Schema(
+                    {
+                        vol.Required("transition_time"): vol.All(
+                            vol.Coerce(int), vol.Range(min=0, max=1439)
+                        ),
+                        vol.Optional("heat_setpoint"): vol.Coerce(float),
+                        vol.Optional("cool_setpoint"): vol.Coerce(float),
+                    }
+                )
+            ],
+            vol.Length(min=1, max=10),
+        ),
+        vol.Optional("heat", default=True): bool,
+        vol.Optional("cool", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_set_schedule(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Set thermostat weekly schedule.
+
+    Request:
+        node_id: Matter node ID
+        endpoint_id: Endpoint with thermostat cluster
+        days: List of days this schedule applies to
+        transitions: List of schedule transitions:
+            - transition_time: Minutes from midnight (0-1439)
+            - heat_setpoint: Temperature in °C (optional)
+            - cool_setpoint: Temperature in °C (optional)
+        heat: Schedule includes heat setpoints (default: true)
+        cool: Schedule includes cool setpoints (default: false)
+
+    Response:
+        success: true if schedule was set
+    """
+    success = await matter_client.set_thermostat_schedule(
+        hass,
+        node_id=msg["node_id"],
+        endpoint_id=msg["endpoint_id"],
+        days=msg["days"],
+        transitions=msg["transitions"],
+        heat=msg.get("heat", True),
+        cool=msg.get("cool", False),
+    )
+
+    if success:
+        connection.send_result(msg["id"], {"success": True})
+    else:
+        connection.send_error(
+            msg["id"], "set_schedule_failed", "Failed to set thermostat schedule"
+        )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_CLEAR_SCHEDULE,
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_clear_schedule(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Clear thermostat weekly schedule.
+
+    Request:
+        node_id: Matter node ID
+        endpoint_id: Endpoint with thermostat cluster
+
+    Response:
+        success: true if schedule was cleared
+    """
+    success = await matter_client.clear_thermostat_schedule(
+        hass,
+        node_id=msg["node_id"],
+        endpoint_id=msg["endpoint_id"],
+    )
+
+    if success:
+        connection.send_result(msg["id"], {"success": True})
+    else:
+        connection.send_error(
+            msg["id"], "clear_schedule_failed", "Failed to clear thermostat schedule"
+        )

@@ -438,3 +438,77 @@ export interface EveScheduleResponse {
 // Eve vendor and cluster constants
 export const EVE_VENDOR_ID = 4874;
 export const EVE_CLUSTER_ID = 319486977;  // 0x130AFC01
+
+// =============================================================================
+// Thermostat Schedule Types (Standard Matter)
+// =============================================================================
+
+// Days of week as used by Matter schedule commands
+export type ScheduleDay = "sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "away";
+
+export const SCHEDULE_DAYS: ScheduleDay[] = [
+  "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "away"
+];
+
+export const WEEKDAYS: ScheduleDay[] = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+export const WEEKEND: ScheduleDay[] = ["saturday", "sunday"];
+
+// A single schedule transition (time + temperature)
+export interface ScheduleTransition {
+  transition_time: number;  // Minutes from midnight (0-1439)
+  heat_setpoint: number | null;  // Temperature in °C
+  cool_setpoint: number | null;  // Temperature in °C
+}
+
+// Full schedule response from backend
+export interface WeeklySchedule {
+  day_of_week: number;  // Bitmap: bit 0=Sun, bit 1=Mon, ..., bit 6=Sat, bit 7=Away
+  day_names: ScheduleDay[];  // Parsed day names
+  mode: number;  // Bitmap: bit 0=Heat, bit 1=Cool
+  mode_names: ("heat" | "cool")[];  // Parsed mode names
+  transitions: ScheduleTransition[];
+}
+
+// Response types
+export interface GetScheduleResponse {
+  schedule: WeeklySchedule;
+}
+
+export interface SetScheduleResponse {
+  success: boolean;
+}
+
+export interface ClearScheduleResponse {
+  success: boolean;
+}
+
+// Helper: Convert minutes to time string (HH:MM)
+export function minutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+}
+
+// Helper: Convert time string (HH:MM) to minutes from midnight
+export function timeToMinutes(time: string): number {
+  const [hours, mins] = time.split(":").map(Number);
+  return hours * 60 + mins;
+}
+
+// Helper: Format temperature with unit
+export function formatTemperature(celsius: number | null, unit: "°C" | "°F" = "°C"): string {
+  if (celsius === null) return "—";
+  if (unit === "°F") {
+    return `${Math.round(celsius * 9/5 + 32)}°F`;
+  }
+  return `${celsius.toFixed(1)}°C`;
+}
+
+// Helper: Check if endpoint has thermostat with schedule support
+export function hasThermostatSchedule(endpoint: MatterEndpoint): boolean {
+  // Must have thermostat cluster and be device type 769 (Thermostat)
+  return (
+    endpoint.server_clusters.includes(CLUSTER_THERMOSTAT) &&
+    endpoint.device_types.some(dt => dt.id === 769)
+  );
+}

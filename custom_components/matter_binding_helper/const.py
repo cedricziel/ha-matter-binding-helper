@@ -37,6 +37,12 @@ CLUSTER_LEVEL_CONTROL = 0x0008
 CLUSTER_COLOR_CONTROL = 0x0300
 CLUSTER_SCENES = 0x0005
 CLUSTER_DESCRIPTOR = 0x001D  # Descriptor cluster
+CLUSTER_THERMOSTAT = 0x0201  # Thermostat cluster
+
+# WebSocket commands for thermostat schedules
+WS_TYPE_GET_SCHEDULE = f"{DOMAIN}/get_schedule"
+WS_TYPE_SET_SCHEDULE = f"{DOMAIN}/set_schedule"
+WS_TYPE_CLEAR_SCHEDULE = f"{DOMAIN}/clear_schedule"
 
 # Descriptor cluster attribute IDs
 ATTR_DEVICE_TYPE_LIST = 0  # DeviceTypeList

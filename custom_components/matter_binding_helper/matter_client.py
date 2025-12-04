@@ -54,6 +54,77 @@ class BindingEntry:
 
 
 @dataclass
+class ScheduleTransition:
+    """Represents a weekly schedule transition entry."""
+
+    transition_time: int  # Minutes from midnight (0-1439)
+    heat_setpoint: float | None = None  # Temperature in °C
+    cool_setpoint: float | None = None  # Temperature in °C
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "transition_time": self.transition_time,
+            "heat_setpoint": self.heat_setpoint,
+            "cool_setpoint": self.cool_setpoint,
+        }
+
+    @classmethod
+    def from_matter(cls, matter_transition: Any) -> "ScheduleTransition":
+        """Create from Matter SDK transition struct."""
+        # Matter uses 0.01°C units
+        heat = matter_transition.heatSetpoint
+        cool = matter_transition.coolSetpoint
+        return cls(
+            transition_time=matter_transition.transitionTime,
+            heat_setpoint=heat / 100 if heat is not None else None,
+            cool_setpoint=cool / 100 if cool is not None else None,
+        )
+
+
+@dataclass
+class WeeklySchedule:
+    """Represents a thermostat weekly schedule response."""
+
+    day_of_week: int  # Bitmap: bit 0=Sun, bit 1=Mon, ..., bit 6=Sat, bit 7=Away
+    mode: int  # Bitmap: bit 0=Heat, bit 1=Cool
+    transitions: list[ScheduleTransition]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "day_of_week": self.day_of_week,
+            "day_names": self._get_day_names(),
+            "mode": self.mode,
+            "mode_names": self._get_mode_names(),
+            "transitions": [t.to_dict() for t in self.transitions],
+        }
+
+    def _get_day_names(self) -> list[str]:
+        """Get list of day names from bitmap."""
+        days = [
+            "sunday",
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "away",
+        ]
+        return [days[i] for i in range(8) if self.day_of_week & (1 << i)]
+
+    def _get_mode_names(self) -> list[str]:
+        """Get list of mode names from bitmap."""
+        modes = []
+        if self.mode & 1:
+            modes.append("heat")
+        if self.mode & 2:
+            modes.append("cool")
+        return modes
+
+
+@dataclass
 class GroupEntry:
     """Represents a Matter group entry."""
 
@@ -1439,6 +1510,355 @@ async def remove_from_group(
     _LOGGER.debug(
         "Removing node %s endpoint %s from group %s", node_id, endpoint_id, group_id
     )
+    return False
+
+
+# =============================================================================
+# Thermostat Schedule Functions
+# =============================================================================
+
+
+def _get_day_bitmap(days: list[str]) -> int:
+    """Convert day names to Matter bitmap.
+
+    Args:
+        days: List of day names (sunday, monday, ..., saturday, away)
+
+    Returns:
+        Bitmap where bit 0=Sun, bit 1=Mon, ..., bit 6=Sat, bit 7=Away
+    """
+    day_map = {
+        "sunday": 0,
+        "monday": 1,
+        "tuesday": 2,
+        "wednesday": 3,
+        "thursday": 4,
+        "friday": 5,
+        "saturday": 6,
+        "away": 7,
+    }
+    bitmap = 0
+    for day in days:
+        day_lower = day.lower()
+        if day_lower in day_map:
+            bitmap |= 1 << day_map[day_lower]
+    return bitmap
+
+
+def _get_mode_bitmap(heat: bool = True, cool: bool = False) -> int:
+    """Convert heat/cool flags to Matter mode bitmap.
+
+    Args:
+        heat: Include heat setpoints
+        cool: Include cool setpoints
+
+    Returns:
+        Bitmap where bit 0=Heat, bit 1=Cool
+    """
+    bitmap = 0
+    if heat:
+        bitmap |= 1
+    if cool:
+        bitmap |= 2
+    return bitmap
+
+
+async def get_thermostat_schedule(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+    days: list[str] | None = None,
+    heat: bool = True,
+    cool: bool = False,
+) -> WeeklySchedule | None:
+    """Get weekly schedule from a thermostat.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID with thermostat cluster
+        days: List of day names to retrieve (default: all days)
+        heat: Request heat setpoints
+        cool: Request cool setpoints
+
+    Returns:
+        WeeklySchedule with transitions or None if failed
+    """
+    # Demo mode returns sample schedule
+    if _is_demo_mode(hass):
+        _LOGGER.debug("Demo mode: returning sample thermostat schedule")
+        return WeeklySchedule(
+            day_of_week=0x7F,  # All weekdays
+            mode=1,  # Heat only
+            transitions=[
+                ScheduleTransition(
+                    transition_time=6 * 60, heat_setpoint=20.0
+                ),  # 6:00 AM
+                ScheduleTransition(
+                    transition_time=8 * 60, heat_setpoint=18.0
+                ),  # 8:00 AM
+                ScheduleTransition(
+                    transition_time=17 * 60, heat_setpoint=21.0
+                ),  # 5:00 PM
+                ScheduleTransition(
+                    transition_time=22 * 60, heat_setpoint=17.0
+                ),  # 10:00 PM
+            ],
+        )
+
+    client = get_matter_client(hass)
+    if not client:
+        _LOGGER.error("get_thermostat_schedule: Matter client not available")
+        return None
+
+    try:
+        # Import Thermostat cluster commands from CHIP SDK
+        from chip.clusters import Objects as clusters
+
+        # Build request parameters
+        days_bitmap = _get_day_bitmap(days) if days else 0x7F  # All days
+        mode_bitmap = _get_mode_bitmap(heat, cool)
+
+        _LOGGER.info(
+            "get_thermostat_schedule: Getting schedule for node %s endpoint %s (days=%s, mode=%s)",
+            node_id,
+            endpoint_id,
+            bin(days_bitmap),
+            bin(mode_bitmap),
+        )
+
+        # Create GetWeeklySchedule command
+        command = clusters.Thermostat.Commands.GetWeeklySchedule(
+            daysToReturn=days_bitmap,
+            modeToReturn=mode_bitmap,
+        )
+
+        # Send command
+        response = await client.send_device_command(
+            node_id=node_id,
+            endpoint_id=endpoint_id,
+            command=command,
+        )
+
+        _LOGGER.debug("get_thermostat_schedule: Response: %s", response)
+
+        if response is None:
+            _LOGGER.warning("get_thermostat_schedule: No response from device")
+            return None
+
+        # Parse GetWeeklyScheduleResponse
+        transitions = [ScheduleTransition.from_matter(t) for t in response.transitions]
+
+        return WeeklySchedule(
+            day_of_week=response.dayOfWeekForSequence,
+            mode=response.modeForSequence,
+            transitions=transitions,
+        )
+
+    except Exception as err:
+        _LOGGER.error(
+            "get_thermostat_schedule: Error getting schedule for node %s endpoint %s: %s",
+            node_id,
+            endpoint_id,
+            err,
+            exc_info=True,
+        )
+        return None
+
+
+async def set_thermostat_schedule(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+    days: list[str],
+    transitions: list[dict[str, Any]],
+    heat: bool = True,
+    cool: bool = False,
+) -> bool:
+    """Set weekly schedule on a thermostat.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID with thermostat cluster
+        days: List of day names this schedule applies to
+        transitions: List of transition dicts with keys:
+            - transition_time: Minutes from midnight (0-1439)
+            - heat_setpoint: Temperature in °C (optional)
+            - cool_setpoint: Temperature in °C (optional)
+        heat: Schedule includes heat setpoints
+        cool: Schedule includes cool setpoints
+
+    Returns:
+        True if successful
+    """
+    # Demo mode simulates success
+    if _is_demo_mode(hass):
+        _LOGGER.debug(
+            "Demo mode: simulating set schedule for node %s endpoint %s",
+            node_id,
+            endpoint_id,
+        )
+        return True
+
+    client = get_matter_client(hass)
+    if not client:
+        _LOGGER.error("set_thermostat_schedule: Matter client not available")
+        return False
+
+    try:
+        # Import Thermostat cluster commands from CHIP SDK
+        from chip.clusters import Objects as clusters
+
+        # Build command parameters
+        days_bitmap = _get_day_bitmap(days)
+        mode_bitmap = _get_mode_bitmap(heat, cool)
+
+        # Convert transitions to Matter format (0.01°C units)
+        matter_transitions = []
+        for t in transitions:
+            # Matter uses signed int16 for temperatures in 0.01°C
+            heat_sp = t.get("heat_setpoint")
+            cool_sp = t.get("cool_setpoint")
+
+            matter_transitions.append(
+                clusters.Thermostat.Structs.WeeklyScheduleTransitionStruct(
+                    transitionTime=int(t["transition_time"]),
+                    heatSetpoint=int(heat_sp * 100) if heat_sp is not None else None,
+                    coolSetpoint=int(cool_sp * 100) if cool_sp is not None else None,
+                )
+            )
+
+        _LOGGER.info(
+            "set_thermostat_schedule: Setting schedule for node %s endpoint %s "
+            "(days=%s, mode=%s, transitions=%d)",
+            node_id,
+            endpoint_id,
+            bin(days_bitmap),
+            bin(mode_bitmap),
+            len(matter_transitions),
+        )
+
+        # Create SetWeeklySchedule command
+        command = clusters.Thermostat.Commands.SetWeeklySchedule(
+            numberOfTransitionsForSequence=len(matter_transitions),
+            dayOfWeekForSequence=days_bitmap,
+            modeForSequence=mode_bitmap,
+            transitions=matter_transitions,
+        )
+
+        # Send command
+        await client.send_device_command(
+            node_id=node_id,
+            endpoint_id=endpoint_id,
+            command=command,
+        )
+
+        _LOGGER.info("set_thermostat_schedule: Schedule set successfully")
+        return True
+
+    except Exception as err:
+        _LOGGER.error(
+            "set_thermostat_schedule: Error setting schedule for node %s endpoint %s: %s",
+            node_id,
+            endpoint_id,
+            err,
+            exc_info=True,
+        )
+        return False
+
+
+async def clear_thermostat_schedule(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+) -> bool:
+    """Clear all weekly schedules on a thermostat.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID with thermostat cluster
+
+    Returns:
+        True if successful
+    """
+    # Demo mode simulates success
+    if _is_demo_mode(hass):
+        _LOGGER.debug(
+            "Demo mode: simulating clear schedule for node %s endpoint %s",
+            node_id,
+            endpoint_id,
+        )
+        return True
+
+    client = get_matter_client(hass)
+    if not client:
+        _LOGGER.error("clear_thermostat_schedule: Matter client not available")
+        return False
+
+    try:
+        # Import Thermostat cluster commands from CHIP SDK
+        from chip.clusters import Objects as clusters
+
+        _LOGGER.info(
+            "clear_thermostat_schedule: Clearing schedule for node %s endpoint %s",
+            node_id,
+            endpoint_id,
+        )
+
+        # Create ClearWeeklySchedule command (no parameters)
+        command = clusters.Thermostat.Commands.ClearWeeklySchedule()
+
+        # Send command
+        await client.send_device_command(
+            node_id=node_id,
+            endpoint_id=endpoint_id,
+            command=command,
+        )
+
+        _LOGGER.info("clear_thermostat_schedule: Schedule cleared successfully")
+        return True
+
+    except Exception as err:
+        _LOGGER.error(
+            "clear_thermostat_schedule: Error clearing schedule for node %s endpoint %s: %s",
+            node_id,
+            endpoint_id,
+            err,
+            exc_info=True,
+        )
+        return False
+
+
+def has_thermostat_schedule_feature(endpoint_data: dict[str, Any]) -> bool:
+    """Check if an endpoint supports thermostat scheduling.
+
+    The endpoint must have:
+    1. Thermostat cluster (0x0201) as a server cluster
+    2. Device type 769 (Thermostat) or 770 (Temperature Sensor with thermostat)
+
+    Args:
+        endpoint_data: Endpoint info dict from get_nodes()
+
+    Returns:
+        True if endpoint supports scheduling
+    """
+    from .const import CLUSTER_THERMOSTAT
+
+    # Check for thermostat cluster
+    server_clusters = endpoint_data.get("server_clusters", [])
+    if CLUSTER_THERMOSTAT not in server_clusters:
+        return False
+
+    # Check for thermostat device type
+    device_types = endpoint_data.get("device_types", [])
+    thermostat_device_types = {769}  # Thermostat
+    for dt in device_types:
+        dt_id = dt.get("id") if isinstance(dt, dict) else dt
+        if dt_id in thermostat_device_types:
+            return True
+
     return False
 
 

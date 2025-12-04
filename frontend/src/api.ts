@@ -9,6 +9,11 @@ import type {
   ListGroupsResponse,
   SuccessResponse,
   EveScheduleResponse,
+  GetScheduleResponse,
+  SetScheduleResponse,
+  ClearScheduleResponse,
+  ScheduleDay,
+  ScheduleTransition,
 } from "./types";
 
 const DOMAIN = "matter_binding_helper";
@@ -132,6 +137,88 @@ export async function getEveSchedule(
 ): Promise<EveScheduleResponse> {
   return hass.callWS({
     type: `${DOMAIN}/get_eve_schedule`,
+    node_id: nodeId,
+    endpoint_id: endpointId,
+  });
+}
+
+// =============================================================================
+// Thermostat Schedule API (Standard Matter)
+// =============================================================================
+
+/**
+ * Get the weekly schedule from a thermostat.
+ *
+ * @param hass - Home Assistant instance
+ * @param nodeId - Matter node ID
+ * @param endpointId - Endpoint with thermostat cluster
+ * @param days - Optional list of days to retrieve (default: all)
+ * @param heat - Request heat setpoints (default: true)
+ * @param cool - Request cool setpoints (default: false)
+ */
+export async function getThermostatSchedule(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number,
+  days?: ScheduleDay[],
+  heat: boolean = true,
+  cool: boolean = false
+): Promise<GetScheduleResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/get_schedule`,
+    node_id: nodeId,
+    endpoint_id: endpointId,
+    ...(days && { days }),
+    heat,
+    cool,
+  });
+}
+
+/**
+ * Set the weekly schedule on a thermostat.
+ *
+ * @param hass - Home Assistant instance
+ * @param nodeId - Matter node ID
+ * @param endpointId - Endpoint with thermostat cluster
+ * @param days - Days this schedule applies to
+ * @param transitions - List of time/temperature transitions (max 10)
+ * @param heat - Schedule includes heat setpoints (default: true)
+ * @param cool - Schedule includes cool setpoints (default: false)
+ */
+export async function setThermostatSchedule(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number,
+  days: ScheduleDay[],
+  transitions: ScheduleTransition[],
+  heat: boolean = true,
+  cool: boolean = false
+): Promise<SetScheduleResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/set_schedule`,
+    node_id: nodeId,
+    endpoint_id: endpointId,
+    days,
+    transitions,
+    heat,
+    cool,
+  });
+}
+
+/**
+ * Clear all weekly schedules on a thermostat.
+ *
+ * @param hass - Home Assistant instance
+ * @param nodeId - Matter node ID
+ * @param endpointId - Endpoint with thermostat cluster
+ */
+export async function clearThermostatSchedule(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number
+): Promise<ClearScheduleResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/clear_schedule`,
     node_id: nodeId,
     endpoint_id: endpointId,
   });
