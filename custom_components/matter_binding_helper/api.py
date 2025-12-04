@@ -63,6 +63,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_clear_schedule)
     # Debug: telemetry preview
     websocket_api.async_register_command(hass, ws_debug_telemetry)
+    websocket_api.async_register_command(hass, ws_debug_v3_extraction)
 
 
 @websocket_api.websocket_command(
@@ -1309,3 +1310,141 @@ async def ws_debug_telemetry(
     """
     data = await collect_survey_data(hass)
     connection.send_result(msg["id"], data)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "matter_binding_helper/debug_v3_extraction",
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_debug_v3_extraction(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Debug: Show v3 attribute extraction details for a specific endpoint."""
+    client = matter_client.get_matter_client(hass)
+    if not client:
+        connection.send_error(msg["id"], "no_client", "Matter client not available")
+        return
+
+    target_node_id = msg["node_id"]
+    target_endpoint_id = msg["endpoint_id"]
+
+    result: dict[str, Any] = {
+        "node_id": target_node_id,
+        "endpoint_id": target_endpoint_id,
+        "node_found": False,
+        "attributes_source": None,
+        "attributes_count": 0,
+        "sample_keys": [],
+        "global_attrs_found": {},
+    }
+
+    # Global attribute IDs we care about
+    global_attr_ids = {
+        65532: "feature_map",
+        65531: "attribute_list",
+        65529: "accepted_command_list",
+        65528: "generated_command_list",
+    }
+
+    for node in client.get_nodes():
+        if node.node_id != target_node_id:
+            continue
+
+        result["node_found"] = True
+
+        # Try to get attributes
+        attributes = None
+        node_data = getattr(node, "node_data", None)
+        if node_data:
+            attributes = getattr(node_data, "attributes", None)
+            if attributes:
+                result["attributes_source"] = "node_data.attributes"
+
+        if not attributes:
+            attributes = getattr(node, "attributes", None)
+            if attributes:
+                result["attributes_source"] = "node.attributes"
+
+        if not attributes:
+            result["attributes_source"] = "none"
+            connection.send_result(msg["id"], result)
+            return
+
+        result["attributes_count"] = len(attributes)
+
+        # Sample some keys to understand structure
+        for i, (key, value) in enumerate(attributes.items()):
+            if i >= 10:
+                break
+
+            key_info = {
+                "key_type": type(key).__name__,
+                "key_str": str(key)[:100],
+                "has_EndpointId": hasattr(key, "EndpointId"),
+                "has_ClusterId": hasattr(key, "ClusterId"),
+                "has_AttributeId": hasattr(key, "AttributeId"),
+            }
+
+            if hasattr(key, "EndpointId"):
+                key_info["EndpointId"] = key.EndpointId
+                key_info["ClusterId"] = key.ClusterId
+                key_info["AttributeId"] = key.AttributeId
+
+            result["sample_keys"].append(key_info)
+
+        # Now look for global attributes for the target endpoint
+        for key, value in attributes.items():
+            ep_id = None
+            cl_id = None
+            at_id = None
+
+            if (
+                hasattr(key, "EndpointId")
+                and hasattr(key, "ClusterId")
+                and hasattr(key, "AttributeId")
+            ):
+                ep_id = key.EndpointId
+                cl_id = key.ClusterId
+                at_id = key.AttributeId
+            else:
+                try:
+                    parts = str(key).split("/")
+                    if len(parts) >= 3:
+                        ep_id = int(parts[0])
+                        cl_id = int(parts[1])
+                        at_id = int(parts[2])
+                except (ValueError, IndexError):
+                    continue
+
+            if ep_id != target_endpoint_id:
+                continue
+
+            if at_id in global_attr_ids:
+                attr_name = global_attr_ids[at_id]
+                cluster_key = f"cluster_{cl_id}"
+                if cluster_key not in result["global_attrs_found"]:
+                    result["global_attrs_found"][cluster_key] = {}
+
+                # Store value info
+                if isinstance(value, (list, tuple)):
+                    result["global_attrs_found"][cluster_key][attr_name] = {
+                        "type": "list",
+                        "length": len(value),
+                        "sample": list(value)[:5],
+                    }
+                else:
+                    result["global_attrs_found"][cluster_key][attr_name] = {
+                        "type": type(value).__name__,
+                        "value": value,
+                    }
+
+        connection.send_result(msg["id"], result)
+        return
+
+    connection.send_result(msg["id"], result)

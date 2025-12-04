@@ -170,6 +170,16 @@ debug_telemetry() {
   ws_call "matter_binding_helper/debug_telemetry"
 }
 
+debug_v3() {
+  local NODE_ID="$1"
+  local ENDPOINT_ID="${2:-1}"
+  if [[ -z "$NODE_ID" ]]; then
+    echo "Usage: $0 debug-v3 <node_id> [endpoint_id]"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/debug_v3_extraction" "{\"node_id\": $NODE_ID, \"endpoint_id\": $ENDPOINT_ID}"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -190,6 +200,7 @@ show_help() {
   echo "  match <node_id>                    Debug: Test device matching for a node"
   echo "  eve-schedule <node_id> [ep_id]     Get parsed Eve thermostat schedule"
   echo "  telemetry                          Debug: Preview telemetry data (v3)"
+  echo "  debug-v3 <node_id> [ep_id]         Debug: Show v3 extraction details"
   echo ""
   echo "Environment (from .env):"
   echo "  HA_HOST   Home Assistant URL (e.g., http://homeassistant.local:8123)"
@@ -232,6 +243,9 @@ case "${1:-}" in
     ;;
   telemetry)
     debug_telemetry
+    ;;
+  debug-v3)
+    debug_v3 "${2:-}" "${3:-}"
     ;;
   help|--help|-h)
     show_help
