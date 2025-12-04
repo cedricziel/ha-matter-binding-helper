@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.13.2...v0.14.0) (2025-12-04)
+
+
+### Features
+
+* add Matter thermostat weekly schedule editor ([57f166e](https://github.com/cedricziel/ha-matter-binding-helper/commit/57f166eb51f3ad4906ac64110de4169dc8658d39))
+
 ## [0.13.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.13.1...v0.13.2) (2025-12-02)
 
 
