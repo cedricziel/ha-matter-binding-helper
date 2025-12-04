@@ -68,12 +68,14 @@ def _get_cluster_details_v3(
         if not node:
             return cluster_details
 
-        # Try node.attributes first, then node.node_data.attributes
-        attributes = getattr(node, "attributes", None)
+        # Get attributes - prefer node_data.attributes (has AttributePath keys)
+        attributes = None
+        node_data = getattr(node, "node_data", None)
+        if node_data:
+            attributes = getattr(node_data, "attributes", None)
+        # Fallback to node.attributes if node_data.attributes not available
         if not attributes:
-            node_data = getattr(node, "node_data", None)
-            if node_data:
-                attributes = getattr(node_data, "attributes", None)
+            attributes = getattr(node, "attributes", None)
         if not attributes:
             return cluster_details
 
