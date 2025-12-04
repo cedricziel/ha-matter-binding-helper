@@ -51,6 +51,8 @@ ATTR_CLIENT_LIST = 2  # ClientList - cluster IDs this endpoint implements as cli
 ATTR_PARTS_LIST = 3  # PartsList - child endpoints
 
 # Global cluster attribute IDs (apply to all clusters)
+ATTR_FEATURE_MAP = 0xFFFC  # 65532 - Bitmask of cluster features
+ATTR_ATTRIBUTE_LIST = 0xFFFB  # 65531 - List of attribute IDs supported by cluster
 ATTR_ACCEPTED_COMMAND_LIST = 0xFFF9  # 65529 - List of commands the cluster accepts
 ATTR_GENERATED_COMMAND_LIST = 0xFFF8  # 65528 - List of commands the cluster generates
 

@@ -11,21 +11,116 @@ import aiohttp
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    ATTR_ACCEPTED_COMMAND_LIST,
+    ATTR_ATTRIBUTE_LIST,
+    ATTR_FEATURE_MAP,
+    ATTR_GENERATED_COMMAND_LIST,
     CONF_TELEMETRY_ENABLED,
     DEFAULT_TELEMETRY_ENABLED,
     DOMAIN,
     TELEMETRY_INITIAL_DELAY_MINUTES,
     TELEMETRY_URL,
 )
-from .matter_client import get_nodes
+from .matter_client import get_matter_client, get_nodes
 
 _LOGGER = logging.getLogger(__name__)
 
 # Config entry option key for installation UUID
 CONF_INSTALLATION_ID = "installation_id"
 
+# Schema version for v3 telemetry
+TELEMETRY_SCHEMA_VERSION = 3
 
-def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
+
+def _get_cluster_details_v3(
+    hass: HomeAssistant, node_id: int, endpoint_id: int, cluster_ids: list[int]
+) -> dict[int, dict[str, Any]]:
+    """Get detailed cluster information for telemetry v3 schema.
+
+    For each cluster, retrieves:
+    - feature_map: Bitmask of enabled cluster features
+    - attribute_list: List of supported attribute IDs
+    - accepted_command_list: List of accepted command IDs
+    - generated_command_list: List of generated command IDs
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID
+        cluster_ids: List of cluster IDs to get details for
+
+    Returns:
+        Dict mapping cluster_id to cluster details
+    """
+    cluster_details: dict[int, dict[str, Any]] = {}
+
+    client = get_matter_client(hass)
+    if not client:
+        # Return basic cluster info without details
+        for cluster_id in cluster_ids:
+            cluster_details[cluster_id] = {"id": cluster_id}
+        return cluster_details
+
+    try:
+        nodes = client.get_nodes()
+        node = next((n for n in nodes if n.node_id == node_id), None)
+        if not node:
+            for cluster_id in cluster_ids:
+                cluster_details[cluster_id] = {"id": cluster_id}
+            return cluster_details
+
+        attributes = getattr(node, "attributes", {})
+        if not attributes:
+            for cluster_id in cluster_ids:
+                cluster_details[cluster_id] = {"id": cluster_id}
+            return cluster_details
+
+        for cluster_id in cluster_ids:
+            details: dict[str, Any] = {"id": cluster_id}
+
+            # Try to get global attributes for this cluster
+            # Attribute keys are in format "endpoint/cluster/attribute"
+            feature_map_key = f"{endpoint_id}/{cluster_id}/{ATTR_FEATURE_MAP}"
+            attribute_list_key = f"{endpoint_id}/{cluster_id}/{ATTR_ATTRIBUTE_LIST}"
+            accepted_cmd_key = (
+                f"{endpoint_id}/{cluster_id}/{ATTR_ACCEPTED_COMMAND_LIST}"
+            )
+            generated_cmd_key = (
+                f"{endpoint_id}/{cluster_id}/{ATTR_GENERATED_COMMAND_LIST}"
+            )
+
+            # Feature map
+            feature_map = attributes.get(feature_map_key)
+            if feature_map is not None:
+                details["feature_map"] = int(feature_map)
+
+            # Attribute list
+            attr_list = attributes.get(attribute_list_key)
+            if attr_list is not None and isinstance(attr_list, (list, tuple)):
+                details["attribute_list"] = list(attr_list)
+
+            # Accepted command list
+            accepted_cmds = attributes.get(accepted_cmd_key)
+            if accepted_cmds is not None and isinstance(accepted_cmds, (list, tuple)):
+                details["accepted_command_list"] = list(accepted_cmds)
+
+            # Generated command list
+            generated_cmds = attributes.get(generated_cmd_key)
+            if generated_cmds is not None and isinstance(generated_cmds, (list, tuple)):
+                details["generated_command_list"] = list(generated_cmds)
+
+            cluster_details[cluster_id] = details
+
+    except Exception as err:
+        _LOGGER.debug("Error getting cluster details for node %s: %s", node_id, err)
+        for cluster_id in cluster_ids:
+            if cluster_id not in cluster_details:
+                cluster_details[cluster_id] = {"id": cluster_id}
+
+    return cluster_details
+
+
+def _anonymize_node(hass: HomeAssistant, node: dict[str, Any]) -> dict[str, Any] | None:
     """Anonymize a single node, removing all personally identifiable information.
 
     Returns None if the node doesn't have useful capability data.
@@ -34,7 +129,7 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
     - vendor_id, vendor_name (manufacturer identification)
     - product_id, product_name (product identification)
     - hardware_version, software_version (version info)
-    - endpoint structure with device_types, clusters, binding capability
+    - endpoint structure with device_types, clusters (v3: with detailed cluster info)
 
     What we explicitly DO NOT collect:
     - node_id (fabric-specific identifier)
@@ -45,10 +140,11 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
     - available status (runtime state)
     """
     device_info = node.get("device_info", {})
+    node_id = node.get("node_id")
 
     _LOGGER.debug(
         "Anonymizing node %s: device_info=%s",
-        node.get("node_id"),
+        node_id,
         device_info,
     )
 
@@ -56,22 +152,41 @@ def _anonymize_node(node: dict[str, Any]) -> dict[str, Any] | None:
     if not device_info.get("vendor_id") and not device_info.get("product_id"):
         _LOGGER.debug(
             "Skipping node %s: no vendor_id (%s) or product_id (%s)",
-            node.get("node_id"),
+            node_id,
             device_info.get("vendor_id"),
             device_info.get("product_id"),
         )
         return None
 
-    # Anonymize endpoints - only keep capability data
+    # Anonymize endpoints - use v3 format with detailed cluster info
     anonymized_endpoints = []
     for endpoint in node.get("endpoints", []):
+        endpoint_id = endpoint.get("endpoint_id")
+        server_cluster_ids = endpoint.get("server_clusters", [])
+        client_cluster_ids = endpoint.get("client_clusters", [])
+
+        # Get detailed cluster information for v3 schema
+        server_details = _get_cluster_details_v3(
+            hass, node_id, endpoint_id, server_cluster_ids
+        )
+        client_details = _get_cluster_details_v3(
+            hass, node_id, endpoint_id, client_cluster_ids
+        )
+
+        # Convert to v3 cluster format (list of ClusterInfo objects)
+        server_clusters_v3 = [
+            server_details.get(cid, {"id": cid}) for cid in server_cluster_ids
+        ]
+        client_clusters_v3 = [
+            client_details.get(cid, {"id": cid}) for cid in client_cluster_ids
+        ]
+
         anonymized_endpoints.append(
             {
-                "endpoint_id": endpoint.get("endpoint_id"),
+                "endpoint_id": endpoint_id,
                 "device_types": endpoint.get("device_types", []),
-                "server_clusters": endpoint.get("server_clusters", []),
-                "client_clusters": endpoint.get("client_clusters", []),
-                "has_binding_cluster": endpoint.get("has_binding_cluster", False),
+                "server_clusters": server_clusters_v3,
+                "client_clusters": client_clusters_v3,
             }
         )
 
@@ -146,7 +261,7 @@ async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
     anonymized_devices = []
     skipped_count = 0
     for node in nodes:
-        anonymized = _anonymize_node(node)
+        anonymized = _anonymize_node(hass, node)
         if anonymized:
             anonymized_devices.append(anonymized)
         else:
@@ -156,14 +271,15 @@ async def collect_survey_data(hass: HomeAssistant) -> dict[str, Any]:
         _LOGGER.debug("Skipped %d nodes (no useful product data)", skipped_count)
 
     _LOGGER.debug(
-        "Survey data ready: installation_id=%s, devices=%d",
+        "Survey data ready: installation_id=%s, devices=%d, schema_version=%d",
         installation_id,
         len(anonymized_devices),
+        TELEMETRY_SCHEMA_VERSION,
     )
 
     return {
         "installation_id": installation_id,
-        "schema_version": 2,  # v2: server_clusters/client_clusters instead of clusters
+        "schema_version": TELEMETRY_SCHEMA_VERSION,  # v3: clusters with detailed info
         "devices": anonymized_devices,
     }
 
