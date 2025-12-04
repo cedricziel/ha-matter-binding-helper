@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.14.1...v0.15.0) (2025-12-04)
+
+
+### Features
+
+* show accepted commands per cluster in endpoint view ([0f13721](https://github.com/cedricziel/ha-matter-binding-helper/commit/0f13721a1bbbf203857de55d0bb713deb9aa2c03))
+
 ## [0.14.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.14.0...v0.14.1) (2025-12-04)
 
 
