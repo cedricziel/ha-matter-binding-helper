@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.18.2...v0.19.0) (2025-12-04)
+
+
+### Features
+
+* add debug-v3 endpoint to inspect attribute extraction ([8a02f96](https://github.com/cedricziel/ha-matter-binding-helper/commit/8a02f9623d97bffc873c993da4fcd8e715bd484b))
+
+
+### Bug Fixes
+
+* prefer node_data.attributes for v3 cluster extraction ([ca2746f](https://github.com/cedricziel/ha-matter-binding-helper/commit/ca2746fec68abb2a273ad35e22cc12eb2c50a610))
+
 ## [0.18.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.18.1...v0.18.2) (2025-12-04)
 
 
