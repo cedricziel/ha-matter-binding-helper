@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.16.0...v0.17.0) (2025-12-04)
+
+
+### Features
+
+* implement telemetry schema v3 with detailed cluster info ([3675942](https://github.com/cedricziel/ha-matter-binding-helper/commit/36759428440dbe72d9016b4fbe94f44f58637929))
+
+
+### Bug Fixes
+
+* add cluster_commands to attributes dict fallback extraction ([80099da](https://github.com/cedricziel/ha-matter-binding-helper/commit/80099da73a1090f8597c78cc532bc6dfe359a619))
+
 ## [0.16.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.15.0...v0.16.0) (2025-12-04)
 
 
