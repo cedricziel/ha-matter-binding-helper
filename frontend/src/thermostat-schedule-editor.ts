@@ -508,6 +508,19 @@ export class ThermostatScheduleEditor extends LitElement {
     this._error = null;
     this._notSupported = false;
 
+    // Check if thermostat supports GetWeeklySchedule command (0x02) before trying
+    const CLUSTER_THERMOSTAT = 0x0201;  // 513
+    const CMD_GET_WEEKLY_SCHEDULE = 0x02;  // 2
+    const clusterCommands = this.endpoint.cluster_commands || {};
+    const thermostatCommands = clusterCommands[CLUSTER_THERMOSTAT];
+
+    if (thermostatCommands !== undefined && !thermostatCommands.includes(CMD_GET_WEEKLY_SCHEDULE)) {
+      // Device explicitly doesn't support schedule commands
+      this._notSupported = true;
+      this._loading = false;
+      return;
+    }
+
     try {
       const response = await api.getThermostatSchedule(
         this.hass,
