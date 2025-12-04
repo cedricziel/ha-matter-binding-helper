@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.18.1...v0.18.2) (2025-12-04)
+
+
+### Bug Fixes
+
+* add fallback to node_data.attributes for v3 extraction ([99fc563](https://github.com/cedricziel/ha-matter-binding-helper/commit/99fc563fa90e10f2745193a529ecc4a2b214b654))
+
 ## [0.18.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.18.0...v0.18.1) (2025-12-04)
 
 
