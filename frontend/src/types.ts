@@ -54,13 +54,18 @@ export interface MatterNode {
   entities?: EntityInfo[];
 }
 
+export interface ClusterCommandInfo {
+  accepted: number[];  // List of accepted command IDs
+  names: Record<number, string>;  // Map of command_id -> command name
+}
+
 export interface MatterEndpoint {
   endpoint_id: number;
   device_types: DeviceType[];
   has_binding_cluster: boolean;
   server_clusters: number[];
   client_clusters: number[];
-  cluster_commands?: Record<number, number[]>;  // Map of cluster_id -> accepted command IDs
+  cluster_commands?: Record<number, ClusterCommandInfo>;  // Map of cluster_id -> command info
 }
 
 export interface DeviceType {

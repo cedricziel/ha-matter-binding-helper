@@ -2600,30 +2600,47 @@ export class MatterBindingPanel extends LitElement {
     // Filter server clusters and identify proprietary ones
     const serverClusterData = (endpoint.server_clusters || [])
       .filter((c) => !infraClusters.includes(c))
-      .map((c) => ({
-        id: c,
-        name: getClusterName(c),
-        isProprietary: isProprietaryCluster(c),
-        commands: clusterCommands[c] || [],
-      }));
+      .map((c) => {
+        const cmdInfo = clusterCommands[c];
+        return {
+          id: c,
+          name: getClusterName(c),
+          isProprietary: isProprietaryCluster(c),
+          commands: cmdInfo?.accepted || [],
+          commandNames: cmdInfo?.names || {},
+        };
+      });
 
     // Filter client clusters and identify proprietary ones
     const clientClusterData = (endpoint.client_clusters || [])
       .filter((c) => !infraClusters.includes(c))
-      .map((c) => ({
-        id: c,
-        name: getClusterName(c),
-        isProprietary: isProprietaryCluster(c),
-        commands: clusterCommands[c] || [],
-      }));
+      .map((c) => {
+        const cmdInfo = clusterCommands[c];
+        return {
+          id: c,
+          name: getClusterName(c),
+          isProprietary: isProprietaryCluster(c),
+          commands: cmdInfo?.accepted || [],
+          commandNames: cmdInfo?.names || {},
+        };
+      });
 
     // Check if endpoint has any proprietary clusters
     const hasProprietary = serverClusterData.some(c => c.isProprietary) || clientClusterData.some(c => c.isProprietary);
 
-    // Helper to format commands tooltip
-    const formatCommandsTooltip = (cluster: { id: number; name: string; commands: number[] }) => {
-      if (cluster.commands.length === 0) return `${cluster.name} (0x${cluster.id.toString(16).toUpperCase()})`;
-      return `${cluster.name} (0x${cluster.id.toString(16).toUpperCase()})\nAccepted commands: ${cluster.commands.join(", ")}`;
+    // Helper to format commands tooltip with names
+    const formatCommandsTooltip = (cluster: { id: number; name: string; commands: number[]; commandNames: Record<number, string> }) => {
+      const header = `${cluster.name} (0x${cluster.id.toString(16).toUpperCase()})`;
+      if (cluster.commands.length === 0) return header;
+
+      const cmdList = cluster.commands
+        .map((cmdId) => {
+          const cmdName = cluster.commandNames[cmdId];
+          return cmdName ? `${cmdName} (${cmdId})` : `${cmdId}`;
+        })
+        .join("\n  ");
+
+      return `${header}\n\nAccepted commands:\n  ${cmdList}`;
     };
 
     return html`

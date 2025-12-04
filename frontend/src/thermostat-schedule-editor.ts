@@ -512,9 +512,10 @@ export class ThermostatScheduleEditor extends LitElement {
     const CLUSTER_THERMOSTAT = 0x0201;  // 513
     const CMD_GET_WEEKLY_SCHEDULE = 0x02;  // 2
     const clusterCommands = this.endpoint.cluster_commands || {};
-    const thermostatCommands = clusterCommands[CLUSTER_THERMOSTAT];
+    const thermostatCmdInfo = clusterCommands[CLUSTER_THERMOSTAT];
+    const acceptedCommands = thermostatCmdInfo?.accepted || [];
 
-    if (thermostatCommands !== undefined && !thermostatCommands.includes(CMD_GET_WEEKLY_SCHEDULE)) {
+    if (thermostatCmdInfo !== undefined && !acceptedCommands.includes(CMD_GET_WEEKLY_SCHEDULE)) {
       // Device explicitly doesn't support schedule commands
       this._notSupported = true;
       this._loading = false;

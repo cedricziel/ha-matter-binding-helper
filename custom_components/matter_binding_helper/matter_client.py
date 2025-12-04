@@ -846,11 +846,30 @@ def _extract_from_endpoints_property(
                                         cluster_id, ATTR_ACCEPTED_COMMAND_LIST
                                     )
                                 if accepted_cmds is not None:
-                                    ep_info["cluster_commands"][cluster_id] = (
+                                    cmd_list = (
                                         list(accepted_cmds)
                                         if hasattr(accepted_cmds, "__iter__")
                                         else [accepted_cmds]
                                     )
+
+                                    # Get command names from cluster class
+                                    cmd_names = {}
+                                    if hasattr(cluster, "Commands"):
+                                        commands_class = cluster.Commands
+                                        for name in dir(commands_class):
+                                            if not name.startswith("_"):
+                                                cmd_obj = getattr(
+                                                    commands_class, name, None
+                                                )
+                                                if cmd_obj and hasattr(
+                                                    cmd_obj, "command_id"
+                                                ):
+                                                    cmd_names[cmd_obj.command_id] = name
+
+                                    ep_info["cluster_commands"][cluster_id] = {
+                                        "accepted": cmd_list,
+                                        "names": cmd_names,
+                                    }
                             except Exception:
                                 pass  # Skip if can't get commands
 
