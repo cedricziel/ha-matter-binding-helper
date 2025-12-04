@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.14.0...v0.14.1) (2025-12-04)
+
+
+### Bug Fixes
+
+* improve schedule error handling and show explicit unsupported message ([41ba82c](https://github.com/cedricziel/ha-matter-binding-helper/commit/41ba82c4a9545e5594a64fcbe032a736ad1826b3))
+
 ## [0.14.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.13.2...v0.14.0) (2025-12-04)
 
 
