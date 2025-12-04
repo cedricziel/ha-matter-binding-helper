@@ -68,7 +68,12 @@ def _get_cluster_details_v3(
         if not node:
             return cluster_details
 
-        attributes = getattr(node, "attributes", {})
+        # Try node.attributes first, then node.node_data.attributes
+        attributes = getattr(node, "attributes", None)
+        if not attributes:
+            node_data = getattr(node, "node_data", None)
+            if node_data:
+                attributes = getattr(node_data, "attributes", None)
         if not attributes:
             return cluster_details
 
