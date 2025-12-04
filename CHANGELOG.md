@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.17.0...v0.18.0) (2025-12-04)
+
+
+### Features
+
+* add debug_telemetry WebSocket endpoint ([eaf5bf6](https://github.com/cedricziel/ha-matter-binding-helper/commit/eaf5bf65589c94fb7364fca2c7e2dff21e79dd13))
+
+
+### Bug Fixes
+
+* improve v3 cluster attribute extraction ([911a75b](https://github.com/cedricziel/ha-matter-binding-helper/commit/911a75bb4f6575694a8fa4fc17b3e4b6cafa5bdc))
+
 ## [0.17.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.16.0...v0.17.0) (2025-12-04)
 
 
