@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.15.0...v0.16.0) (2025-12-04)
+
+
+### Features
+
+* show human-readable command names in cluster tooltip ([5a5c5d0](https://github.com/cedricziel/ha-matter-binding-helper/commit/5a5c5d0cf8ea077af7622d20d942995b5c6df9d8))
+
+
+### Bug Fixes
+
+* check accepted commands before attempting schedule load ([0dc9ddf](https://github.com/cedricziel/ha-matter-binding-helper/commit/0dc9ddf5d41d958df11c2863de80f8afa32b9a0e))
+
 ## [0.15.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.14.1...v0.15.0) (2025-12-04)
 
 
