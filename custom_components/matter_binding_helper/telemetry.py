@@ -52,32 +52,30 @@ def _get_cluster_details_v3(
     Returns:
         Dict mapping cluster_id to cluster details
     """
-    cluster_details: dict[int, dict[str, Any]] = {}
-
-    # Initialize all clusters with just their ID
+    # Initialize result with just IDs for all requested clusters
+    result: dict[int, dict[str, Any]] = {}
     for cluster_id in cluster_ids:
-        cluster_details[cluster_id] = {"id": cluster_id}
+        result[cluster_id] = {"id": cluster_id}
 
     client = get_matter_client(hass)
     if not client:
-        return cluster_details
+        return result
 
     try:
         nodes = client.get_nodes()
         node = next((n for n in nodes if n.node_id == node_id), None)
         if not node:
-            return cluster_details
+            return result
 
-        # Get attributes - prefer node_data.attributes (has AttributePath keys)
+        # Get attributes - prefer node_data.attributes
         attributes = None
         node_data = getattr(node, "node_data", None)
         if node_data:
             attributes = getattr(node_data, "attributes", None)
-        # Fallback to node.attributes if node_data.attributes not available
         if not attributes:
             attributes = getattr(node, "attributes", None)
         if not attributes:
-            return cluster_details
+            return result
 
         # Global attribute IDs we want to extract
         global_attrs = {
@@ -87,55 +85,62 @@ def _get_cluster_details_v3(
             ATTR_GENERATED_COMMAND_LIST: "generated_command_list",
         }
 
-        # Iterate through all attributes to find matches
-        # Keys are typically AttributePath objects with EndpointId/ClusterId/AttributeId
+        # Build set of requested cluster IDs for fast lookup
+        requested_clusters = set(cluster_ids)
+
+        # Iterate through all attributes
+        # Keys are strings like "endpoint/cluster/attribute"
         for attr_key, attr_value in attributes.items():
             ep_id = None
             cl_id = None
             at_id = None
 
-            # Try AttributePath object first (most common case)
-            if (
-                hasattr(attr_key, "EndpointId")
-                and hasattr(attr_key, "ClusterId")
-                and hasattr(attr_key, "AttributeId")
-            ):
-                ep_id = attr_key.EndpointId
-                cl_id = attr_key.ClusterId
-                at_id = attr_key.AttributeId
-            else:
-                # Fall back to string parsing "endpoint/cluster/attribute"
-                try:
-                    key_str = str(attr_key)
-                    parts = key_str.split("/")
-                    if len(parts) >= 3:
-                        ep_id = int(parts[0])
-                        cl_id = int(parts[1])
-                        at_id = int(parts[2])
-                except (ValueError, IndexError, TypeError):
-                    continue
+            # Try string parsing first (most common format: "1/29/65532")
+            try:
+                key_str = str(attr_key)
+                parts = key_str.split("/")
+                if len(parts) >= 3:
+                    ep_id = int(parts[0])
+                    cl_id = int(parts[1])
+                    at_id = int(parts[2])
+            except (ValueError, IndexError, TypeError):
+                # Try AttributePath object as fallback
+                if (
+                    hasattr(attr_key, "EndpointId")
+                    and hasattr(attr_key, "ClusterId")
+                    and hasattr(attr_key, "AttributeId")
+                ):
+                    ep_id = attr_key.EndpointId
+                    cl_id = attr_key.ClusterId
+                    at_id = attr_key.AttributeId
 
-            # Check if we successfully parsed and if this is a match
+            # Skip if parsing failed
             if ep_id is None or cl_id is None or at_id is None:
                 continue
 
-            if ep_id != endpoint_id or cl_id not in cluster_details:
+            # Skip if not the target endpoint
+            if ep_id != endpoint_id:
                 continue
 
+            # Skip if not a global attribute we care about
             if at_id not in global_attrs:
+                continue
+
+            # Skip if not a requested cluster
+            if cl_id not in requested_clusters:
                 continue
 
             # Extract the value
             field_name = global_attrs[at_id]
             if field_name == "feature_map":
-                cluster_details[cl_id][field_name] = int(attr_value)
+                result[cl_id][field_name] = int(attr_value)
             elif isinstance(attr_value, (list, tuple)):
-                cluster_details[cl_id][field_name] = list(attr_value)
+                result[cl_id][field_name] = list(attr_value)
 
     except Exception as err:
         _LOGGER.debug("Error getting cluster details for node %s: %s", node_id, err)
 
-    return cluster_details
+    return result
 
 
 def _anonymize_node(hass: HomeAssistant, node: dict[str, Any]) -> dict[str, Any] | None:
