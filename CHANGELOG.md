@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.19.0...v0.19.1) (2025-12-05)
+
+
+### Bug Fixes
+
+* try string parsing first for v3 attribute keys ([8771c75](https://github.com/cedricziel/ha-matter-binding-helper/commit/8771c75b59abfd0363fc04a760d5ee13c0310824))
+
 ## [0.19.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.18.2...v0.19.0) (2025-12-04)
 
 
