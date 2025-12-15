@@ -55,6 +55,8 @@ export class MatterBindingPanel extends LitElement {
   @state() private _eveScheduleLoading: Set<number> = new Set();
   @state() private _verificationInProgress = false;
   @state() private _lastVerificationResult: { success: boolean; verified: boolean; message: string } | null = null;
+  @state() private _showVerificationModal = false;
+  @state() private _verificationModalResult: { success: boolean; verified: boolean; message: string; bindingContext?: BindingWithContext } | null = null;
 
   static styles = css`
     :host {
@@ -826,6 +828,127 @@ export class MatterBindingPanel extends LitElement {
       opacity: 1;
     }
 
+    /* Verification Modal Styles */
+    .verification-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+      gap: 16px;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--divider-color);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .verification-modal-result {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .verification-modal-result.verified {
+      background: rgba(76, 175, 80, 0.15);
+      border: 1px solid var(--success-color, #4caf50);
+    }
+
+    .verification-modal-result.warning {
+      background: rgba(255, 152, 0, 0.15);
+      border: 1px solid var(--warning-color, #ff9800);
+    }
+
+    .verification-modal-result.error {
+      background: rgba(244, 67, 54, 0.15);
+      border: 1px solid var(--error-color, #f44336);
+    }
+
+    .verification-status-icon {
+      font-size: 48px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .verification-modal-result.verified .verification-status-icon {
+      color: var(--success-color, #4caf50);
+    }
+
+    .verification-modal-result.warning .verification-status-icon {
+      color: var(--warning-color, #ff9800);
+    }
+
+    .verification-modal-result.error .verification-status-icon {
+      color: var(--error-color, #f44336);
+    }
+
+    .verification-status-text {
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .verification-details {
+      padding: 16px;
+    }
+
+    .verification-message {
+      font-size: 14px;
+      margin: 0 0 16px 0;
+      color: var(--primary-text-color);
+    }
+
+    .verification-binding-info {
+      background: var(--secondary-background-color);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .verification-help {
+      background: rgba(255, 152, 0, 0.1);
+      border-left: 3px solid var(--warning-color, #ff9800);
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+    }
+
+    .verification-help ul {
+      margin: 8px 0 0 0;
+      padding-left: 20px;
+    }
+
+    .verification-help li {
+      margin-bottom: 4px;
+    }
+
+    /* Binding Actions Container */
+    .binding-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-icon.verify {
+      background: rgba(76, 175, 80, 0.1);
+      color: var(--success-color, #4caf50);
+      border: 1px solid var(--success-color, #4caf50);
+    }
+
+    .btn-icon.verify:hover:not(:disabled) {
+      background: var(--success-color, #4caf50);
+      color: white;
+    }
+
     /* Overview Tab Styles */
     .overview-content {
       display: flex;
@@ -1016,6 +1139,18 @@ export class MatterBindingPanel extends LitElement {
     .btn-small {
       padding: 6px 12px;
       font-size: 12px;
+    }
+
+    .btn-verify {
+      background: rgba(76, 175, 80, 0.15);
+      color: var(--success-color, #4caf50);
+      border: 1px solid var(--success-color, #4caf50);
+      font-weight: 500;
+    }
+
+    .btn-verify:hover:not(:disabled) {
+      background: var(--success-color, #4caf50);
+      color: white;
     }
 
     .group-target {
@@ -1720,6 +1855,9 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _selectNode(node: MatterNode): void {
+    // Clear verification result when switching nodes
+    this._lastVerificationResult = null;
+
     if (this._selectedSourceNode?.node_id === node.node_id) {
       this._selectedSourceNode = null;
       this._selectedSourceEndpoint = null;
@@ -1739,6 +1877,8 @@ export class MatterBindingPanel extends LitElement {
   private _selectEndpoint(e: Event, endpoint: MatterEndpoint): void {
     e.stopPropagation(); // Prevent node toggle
     if (!endpoint.has_binding_cluster) return;
+    // Clear verification result when switching endpoints
+    this._lastVerificationResult = null;
     this._selectedSourceEndpoint = endpoint;
     this._loadBindings();
   }
@@ -1799,6 +1939,42 @@ export class MatterBindingPanel extends LitElement {
     } finally {
       this._verificationInProgress = false;
     }
+  }
+
+  private async _verifyBindingWithModal(bindingCtx: BindingWithContext): Promise<void> {
+    const { binding } = bindingCtx;
+
+    this._verificationInProgress = true;
+    this._showVerificationModal = true;
+    this._verificationModalResult = null;
+
+    try {
+      const result = await api.verifyBindings(
+        this.hass,
+        binding.node_id,
+        binding.endpoint_id
+      );
+      this._verificationModalResult = {
+        success: result.success,
+        verified: result.verified,
+        message: result.message,
+        bindingContext: bindingCtx,
+      };
+    } catch (err) {
+      this._verificationModalResult = {
+        success: false,
+        verified: false,
+        message: `Failed to verify: ${err}`,
+        bindingContext: bindingCtx,
+      };
+    } finally {
+      this._verificationInProgress = false;
+    }
+  }
+
+  private _closeVerificationModal(): void {
+    this._showVerificationModal = false;
+    this._verificationModalResult = null;
   }
 
   private _openCreateDialog(): void {
@@ -2064,6 +2240,7 @@ export class MatterBindingPanel extends LitElement {
         ${this._pendingBindingRecommendation ? this._renderBindingConfirmDialog() : nothing}
         ${this._pendingManualBinding ? this._renderManualBindingConfirmDialog() : nothing}
         ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
+        ${this._showVerificationModal ? this._renderVerificationModal() : nothing}
         ${this._renderSurveyResultDialog()}
       </div>
     `;
@@ -2130,14 +2307,24 @@ export class MatterBindingPanel extends LitElement {
             ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
           </div>
         </div>
-        <button
-          class="btn-icon delete"
-          title="Delete binding"
-          ?disabled=${this._actionInProgress !== null}
-          @click=${() => this._showDeleteConfirmDialog(bindingCtx)}
-        >
-          ✕
-        </button>
+        <div class="binding-actions">
+          <button
+            class="btn-icon verify"
+            title="Verify binding on device"
+            ?disabled=${this._verificationInProgress || this._actionInProgress !== null}
+            @click=${() => this._verifyBindingWithModal(bindingCtx)}
+          >
+            ✓
+          </button>
+          <button
+            class="btn-icon delete"
+            title="Delete binding"
+            ?disabled=${this._actionInProgress !== null}
+            @click=${() => this._showDeleteConfirmDialog(bindingCtx)}
+          >
+            ✕
+          </button>
+        </div>
       </div>
     `;
   }
@@ -2484,12 +2671,12 @@ export class MatterBindingPanel extends LitElement {
                     Endpoint ${this._selectedSourceEndpoint.endpoint_id}
                   </span>
                   <button
-                    class="btn btn-small btn-secondary ${this._verificationInProgress ? "btn-loading" : ""}"
+                    class="btn btn-small btn-verify ${this._verificationInProgress ? "btn-loading" : ""}"
                     ?disabled=${this._verificationInProgress || this._actionInProgress !== null}
                     @click=${this._verifyBindings}
                     title="Re-read bindings from device to verify"
                   >
-                    ${this._verificationInProgress ? "" : "Verify"}
+                    ${this._verificationInProgress ? "" : "✓ Verify on Device"}
                   </button>
                   <button
                     class="btn btn-small btn-primary"
@@ -3100,6 +3287,86 @@ export class MatterBindingPanel extends LitElement {
               ?disabled=${isLoading}
             >
               Remove Binding
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderVerificationModal() {
+    const result = this._verificationModalResult;
+    const bindingCtx = result?.bindingContext;
+    const isLoading = this._verificationInProgress;
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeVerificationModal}>
+        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">
+            <span class="confirm-icon">${isLoading ? "⏳" : result?.verified ? "✅" : result?.success ? "⚠️" : "❌"}</span>
+            Binding Verification
+          </div>
+
+          ${isLoading
+            ? html`
+                <div class="verification-loading">
+                  <div class="loading-spinner"></div>
+                  <p>Reading bindings from device...</p>
+                </div>
+              `
+            : result
+              ? html`
+                  <div class="verification-modal-result ${result.verified ? "verified" : result.success ? "warning" : "error"}">
+                    <div class="verification-status-icon">
+                      ${result.verified ? "✓" : result.success ? "⚠" : "✗"}
+                    </div>
+                    <div class="verification-status-text">
+                      ${result.verified
+                        ? "Binding Verified"
+                        : result.success
+                          ? "Verification Warning"
+                          : "Verification Failed"}
+                    </div>
+                  </div>
+
+                  <div class="verification-details">
+                    <p class="verification-message">${result.message}</p>
+
+                    ${bindingCtx
+                      ? html`
+                          <div class="verification-binding-info">
+                            <strong>${bindingCtx.sourceNode.name}</strong>
+                            <span class="binding-action">${getClusterBindingDescription(bindingCtx.binding.cluster_id).action}</span>
+                            <strong>${bindingCtx.targetNode?.name || `Node ${bindingCtx.binding.target_node_id}`}</strong>
+                          </div>
+                        `
+                      : nothing}
+
+                    ${!result.verified && result.success
+                      ? html`
+                          <div class="verification-help">
+                            <strong>What this means:</strong>
+                            <p>The binding data was written, but could not be confirmed on the device. This might happen if:</p>
+                            <ul>
+                              <li>The device rejected the binding due to ACL restrictions</li>
+                              <li>The device doesn't support this binding type</li>
+                              <li>The device is temporarily unavailable</li>
+                            </ul>
+                          </div>
+                        `
+                      : nothing}
+                  </div>
+                `
+              : nothing}
+
+          <div class="dialog-actions">
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click=${this._closeVerificationModal}
+              ?disabled=${isLoading}
+            >
+              ${isLoading ? "Verifying..." : "Close"}
             </button>
           </div>
         </div>
