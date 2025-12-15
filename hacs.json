@@ -1,7 +1,4 @@
 {
   "name": "Matter Binding Helper",
-  "render_readme": true,
-  "content_in_root": false,
-  "zip_release": false,
-  "filename": "matter_binding_helper"
+  "render_readme": true
 }
