@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.21.0...v0.21.1) (2025-12-15)
+
+
+### Bug Fixes
+
+* create zip with files at root level for HACS ([1351e22](https://github.com/cedricziel/ha-matter-binding-helper/commit/1351e22d4c63a8f16115d8a4fd07fc24eeac285d))
+
 ## [0.21.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.20.0...v0.21.0) (2025-12-15)
 
 
