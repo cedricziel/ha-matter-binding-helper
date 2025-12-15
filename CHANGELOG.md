@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.22.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.21.1...v0.22.0) (2025-12-15)
+
+
+### Features
+
+* add read-only ACL visibility ([47d9e4f](https://github.com/cedricziel/ha-matter-binding-helper/commit/47d9e4f7f664def1af7200ba92dab486152e125b))
+* highlight bindings missing ACL permissions ([763290f](https://github.com/cedricziel/ha-matter-binding-helper/commit/763290fe90c1b866a0f97f985c1b1f566c3218be))
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @vitest/ui from 4.0.14 to 4.0.15 in /frontend ([#48](https://github.com/cedricziel/ha-matter-binding-helper/issues/48)) ([5f6a264](https://github.com/cedricziel/ha-matter-binding-helper/commit/5f6a2647276557b558846b4bcbbf21f68ff642f3))
+* **deps-dev:** bump happy-dom from 20.0.10 to 20.0.11 in /frontend ([#47](https://github.com/cedricziel/ha-matter-binding-helper/issues/47)) ([698aaee](https://github.com/cedricziel/ha-matter-binding-helper/commit/698aaeefec99a598cfadf097263112144d325717))
+* **deps-dev:** bump prettier from 3.6.2 to 3.7.4 in /frontend ([#45](https://github.com/cedricziel/ha-matter-binding-helper/issues/45)) ([fc05989](https://github.com/cedricziel/ha-matter-binding-helper/commit/fc059893767696a0408a8309f6eca47268ce5013))
+* **deps-dev:** bump rollup from 4.53.3 to 4.53.4 in /frontend ([#46](https://github.com/cedricziel/ha-matter-binding-helper/issues/46)) ([cc67322](https://github.com/cedricziel/ha-matter-binding-helper/commit/cc67322407fc110e84da74bf002a624f3c88bd69))
+* **deps:** bump actions/checkout from 4 to 6 ([#43](https://github.com/cedricziel/ha-matter-binding-helper/issues/43)) ([fb5366f](https://github.com/cedricziel/ha-matter-binding-helper/commit/fb5366fbe2ef67dc27790d2d3f1eda197c5e6ed5))
+* **deps:** bump actions/setup-node from 4 to 6 ([#42](https://github.com/cedricziel/ha-matter-binding-helper/issues/42)) ([5baa4b0](https://github.com/cedricziel/ha-matter-binding-helper/commit/5baa4b0f1453d90b230d0c11454f0c5001deec0f))
+
 ## [0.21.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.21.0...v0.21.1) (2025-12-15)
 
 
