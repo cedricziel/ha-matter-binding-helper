@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.21.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.20.0...v0.21.0) (2025-12-15)
+
+
+### Features
+
+* **frontend:** improve binding verification UX ([277e5c3](https://github.com/cedricziel/ha-matter-binding-helper/commit/277e5c300fd2e74626b914da34717c169bfcd91a))
+* switch to zip_release for HACS distribution ([4cdf400](https://github.com/cedricziel/ha-matter-binding-helper/commit/4cdf400b2aeb66de9f209a0690d2b3a7651f8793))
+
+
+### Bug Fixes
+
+* **frontend:** update rollup config for @rollup/plugin-typescript v12 ([9be51f3](https://github.com/cedricziel/ha-matter-binding-helper/commit/9be51f3e4cebc02be083ee92dbb3e601774160dc))
+* remove invalid filename field from hacs.json ([5d738fb](https://github.com/cedricziel/ha-matter-binding-helper/commit/5d738fba2e1b155b29c2450ffc9fdb91dd6f19c9))
+
+
+### Miscellaneous
+
+* **deps-dev:** bump [@typescript-eslint](https://github.com/typescript-eslint) packages to v8 ([692c839](https://github.com/cedricziel/ha-matter-binding-helper/commit/692c8397907049a3f3c611b748c3bc3f110b7e53))
+* **deps-dev:** bump @rollup/plugin-node-resolve in /frontend ([#5](https://github.com/cedricziel/ha-matter-binding-helper/issues/5)) ([9360eb2](https://github.com/cedricziel/ha-matter-binding-helper/commit/9360eb2aaf9bbf8cf46d7c30ec4226932e83a08e))
+* **deps-dev:** bump @rollup/plugin-typescript in /frontend ([#7](https://github.com/cedricziel/ha-matter-binding-helper/issues/7)) ([cb5725e](https://github.com/cedricziel/ha-matter-binding-helper/commit/cb5725eee76d6be0e531bac9483f221d439adf42))
+* **deps-dev:** bump eslint from 8.57.1 to 9.39.1 in /frontend ([#6](https://github.com/cedricziel/ha-matter-binding-helper/issues/6)) ([c9bb2d9](https://github.com/cedricziel/ha-matter-binding-helper/commit/c9bb2d97c39c1a85bf214dc8ec738161f3a45b6f))
+* **deps:** update package-lock.json peer dependency flags ([1912fa2](https://github.com/cedricziel/ha-matter-binding-helper/commit/1912fa25986ee2ca62847f43ae2ea0d29862994c))
+
 ## [0.20.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.19.1...v0.20.0) (2025-12-15)
 
 
