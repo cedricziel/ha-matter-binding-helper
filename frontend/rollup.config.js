@@ -17,6 +17,7 @@ export default {
     }),
     typescript({
       tsconfig: "./tsconfig.json",
+      outDir: "../custom_components/matter_binding_helper/frontend",
     }),
     production && terser(),
   ],
