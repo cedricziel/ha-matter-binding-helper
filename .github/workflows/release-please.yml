@@ -45,8 +45,8 @@ jobs:
 
       - name: Create zip release
         run: |
-          cd custom_components
-          zip -r ../matter_binding_helper.zip matter_binding_helper
+          cd custom_components/matter_binding_helper
+          zip -r ../../matter_binding_helper.zip .
 
       - name: Upload release asset
         env:
