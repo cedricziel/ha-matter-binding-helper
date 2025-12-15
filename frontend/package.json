@@ -18,7 +18,7 @@
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
     "@vitest/ui": "^4.0.14",
-    "eslint": "^8.57.0",
+    "eslint": "^9.39.2",
     "happy-dom": "^20.0.10",
     "prettier": "^3.2.5",
     "rollup": "^4.13.0",
