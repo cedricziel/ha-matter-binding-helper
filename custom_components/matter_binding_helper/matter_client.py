@@ -1395,6 +1395,143 @@ def _parse_binding_value(
     return bindings
 
 
+@dataclass
+class BindingVerificationResult:
+    """Result of a binding verification operation."""
+
+    success: bool
+    verified: bool  # True if binding was confirmed on device
+    message: str
+    bindings_found: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "success": self.success,
+            "verified": self.verified,
+            "message": self.message,
+            "bindings_found": self.bindings_found,
+        }
+
+
+def _binding_matches(
+    binding: BindingEntry,
+    target_node_id: int | None,
+    target_endpoint_id: int | None,
+    target_group_id: int | None,
+    cluster_id: int | None = None,
+) -> bool:
+    """Check if a binding matches the given target parameters."""
+    if target_node_id is not None and binding.target_node_id != target_node_id:
+        return False
+    if (
+        target_endpoint_id is not None
+        and binding.target_endpoint_id != target_endpoint_id
+    ):
+        return False
+    if target_group_id is not None and binding.target_group_id != target_group_id:
+        return False
+    if cluster_id is not None and binding.cluster_id != cluster_id:
+        return False
+    return True
+
+
+async def verify_bindings(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+) -> BindingVerificationResult:
+    """Force re-read bindings from device and verify they match cached state.
+
+    This bypasses the cache and reads directly from the Matter device to
+    confirm the actual binding state.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Matter node ID
+        endpoint_id: Endpoint ID to verify
+
+    Returns:
+        BindingVerificationResult with verification status
+    """
+    # Handle demo mode
+    if _is_demo_mode(hass):
+        cached = _demo_bindings.get((node_id, endpoint_id), [])
+        return BindingVerificationResult(
+            success=True,
+            verified=True,
+            message=f"Demo mode: {len(cached)} bindings verified",
+            bindings_found=len(cached),
+        )
+
+    client = get_matter_client(hass)
+    if not client:
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message="Matter client not available",
+        )
+
+    try:
+        _LOGGER.info(
+            "verify_bindings: Force reading bindings from node %s endpoint %s",
+            node_id,
+            endpoint_id,
+        )
+
+        # Read directly from device using read_attribute API
+        attribute_path = f"{endpoint_id}/{CLUSTER_BINDING}/0"
+        result = await client.read_attribute(
+            node_id=node_id,
+            attribute_path=attribute_path,
+        )
+
+        _LOGGER.debug(
+            "verify_bindings: read_attribute returned type=%s, value=%s",
+            type(result).__name__,
+            result,
+        )
+
+        if result is None:
+            return BindingVerificationResult(
+                success=True,
+                verified=True,
+                message="No bindings found on device (empty)",
+                bindings_found=0,
+            )
+
+        # Parse the bindings
+        bindings = _parse_binding_value(node_id, endpoint_id, result)
+
+        _LOGGER.info(
+            "verify_bindings: Successfully verified %d bindings on node %s endpoint %s",
+            len(bindings),
+            node_id,
+            endpoint_id,
+        )
+
+        return BindingVerificationResult(
+            success=True,
+            verified=True,
+            message=f"Successfully verified {len(bindings)} binding(s) on device",
+            bindings_found=len(bindings),
+        )
+
+    except Exception as err:
+        _LOGGER.error(
+            "verify_bindings: Error reading bindings from node %s endpoint %s: %s",
+            node_id,
+            endpoint_id,
+            err,
+            exc_info=True,
+        )
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message=f"Failed to read bindings from device: {err}",
+        )
+
+
 async def create_binding(
     hass: HomeAssistant,
     source_node_id: int,
@@ -1403,8 +1540,23 @@ async def create_binding(
     target_node_id: int | None = None,
     target_endpoint_id: int | None = None,
     target_group_id: int | None = None,
-) -> bool:
-    """Create a new binding."""
+    verify: bool = True,
+) -> BindingVerificationResult:
+    """Create a new binding with optional verification.
+
+    Args:
+        hass: Home Assistant instance
+        source_node_id: Source Matter node ID
+        source_endpoint_id: Source endpoint ID
+        cluster_id: Cluster ID for the binding
+        target_node_id: Target node ID (for unicast binding)
+        target_endpoint_id: Target endpoint ID (for unicast binding)
+        target_group_id: Target group ID (for group binding)
+        verify: If True, verify the binding was created by reading back
+
+    Returns:
+        BindingVerificationResult with success/verification status
+    """
     # Handle demo mode
     if _is_demo_mode(hass):
         _LOGGER.debug(
@@ -1425,12 +1577,21 @@ async def create_binding(
                 target_group_id=target_group_id,
             )
         )
-        return True
+        return BindingVerificationResult(
+            success=True,
+            verified=True,
+            message="Demo mode: binding created",
+            bindings_found=len(_demo_bindings[key]),
+        )
 
     client = get_matter_client(hass)
     if not client:
         _LOGGER.error("create_binding: Matter client not available")
-        return False
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message="Matter client not available",
+        )
 
     try:
         _LOGGER.info(
@@ -1465,7 +1626,7 @@ async def create_binding(
         # Build the full binding list with lowercase keys (Matter SDK format)
         binding_list = []
         for b in current_bindings:
-            entry = {
+            entry: dict[str, Any] = {
                 "cluster": b.cluster_id,
                 "fabricIndex": 0,
             }
@@ -1490,10 +1651,71 @@ async def create_binding(
             value=binding_list,
         )
         _LOGGER.info("create_binding: write_attribute result: %s", result)
-        return True
+
+        # Verify the binding was created if requested
+        if verify:
+            _LOGGER.info("create_binding: Verifying binding was written to device...")
+
+            # Small delay to allow device to process
+            import asyncio
+
+            await asyncio.sleep(0.2)
+
+            # Read back bindings directly from device
+            verification = await verify_bindings(
+                hass, source_node_id, source_endpoint_id
+            )
+
+            if not verification.success:
+                return BindingVerificationResult(
+                    success=True,  # Write succeeded
+                    verified=False,
+                    message=f"Binding written but verification failed: {verification.message}",
+                    bindings_found=verification.bindings_found,
+                )
+
+            # Check if our new binding is present
+            read_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
+            binding_found = any(
+                _binding_matches(
+                    b, target_node_id, target_endpoint_id, target_group_id, cluster_id
+                )
+                for b in read_bindings
+            )
+
+            if binding_found:
+                _LOGGER.info("create_binding: Binding verified successfully on device")
+                return BindingVerificationResult(
+                    success=True,
+                    verified=True,
+                    message="Binding created and verified on device",
+                    bindings_found=len(read_bindings),
+                )
+            else:
+                _LOGGER.warning(
+                    "create_binding: Binding was written but not found when reading back"
+                )
+                return BindingVerificationResult(
+                    success=True,
+                    verified=False,
+                    message="Binding written but not found when verifying - device may have rejected it",
+                    bindings_found=len(read_bindings),
+                )
+
+        return BindingVerificationResult(
+            success=True,
+            verified=False,  # Not verified because verify=False
+            message="Binding written (verification skipped)",
+            bindings_found=len(binding_list),
+        )
+
     except Exception as err:
         _LOGGER.error("Error creating binding: %s", err, exc_info=True)
-        return False
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message=f"Failed to create binding: {err}",
+        )
 
 
 async def delete_binding(
@@ -1503,8 +1725,22 @@ async def delete_binding(
     target_node_id: int | None = None,
     target_endpoint_id: int | None = None,
     target_group_id: int | None = None,
-) -> bool:
-    """Delete a binding."""
+    verify: bool = True,
+) -> BindingVerificationResult:
+    """Delete a binding with optional verification.
+
+    Args:
+        hass: Home Assistant instance
+        source_node_id: Source Matter node ID
+        source_endpoint_id: Source endpoint ID
+        target_node_id: Target node ID to delete (for unicast binding)
+        target_endpoint_id: Target endpoint ID to delete (for unicast binding)
+        target_group_id: Target group ID to delete (for group binding)
+        verify: If True, verify the binding was deleted by reading back
+
+    Returns:
+        BindingVerificationResult with success/verification status
+    """
     # Handle demo mode
     if _is_demo_mode(hass):
         _LOGGER.debug(
@@ -1514,6 +1750,7 @@ async def delete_binding(
         )
         key = (source_node_id, source_endpoint_id)
         if key in _demo_bindings:
+            original_count = len(_demo_bindings[key])
             _demo_bindings[key] = [
                 b
                 for b in _demo_bindings[key]
@@ -1523,13 +1760,43 @@ async def delete_binding(
                     and b.target_group_id == target_group_id
                 )
             ]
-        return True
+            if len(_demo_bindings[key]) < original_count:
+                return BindingVerificationResult(
+                    success=True,
+                    verified=True,
+                    message="Demo mode: binding deleted",
+                    bindings_found=len(_demo_bindings[key]),
+                )
+            return BindingVerificationResult(
+                success=False,
+                verified=False,
+                message="Demo mode: binding not found",
+                bindings_found=len(_demo_bindings[key]),
+            )
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message="Demo mode: no bindings for this endpoint",
+            bindings_found=0,
+        )
 
     client = get_matter_client(hass)
     if not client:
-        return False
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message="Matter client not available",
+        )
 
     try:
+        _LOGGER.info(
+            "delete_binding: Deleting binding from node %s ep %s to node %s ep %s",
+            source_node_id,
+            source_endpoint_id,
+            target_node_id,
+            target_endpoint_id,
+        )
+
         # Get current bindings
         current_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
 
@@ -1537,38 +1804,110 @@ async def delete_binding(
         filtered_bindings = [
             b
             for b in current_bindings
-            if not (
-                b.target_node_id == target_node_id
-                and b.target_endpoint_id == target_endpoint_id
-                and b.target_group_id == target_group_id
+            if not _binding_matches(
+                b, target_node_id, target_endpoint_id, target_group_id
             )
         ]
 
         if len(filtered_bindings) == len(current_bindings):
-            _LOGGER.warning("Binding not found")
-            return False
+            _LOGGER.warning("delete_binding: Binding not found")
+            return BindingVerificationResult(
+                success=False,
+                verified=False,
+                message="Binding not found in current bindings",
+                bindings_found=len(current_bindings),
+            )
 
-        # Build the binding list
-        binding_list = [
-            {
-                "Cluster": b.cluster_id,
-                **({"Node": b.target_node_id} if b.target_node_id else {}),
-                **({"Endpoint": b.target_endpoint_id} if b.target_endpoint_id else {}),
-                **({"Group": b.target_group_id} if b.target_group_id else {}),
+        # Build the binding list with lowercase keys (Matter SDK format)
+        binding_list = []
+        for b in filtered_bindings:
+            entry: dict[str, Any] = {
+                "cluster": b.cluster_id,
+                "fabricIndex": 0,
             }
-            for b in filtered_bindings
-        ]
+            if b.target_node_id is not None:
+                entry["node"] = b.target_node_id
+            if b.target_endpoint_id is not None:
+                entry["endpoint"] = b.target_endpoint_id
+            if b.target_group_id is not None:
+                entry["group"] = b.target_group_id
+            binding_list.append(entry)
 
         # Write the updated binding attribute
-        await client.write_attribute(
+        attribute_path = f"{source_endpoint_id}/{CLUSTER_BINDING}/0"
+        _LOGGER.info("delete_binding: Writing to attribute path: %s", attribute_path)
+
+        result = await client.write_attribute(
             node_id=source_node_id,
-            attribute_path=f"{source_endpoint_id}/{CLUSTER_BINDING}/0",
+            attribute_path=attribute_path,
             value=binding_list,
         )
-        return True
+        _LOGGER.info("delete_binding: write_attribute result: %s", result)
+
+        # Verify the binding was deleted if requested
+        if verify:
+            _LOGGER.info("delete_binding: Verifying binding was deleted from device...")
+
+            # Small delay to allow device to process
+            import asyncio
+
+            await asyncio.sleep(0.2)
+
+            # Read back bindings directly from device
+            verification = await verify_bindings(
+                hass, source_node_id, source_endpoint_id
+            )
+
+            if not verification.success:
+                return BindingVerificationResult(
+                    success=True,  # Write succeeded
+                    verified=False,
+                    message=f"Binding deleted but verification failed: {verification.message}",
+                    bindings_found=verification.bindings_found,
+                )
+
+            # Check if the binding is gone
+            read_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
+            binding_still_exists = any(
+                _binding_matches(b, target_node_id, target_endpoint_id, target_group_id)
+                for b in read_bindings
+            )
+
+            if not binding_still_exists:
+                _LOGGER.info(
+                    "delete_binding: Binding deletion verified successfully on device"
+                )
+                return BindingVerificationResult(
+                    success=True,
+                    verified=True,
+                    message="Binding deleted and verified on device",
+                    bindings_found=len(read_bindings),
+                )
+            else:
+                _LOGGER.warning(
+                    "delete_binding: Binding was written but still found when reading back"
+                )
+                return BindingVerificationResult(
+                    success=True,
+                    verified=False,
+                    message="Binding deletion written but binding still present - device may have rejected it",
+                    bindings_found=len(read_bindings),
+                )
+
+        return BindingVerificationResult(
+            success=True,
+            verified=False,  # Not verified because verify=False
+            message="Binding deletion written (verification skipped)",
+            bindings_found=len(binding_list),
+        )
+
     except Exception as err:
-        _LOGGER.error("Error deleting binding: %s", err)
-        return False
+        _LOGGER.error("Error deleting binding: %s", err, exc_info=True)
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message=f"Failed to delete binding: {err}",
+        )
 
 
 async def get_groups(hass: HomeAssistant) -> list[GroupEntry]:

@@ -8,6 +8,7 @@ import type {
   ListBindingsResponse,
   ListGroupsResponse,
   SuccessResponse,
+  BindingVerificationResponse,
   EveScheduleResponse,
   GetScheduleResponse,
   SetScheduleResponse,
@@ -43,13 +44,15 @@ export async function createBinding(
   clusterId: number,
   targetNodeId?: number,
   targetEndpointId?: number,
-  targetGroupId?: number
-): Promise<SuccessResponse> {
+  targetGroupId?: number,
+  verify: boolean = true
+): Promise<BindingVerificationResponse> {
   return hass.callWS({
     type: `${DOMAIN}/create_binding`,
     source_node_id: sourceNodeId,
     source_endpoint_id: sourceEndpointId,
     cluster_id: clusterId,
+    verify,
     ...(targetNodeId !== undefined && { target_node_id: targetNodeId }),
     ...(targetEndpointId !== undefined && { target_endpoint_id: targetEndpointId }),
     ...(targetGroupId !== undefined && { target_group_id: targetGroupId }),
@@ -62,15 +65,33 @@ export async function deleteBinding(
   sourceEndpointId: number,
   targetNodeId?: number,
   targetEndpointId?: number,
-  targetGroupId?: number
-): Promise<SuccessResponse> {
+  targetGroupId?: number,
+  verify: boolean = true
+): Promise<BindingVerificationResponse> {
   return hass.callWS({
     type: `${DOMAIN}/delete_binding`,
     source_node_id: sourceNodeId,
     source_endpoint_id: sourceEndpointId,
+    verify,
     ...(targetNodeId !== undefined && { target_node_id: targetNodeId }),
     ...(targetEndpointId !== undefined && { target_endpoint_id: targetEndpointId }),
     ...(targetGroupId !== undefined && { target_group_id: targetGroupId }),
+  });
+}
+
+/**
+ * Force re-read bindings from the device to verify current state.
+ * This bypasses any cached state and reads directly from the Matter device.
+ */
+export async function verifyBindings(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number
+): Promise<BindingVerificationResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/verify_bindings`,
+    node_id: nodeId,
+    endpoint_id: endpointId,
   });
 }
 

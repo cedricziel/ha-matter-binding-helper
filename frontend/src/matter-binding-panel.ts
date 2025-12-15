@@ -53,6 +53,8 @@ export class MatterBindingPanel extends LitElement {
   @state() private _automationRecommendations: AutomationRecommendation[] = [];
   @state() private _eveSchedules: Map<number, EveSchedule> = new Map();
   @state() private _eveScheduleLoading: Set<number> = new Set();
+  @state() private _verificationInProgress = false;
+  @state() private _lastVerificationResult: { success: boolean; verified: boolean; message: string } | null = null;
 
   static styles = css`
     :host {
@@ -770,6 +772,58 @@ export class MatterBindingPanel extends LitElement {
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    /* Verification Result Styles */
+    .verification-result {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .verification-result.verified {
+      background: rgba(76, 175, 80, 0.15);
+      border: 1px solid var(--success-color, #4caf50);
+      color: var(--success-color, #4caf50);
+    }
+
+    .verification-result.warning {
+      background: rgba(255, 152, 0, 0.15);
+      border: 1px solid var(--warning-color, #ff9800);
+      color: var(--warning-color, #ff9800);
+    }
+
+    .verification-result.error {
+      background: rgba(244, 67, 54, 0.15);
+      border: 1px solid var(--error-color, #f44336);
+      color: var(--error-color, #f44336);
+    }
+
+    .verification-icon {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .verification-message {
+      flex: 1;
+    }
+
+    .verification-dismiss {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0 4px;
+      opacity: 0.7;
+      color: inherit;
+    }
+
+    .verification-dismiss:hover {
+      opacity: 1;
     }
 
     /* Overview Tab Styles */
@@ -1696,7 +1750,7 @@ export class MatterBindingPanel extends LitElement {
     this._actionInProgress = actionKey;
 
     try {
-      await api.deleteBinding(
+      const result = await api.deleteBinding(
         this.hass,
         binding.node_id,
         binding.endpoint_id,
@@ -1704,11 +1758,46 @@ export class MatterBindingPanel extends LitElement {
         binding.target_endpoint_id ?? undefined,
         binding.target_group_id ?? undefined
       );
+      this._lastVerificationResult = {
+        success: result.success,
+        verified: result.verified,
+        message: result.message,
+      };
       await this._loadBindings();
     } catch (err) {
       this._error = `Failed to delete binding: ${err}`;
     } finally {
       this._actionInProgress = null;
+    }
+  }
+
+  private async _verifyBindings(): Promise<void> {
+    if (!this._selectedSourceNode || !this._selectedSourceEndpoint) return;
+
+    this._verificationInProgress = true;
+    this._lastVerificationResult = null;
+
+    try {
+      const result = await api.verifyBindings(
+        this.hass,
+        this._selectedSourceNode.node_id,
+        this._selectedSourceEndpoint.endpoint_id
+      );
+      this._lastVerificationResult = {
+        success: result.success,
+        verified: result.verified,
+        message: result.message,
+      };
+      // Reload bindings to refresh the list
+      await this._loadBindings();
+    } catch (err) {
+      this._lastVerificationResult = {
+        success: false,
+        verified: false,
+        message: `Failed to verify bindings: ${err}`,
+      };
+    } finally {
+      this._verificationInProgress = false;
     }
   }
 
@@ -1824,7 +1913,7 @@ export class MatterBindingPanel extends LitElement {
     this._actionInProgress = actionKey;
 
     try {
-      await api.createBinding(
+      const result = await api.createBinding(
         this.hass,
         sourceNode.node_id,
         sourceEndpoint.endpoint_id,
@@ -1832,6 +1921,11 @@ export class MatterBindingPanel extends LitElement {
         targetNode.node_id,
         targetEndpoint.endpoint_id
       );
+      this._lastVerificationResult = {
+        success: result.success,
+        verified: result.verified,
+        message: result.message,
+      };
       this._pendingManualBinding = null;
       await this._loadBindings();
     } catch (err) {
@@ -2233,7 +2327,7 @@ export class MatterBindingPanel extends LitElement {
     this._actionInProgress = actionKey;
 
     try {
-      await api.deleteBinding(
+      const result = await api.deleteBinding(
         this.hass,
         binding.node_id,
         binding.endpoint_id,
@@ -2241,6 +2335,11 @@ export class MatterBindingPanel extends LitElement {
         binding.target_endpoint_id ?? undefined,
         binding.target_group_id ?? undefined
       );
+      this._lastVerificationResult = {
+        success: result.success,
+        verified: result.verified,
+        message: result.message,
+      };
       this._closeDeleteConfirmDialog();
       // Reload overview data
       await this._loadOverviewData();
@@ -2277,7 +2376,7 @@ export class MatterBindingPanel extends LitElement {
     this._actionInProgress = actionKey;
 
     try {
-      await api.createBinding(
+      const result = await api.createBinding(
         this.hass,
         sourceNode.node_id,
         sourceEndpoint.endpoint_id,
@@ -2285,6 +2384,11 @@ export class MatterBindingPanel extends LitElement {
         targetNode.node_id,
         targetEndpoint.endpoint_id
       );
+      this._lastVerificationResult = {
+        success: result.success,
+        verified: result.verified,
+        message: result.message,
+      };
       this._closeBindingConfirmDialog();
       // Reload overview data
       await this._loadOverviewData();
@@ -2380,6 +2484,14 @@ export class MatterBindingPanel extends LitElement {
                     Endpoint ${this._selectedSourceEndpoint.endpoint_id}
                   </span>
                   <button
+                    class="btn btn-small btn-secondary ${this._verificationInProgress ? "btn-loading" : ""}"
+                    ?disabled=${this._verificationInProgress || this._actionInProgress !== null}
+                    @click=${this._verifyBindings}
+                    title="Re-read bindings from device to verify"
+                  >
+                    ${this._verificationInProgress ? "" : "Verify"}
+                  </button>
+                  <button
                     class="btn btn-small btn-primary"
                     @click=${this._openCreateDialog}
                   >
@@ -2388,6 +2500,17 @@ export class MatterBindingPanel extends LitElement {
                 `
               : nothing}
           </div>
+          ${this._lastVerificationResult
+            ? html`
+                <div class="verification-result ${this._lastVerificationResult.verified ? "verified" : this._lastVerificationResult.success ? "warning" : "error"}">
+                  <span class="verification-icon">
+                    ${this._lastVerificationResult.verified ? "✓" : this._lastVerificationResult.success ? "⚠" : "✗"}
+                  </span>
+                  <span class="verification-message">${this._lastVerificationResult.message}</span>
+                  <button class="verification-dismiss" @click=${() => this._lastVerificationResult = null}>×</button>
+                </div>
+              `
+            : nothing}
           ${this._selectedSourceEndpoint
             ? this._bindings.length > 0
               ? html`

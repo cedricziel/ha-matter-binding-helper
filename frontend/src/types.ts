@@ -127,6 +127,13 @@ export interface SuccessResponse {
   success: boolean;
 }
 
+export interface BindingVerificationResponse {
+  success: boolean;
+  verified: boolean;
+  message: string;
+  bindings_found: number;
+}
+
 // Cluster IDs
 export const CLUSTER_IDENTIFY = 0x0003;
 export const CLUSTER_GROUPS = 0x0004;

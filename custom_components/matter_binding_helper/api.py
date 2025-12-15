@@ -25,6 +25,7 @@ from .const import (
     WS_TYPE_LIST_NODES,
     WS_TYPE_REMOVE_FROM_GROUP,
     WS_TYPE_SET_SCHEDULE,
+    WS_TYPE_VERIFY_BINDINGS,
 )
 from . import matter_client
 from .telemetry import collect_survey_data
@@ -52,6 +53,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_list_bindings)
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
+    websocket_api.async_register_command(hass, ws_verify_bindings)
     websocket_api.async_register_command(hass, ws_list_groups)
     websocket_api.async_register_command(hass, ws_create_group)
     websocket_api.async_register_command(hass, ws_delete_group)
@@ -930,6 +932,7 @@ def _serialize_value(value: Any) -> dict[str, Any]:
         vol.Optional("target_node_id"): vol.Coerce(int),
         vol.Optional("target_endpoint_id"): vol.Coerce(int),
         vol.Optional("target_group_id"): vol.Coerce(int),
+        vol.Optional("verify", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -938,9 +941,16 @@ async def ws_create_binding(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Create a new binding."""
+    """Create a new binding with optional verification.
+
+    Returns:
+        success: True if the write operation succeeded
+        verified: True if the binding was confirmed on the device
+        message: Description of the result
+        bindings_found: Number of bindings on the endpoint after operation
+    """
     _LOGGER.info("ws_create_binding called with: %s", msg)
-    success = await matter_client.create_binding(
+    result = await matter_client.create_binding(
         hass,
         source_node_id=msg["source_node_id"],
         source_endpoint_id=msg["source_endpoint_id"],
@@ -948,12 +958,50 @@ async def ws_create_binding(
         target_node_id=msg.get("target_node_id"),
         target_endpoint_id=msg.get("target_endpoint_id"),
         target_group_id=msg.get("target_group_id"),
+        verify=msg.get("verify", True),
     )
-    _LOGGER.info("ws_create_binding result: %s", success)
-    if success:
-        connection.send_result(msg["id"], {"success": True})
+    _LOGGER.info("ws_create_binding result: %s", result)
+    if result.success:
+        connection.send_result(msg["id"], result.to_dict())
     else:
-        connection.send_error(msg["id"], "create_failed", "Failed to create binding")
+        connection.send_error(msg["id"], "create_failed", result.message)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_VERIFY_BINDINGS,
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_verify_bindings(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Force re-read bindings from the device to verify current state.
+
+    This bypasses any cached state and reads directly from the Matter device.
+
+    Returns:
+        success: True if the read operation succeeded
+        verified: True if bindings were successfully read from device
+        message: Description of the result
+        bindings_found: Number of bindings found on the device
+    """
+    _LOGGER.info(
+        "ws_verify_bindings called for node %s endpoint %s",
+        msg["node_id"],
+        msg["endpoint_id"],
+    )
+    result = await matter_client.verify_bindings(
+        hass,
+        node_id=msg["node_id"],
+        endpoint_id=msg["endpoint_id"],
+    )
+    _LOGGER.info("ws_verify_bindings result: %s", result)
+    connection.send_result(msg["id"], result.to_dict())
 
 
 @websocket_api.websocket_command(
@@ -964,6 +1012,7 @@ async def ws_create_binding(
         vol.Optional("target_node_id"): vol.Coerce(int),
         vol.Optional("target_endpoint_id"): vol.Coerce(int),
         vol.Optional("target_group_id"): vol.Coerce(int),
+        vol.Optional("verify", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -972,19 +1021,29 @@ async def ws_delete_binding(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Delete a binding."""
-    success = await matter_client.delete_binding(
+    """Delete a binding with optional verification.
+
+    Returns:
+        success: True if the write operation succeeded
+        verified: True if the binding deletion was confirmed on the device
+        message: Description of the result
+        bindings_found: Number of bindings remaining on the endpoint
+    """
+    _LOGGER.info("ws_delete_binding called with: %s", msg)
+    result = await matter_client.delete_binding(
         hass,
         source_node_id=msg["source_node_id"],
         source_endpoint_id=msg["source_endpoint_id"],
         target_node_id=msg.get("target_node_id"),
         target_endpoint_id=msg.get("target_endpoint_id"),
         target_group_id=msg.get("target_group_id"),
+        verify=msg.get("verify", True),
     )
-    if success:
-        connection.send_result(msg["id"], {"success": True})
+    _LOGGER.info("ws_delete_binding result: %s", result)
+    if result.success:
+        connection.send_result(msg["id"], result.to_dict())
     else:
-        connection.send_error(msg["id"], "delete_failed", "Failed to delete binding")
+        connection.send_error(msg["id"], "delete_failed", result.message)
 
 
 @websocket_api.websocket_command(
