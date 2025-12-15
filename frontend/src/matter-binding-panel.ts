@@ -60,6 +60,8 @@ export class MatterBindingPanel extends LitElement {
   @state() private _verificationModalResult: { success: boolean; verified: boolean; message: string; bindingContext?: BindingWithContext } | null = null;
   @state() private _aclLoading = false;
   @state() private _aclEntries: ACLEntry[] | null = null;
+  @state() private _targetACLCache: Map<number, ACLEntry[]> = new Map();
+  @state() private _aclLoadingNodes: Set<number> = new Set();
 
   static styles = css`
     :host {
@@ -630,6 +632,37 @@ export class MatterBindingPanel extends LitElement {
     .binding-cluster {
       font-size: 12px;
       color: var(--secondary-text-color);
+    }
+
+    /* ACL warning styles */
+    .binding-missing-acl {
+      border-left: 3px solid var(--warning-color, #ff9800);
+      background: rgba(255, 152, 0, 0.05);
+    }
+
+    .acl-warning {
+      cursor: help;
+      font-size: 14px;
+      margin-right: 4px;
+    }
+
+    .acl-warning-text {
+      color: var(--warning-color, #ff9800);
+      font-size: 11px;
+    }
+
+    .acl-warning-banner {
+      background: rgba(255, 152, 0, 0.12);
+      color: var(--warning-color, #ff9800);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      width: 100%;
+    }
+
+    .binding-card.binding-missing-acl {
+      flex-wrap: wrap;
     }
 
     .delete-btn {
@@ -1675,6 +1708,17 @@ export class MatterBindingPanel extends LitElement {
         this._selectedSourceEndpoint.endpoint_id
       );
       this._bindings = response.bindings;
+
+      // Load ACLs for target nodes (for permission checking)
+      const targetNodeIds = new Set(
+        response.bindings
+          .filter((b) => b.target_node_id !== null)
+          .map((b) => b.target_node_id!)
+      );
+      // Load ACLs in background - don't block the UI
+      Promise.all(
+        Array.from(targetNodeIds).map((nodeId) => this._loadACLForNode(nodeId))
+      ).catch((err) => console.error("Failed to load some target ACLs:", err));
     } catch (err) {
       this._error = `Failed to load bindings: ${err}`;
     } finally {
@@ -1877,6 +1921,17 @@ export class MatterBindingPanel extends LitElement {
       }
 
       this._allBindings = allBindings;
+
+      // Load ACLs for all unique target nodes (for permission checking)
+      const targetNodeIds = new Set(
+        allBindings
+          .filter((b) => b.binding.target_node_id !== null)
+          .map((b) => b.binding.target_node_id!)
+      );
+      // Load ACLs in parallel, don't wait for them to complete
+      Promise.all(
+        Array.from(targetNodeIds).map((nodeId) => this._loadACLForNode(nodeId))
+      ).catch((err) => console.error("Failed to load some target ACLs:", err));
 
       // Compute recommendations
       this._recommendations = this._computeRecommendations();
@@ -2378,10 +2433,18 @@ export class MatterBindingPanel extends LitElement {
     const isGroupBinding = binding.target_group_id !== null;
     const clusterDesc = getClusterBindingDescription(binding.cluster_id);
 
+    // Check ACL permissions for non-group bindings
+    const aclStatus = !isGroupBinding
+      ? this._checkBindingACL(binding, sourceNode.node_id)
+      : { hasPermission: true, status: "ok" as const };
+
     return html`
-      <div class="overview-binding-row readable">
+      <div class="overview-binding-row readable ${!aclStatus.hasPermission ? "binding-missing-acl" : ""}">
         <div class="binding-description">
           <div class="binding-sentence">
+            ${!aclStatus.hasPermission
+              ? html`<span class="acl-warning" title="${aclStatus.reason || "Missing ACL permission"}">⚠️</span>`
+              : nothing}
             <strong
               class="${sourceNode.ha_device_id ? "device-link" : ""}"
               @click=${sourceNode.ha_device_id
@@ -2399,6 +2462,9 @@ export class MatterBindingPanel extends LitElement {
           <div class="binding-meta">
             EP ${sourceEndpoint.endpoint_id} → ${isGroupBinding ? `Group` : `EP ${binding.target_endpoint_id}`}
             ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
+            ${!aclStatus.hasPermission
+              ? html`<span class="acl-warning-text"> · ${aclStatus.reason}</span>`
+              : nothing}
           </div>
         </div>
         <div class="binding-actions">
@@ -2875,6 +2941,96 @@ export class MatterBindingPanel extends LitElement {
     }
   }
 
+  /**
+   * Load ACL for a target node into the cache (for binding permission checks).
+   */
+  private async _loadACLForNode(nodeId: number): Promise<void> {
+    if (this._targetACLCache.has(nodeId) || this._aclLoadingNodes.has(nodeId)) {
+      return;
+    }
+    this._aclLoadingNodes = new Set([...this._aclLoadingNodes, nodeId]);
+    try {
+      const response = await api.listACL(this.hass, nodeId);
+      if (response.success) {
+        this._targetACLCache = new Map([...this._targetACLCache, [nodeId, response.entries]]);
+      }
+    } catch (err) {
+      console.error(`Failed to load ACL for node ${nodeId}:`, err);
+    } finally {
+      const newSet = new Set(this._aclLoadingNodes);
+      newSet.delete(nodeId);
+      this._aclLoadingNodes = newSet;
+    }
+  }
+
+  /**
+   * Check if a binding has the required ACL permission on the target device.
+   * Returns status object with hasPermission flag and reason if missing.
+   */
+  private _checkBindingACL(
+    binding: Binding,
+    sourceNodeId: number
+  ): { hasPermission: boolean; status: "ok" | "missing" | "loading" | "unknown"; reason?: string } {
+    const targetNodeId = binding.target_node_id;
+
+    // Group bindings - not checking for now
+    if (targetNodeId === null) {
+      return { hasPermission: true, status: "ok" };
+    }
+
+    // Check if we're still loading
+    if (this._aclLoadingNodes.has(targetNodeId)) {
+      return { hasPermission: true, status: "loading" };
+    }
+
+    // Check if we have ACL data
+    const targetACL = this._targetACLCache.get(targetNodeId);
+    if (targetACL === undefined) {
+      return { hasPermission: true, status: "unknown", reason: "ACL not loaded" };
+    }
+
+    if (targetACL.length === 0) {
+      return { hasPermission: false, status: "missing", reason: "No ACL entries on target" };
+    }
+
+    // Determine required privilege based on cluster type
+    // Control clusters need Operate (3), sensor clusters need View (1)
+    const clusterId = binding.cluster_id;
+    const controlClusters = [0x0006, 0x0008, 0x0300, 0x0201, 0x0202]; // On/Off, Level, Color, Thermostat, Fan
+    const requiredPrivilege = controlClusters.includes(clusterId) ? 3 : 1;
+    const requiredPrivilegeName = requiredPrivilege === 3 ? "Operate" : "View";
+
+    // Find a matching ACL entry
+    for (const entry of targetACL) {
+      // Must be CASE auth mode (2) for device-to-device
+      if (entry.auth_mode !== 2) continue;
+
+      // Must have sufficient privilege
+      if (entry.privilege < requiredPrivilege) continue;
+
+      // Check subjects - empty means all authenticated, otherwise must include source
+      if (entry.subjects.length > 0 && !entry.subjects.includes(sourceNodeId)) continue;
+
+      // Check targets - empty means all, otherwise must match cluster
+      if (entry.targets.length > 0) {
+        const clusterMatch = entry.targets.some(
+          (t) => t.cluster === null || t.cluster === clusterId
+        );
+        if (!clusterMatch) continue;
+      }
+
+      // Found a matching entry!
+      return { hasPermission: true, status: "ok" };
+    }
+
+    // No matching entry found
+    return {
+      hasPermission: false,
+      status: "missing",
+      reason: `Target missing ${requiredPrivilegeName} permission for source node ${sourceNodeId}`,
+    };
+  }
+
   private _renderACLSection(node: MatterNode) {
     return html`
       <div class="device-section">
@@ -3191,14 +3347,27 @@ export class MatterBindingPanel extends LitElement {
   private _renderBindingCard(binding: Binding) {
     const actionKey = `delete-tab-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
     const isLoading = this._actionInProgress === actionKey;
+    const isGroupBinding = binding.target_group_id !== null;
+
+    // Check ACL permissions for non-group bindings
+    // Source node ID is the node this binding belongs to
+    const sourceNodeId = binding.node_id;
+    const aclStatus = !isGroupBinding
+      ? this._checkBindingACL(binding, sourceNodeId)
+      : { hasPermission: true, status: "ok" as const };
 
     return html`
-      <div class="binding-card">
+      <div class="binding-card ${!aclStatus.hasPermission ? "binding-missing-acl" : ""}">
+        ${!aclStatus.hasPermission
+          ? html`<div class="acl-warning-banner">
+              ⚠️ ${aclStatus.reason}
+            </div>`
+          : nothing}
         <div class="binding-info">
           <span class="binding-arrow">→</span>
           <div class="binding-target">
             <span class="binding-target-name">
-              ${binding.target_group_id !== null
+              ${isGroupBinding
                 ? `Group ${binding.target_group_id}`
                 : html`<span
                     class="${this._getNodeDeviceId(binding.target_node_id!) ? "device-link" : ""}"
