@@ -39,6 +39,7 @@ CLUSTER_COLOR_CONTROL = 0x0300
 CLUSTER_SCENES = 0x0005
 CLUSTER_DESCRIPTOR = 0x001D  # Descriptor cluster
 CLUSTER_THERMOSTAT = 0x0201  # Thermostat cluster
+CLUSTER_ACCESS_CONTROL = 0x001F  # Access Control cluster
 
 # WebSocket commands for thermostat schedules
 WS_TYPE_GET_SCHEDULE = f"{DOMAIN}/get_schedule"
@@ -61,3 +62,19 @@ ATTR_GENERATED_COMMAND_LIST = 0xFFF8  # 65528 - List of commands the cluster gen
 CMD_SET_WEEKLY_SCHEDULE = 0x01
 CMD_GET_WEEKLY_SCHEDULE = 0x02
 CMD_CLEAR_WEEKLY_SCHEDULE = 0x03
+
+# Access Control cluster
+WS_TYPE_LIST_ACL = f"{DOMAIN}/list_acl"
+ATTR_ACL = 0  # ACL attribute ID
+
+# ACL privilege levels
+ACL_PRIVILEGE_VIEW = 1
+ACL_PRIVILEGE_PROXY_VIEW = 2
+ACL_PRIVILEGE_OPERATE = 3
+ACL_PRIVILEGE_MANAGE = 4
+ACL_PRIVILEGE_ADMINISTER = 5
+
+# ACL auth modes
+ACL_AUTH_MODE_PASE = 1  # Commissioning
+ACL_AUTH_MODE_CASE = 2  # Device-to-device (certificate)
+ACL_AUTH_MODE_GROUP = 3  # Group messaging

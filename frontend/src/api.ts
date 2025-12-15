@@ -7,6 +7,7 @@ import type {
   ListNodesResponse,
   ListBindingsResponse,
   ListGroupsResponse,
+  ListACLResponse,
   SuccessResponse,
   BindingVerificationResponse,
   EveScheduleResponse,
@@ -92,6 +93,23 @@ export async function verifyBindings(
     type: `${DOMAIN}/verify_bindings`,
     node_id: nodeId,
     endpoint_id: endpointId,
+  });
+}
+
+/**
+ * Get Access Control List entries for a node.
+ * ACL entries define which devices/subjects have permission to control this node.
+ *
+ * @param hass - Home Assistant instance
+ * @param nodeId - Matter node ID
+ */
+export async function listACL(
+  hass: HomeAssistant,
+  nodeId: number
+): Promise<ListACLResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/list_acl`,
+    node_id: nodeId,
   });
 }
 

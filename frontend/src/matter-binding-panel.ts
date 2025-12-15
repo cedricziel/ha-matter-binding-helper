@@ -15,6 +15,7 @@ import type {
   MatterGroup,
   AutomationRecommendation,
   EveSchedule,
+  ACLEntry,
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
@@ -57,6 +58,8 @@ export class MatterBindingPanel extends LitElement {
   @state() private _lastVerificationResult: { success: boolean; verified: boolean; message: string } | null = null;
   @state() private _showVerificationModal = false;
   @state() private _verificationModalResult: { success: boolean; verified: boolean; message: string; bindingContext?: BindingWithContext } | null = null;
+  @state() private _aclLoading = false;
+  @state() private _aclEntries: ACLEntry[] | null = null;
 
   static styles = css`
     :host {
@@ -1546,6 +1549,96 @@ export class MatterBindingPanel extends LitElement {
       font-style: italic;
       padding: 8px 0;
     }
+
+    /* ACL Section Styles */
+    .acl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .acl-entry {
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .acl-entry.acl-admin {
+      border-left: 3px solid var(--error-color, #f44336);
+    }
+
+    .acl-entry.acl-operate {
+      border-left: 3px solid var(--success-color, #4caf50);
+    }
+
+    .acl-entry-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .acl-index {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      font-weight: 500;
+    }
+
+    .acl-privilege {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--divider-color);
+    }
+
+    .acl-privilege.administer {
+      background: rgba(244, 67, 54, 0.15);
+      color: var(--error-color, #f44336);
+    }
+
+    .acl-privilege.operate {
+      background: rgba(76, 175, 80, 0.15);
+      color: var(--success-color, #4caf50);
+    }
+
+    .acl-privilege.manage {
+      background: rgba(255, 152, 0, 0.15);
+      color: var(--warning-color, #ff9800);
+    }
+
+    .acl-privilege.view {
+      background: rgba(33, 150, 243, 0.15);
+      color: var(--info-color, #2196f3);
+    }
+
+    .acl-auth-mode {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+    }
+
+    .acl-entry-details {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .acl-row {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .acl-label {
+      color: var(--secondary-text-color);
+      min-width: 60px;
+    }
+
+    .acl-value {
+      color: var(--primary-text-color);
+      word-break: break-word;
+    }
   `;
 
   protected firstUpdated(): void {
@@ -1855,8 +1948,9 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _selectNode(node: MatterNode): void {
-    // Clear verification result when switching nodes
+    // Clear verification result and ACL when switching nodes
     this._lastVerificationResult = null;
+    this._aclEntries = null;
 
     if (this._selectedSourceNode?.node_id === node.node_id) {
       this._selectedSourceNode = null;
@@ -2657,6 +2751,8 @@ export class MatterBindingPanel extends LitElement {
             : html`<div class="no-endpoints">No endpoints found</div>`}
         </div>
 
+        ${this._renderACLSection(node)}
+
         ${this._renderEntityList(node)}
         ${this._renderDeviceRegistryInfo(node)}
         ${this._renderEveSchedule(node)}
@@ -2761,6 +2857,104 @@ export class MatterBindingPanel extends LitElement {
           </div>
         </div>
       </li>
+    `;
+  }
+
+  private async _loadACL(nodeId: number) {
+    this._aclLoading = true;
+    this._aclEntries = null;
+    try {
+      const response = await api.listACL(this.hass, nodeId);
+      if (response.success) {
+        this._aclEntries = response.entries;
+      }
+    } catch (err) {
+      console.error("Failed to load ACL:", err);
+    } finally {
+      this._aclLoading = false;
+    }
+  }
+
+  private _renderACLSection(node: MatterNode) {
+    return html`
+      <div class="device-section">
+        <div class="section-header">
+          <span>Access Control (ACL)</span>
+          <button
+            class="btn btn-small"
+            ?disabled=${this._aclLoading}
+            @click=${() => this._loadACL(node.node_id)}
+          >
+            ${this._aclLoading ? "Loading..." : "Load from Device"}
+          </button>
+        </div>
+        ${this._aclEntries !== null
+          ? this._aclEntries.length > 0
+            ? html`
+                <div class="acl-list">
+                  ${this._aclEntries.map((entry, index) =>
+                    this._renderACLEntry(entry, index, node)
+                  )}
+                </div>
+              `
+            : html`<div class="empty-state-small">No ACL entries found on device.</div>`
+          : html`
+              <div class="empty-state-small">
+                Click "Load from Device" to read ACL entries.
+              </div>
+            `}
+      </div>
+    `;
+  }
+
+  private _renderACLEntry(entry: ACLEntry, index: number, node: MatterNode) {
+    // Resolve subject node IDs to names
+    const subjectNames = entry.subjects.map((subjectId) => {
+      const subjectNode = this._nodes.find((n) => n.node_id === subjectId);
+      return subjectNode ? `${subjectNode.name} (${subjectId})` : `Node ${subjectId}`;
+    });
+
+    // Format targets
+    const targetStrings = entry.targets.length > 0
+      ? entry.targets.map((t) => {
+          const parts: string[] = [];
+          if (t.cluster !== null) {
+            const clusterName = CLUSTER_NAMES[t.cluster] || `0x${t.cluster.toString(16).padStart(4, "0")}`;
+            parts.push(clusterName);
+          }
+          if (t.endpoint !== null) {
+            parts.push(`EP ${t.endpoint}`);
+          }
+          if (t.device_type !== null) {
+            parts.push(`DT ${t.device_type}`);
+          }
+          return parts.join(", ");
+        })
+      : ["All resources"];
+
+    const isAdminEntry = entry.privilege === 5; // Administer
+    const isOperateEntry = entry.privilege === 3; // Operate
+
+    return html`
+      <div class="acl-entry ${isAdminEntry ? "acl-admin" : ""} ${isOperateEntry ? "acl-operate" : ""}">
+        <div class="acl-entry-header">
+          <span class="acl-index">#${index + 1}</span>
+          <span class="acl-privilege ${entry.privilege_name.toLowerCase()}">${entry.privilege_name}</span>
+          <span class="acl-auth-mode">(${entry.auth_mode_name})</span>
+        </div>
+        <div class="acl-entry-details">
+          <div class="acl-row">
+            <span class="acl-label">Subjects:</span>
+            <span class="acl-value">
+              ${subjectNames.length > 0 ? subjectNames.join(", ") : "All (any authenticated)"}
+            </span>
+          </div>
+          <div class="acl-row">
+            <span class="acl-label">Targets:</span>
+            <span class="acl-value">${targetStrings.join("; ")}</span>
+          </div>
+        </div>
+      </div>
     `;
   }
 

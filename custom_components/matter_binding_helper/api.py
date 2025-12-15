@@ -20,6 +20,7 @@ from .const import (
     WS_TYPE_DELETE_BINDING,
     WS_TYPE_DELETE_GROUP,
     WS_TYPE_GET_SCHEDULE,
+    WS_TYPE_LIST_ACL,
     WS_TYPE_LIST_BINDINGS,
     WS_TYPE_LIST_GROUPS,
     WS_TYPE_LIST_NODES,
@@ -54,6 +55,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_create_binding)
     websocket_api.async_register_command(hass, ws_delete_binding)
     websocket_api.async_register_command(hass, ws_verify_bindings)
+    websocket_api.async_register_command(hass, ws_list_acl)
     websocket_api.async_register_command(hass, ws_list_groups)
     websocket_api.async_register_command(hass, ws_create_group)
     websocket_api.async_register_command(hass, ws_delete_group)
@@ -1002,6 +1004,40 @@ async def ws_verify_bindings(
     )
     _LOGGER.info("ws_verify_bindings result: %s", result)
     connection.send_result(msg["id"], result.to_dict())
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_LIST_ACL,
+        vol.Required("node_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_list_acl(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """List Access Control List entries for a node.
+
+    ACL entries define which devices/subjects have permission to control this node.
+
+    Returns:
+        success: True if the read operation succeeded
+        entries: List of ACL entries with privilege, auth_mode, subjects, targets
+    """
+    _LOGGER.info("ws_list_acl called for node %s", msg["node_id"])
+    try:
+        entries = await matter_client.get_acl(hass, node_id=msg["node_id"])
+        result = {
+            "success": True,
+            "entries": [entry.to_dict() for entry in entries],
+        }
+        _LOGGER.info("ws_list_acl: Found %d ACL entries", len(entries))
+        connection.send_result(msg["id"], result)
+    except Exception as err:
+        _LOGGER.error("ws_list_acl error: %s", err, exc_info=True)
+        connection.send_error(msg["id"], "acl_read_failed", str(err))
 
 
 @websocket_api.websocket_command(

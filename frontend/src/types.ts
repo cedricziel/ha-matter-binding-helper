@@ -134,6 +134,28 @@ export interface BindingVerificationResponse {
   bindings_found: number;
 }
 
+// ACL (Access Control List) types
+export interface ACLTarget {
+  cluster: number | null;
+  endpoint: number | null;
+  device_type: number | null;
+}
+
+export interface ACLEntry {
+  privilege: number;
+  privilege_name: string;
+  auth_mode: number;
+  auth_mode_name: string;
+  subjects: number[];
+  targets: ACLTarget[];
+  fabric_index: number;
+}
+
+export interface ListACLResponse {
+  success: boolean;
+  entries: ACLEntry[];
+}
+
 // Cluster IDs
 export const CLUSTER_IDENTIFY = 0x0003;
 export const CLUSTER_GROUPS = 0x0004;

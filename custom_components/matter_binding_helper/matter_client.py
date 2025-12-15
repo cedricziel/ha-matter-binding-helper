@@ -12,9 +12,19 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    ACL_AUTH_MODE_CASE,
+    ACL_AUTH_MODE_GROUP,
+    ACL_AUTH_MODE_PASE,
+    ACL_PRIVILEGE_ADMINISTER,
+    ACL_PRIVILEGE_MANAGE,
+    ACL_PRIVILEGE_OPERATE,
+    ACL_PRIVILEGE_PROXY_VIEW,
+    ACL_PRIVILEGE_VIEW,
+    ATTR_ACL,
     ATTR_ACCEPTED_COMMAND_LIST,
     ATTR_CLIENT_LIST,
     ATTR_SERVER_LIST,
+    CLUSTER_ACCESS_CONTROL,
     CLUSTER_BINDING,
     CLUSTER_DESCRIPTOR,
     CLUSTER_LEVEL_CONTROL,
@@ -142,6 +152,66 @@ class GroupEntry:
             "name": self.name,
             "members": self.members,
         }
+
+
+@dataclass
+class ACLTarget:
+    """Represents an ACL target restriction."""
+
+    cluster: int | None = None
+    endpoint: int | None = None
+    device_type: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "cluster": self.cluster,
+            "endpoint": self.endpoint,
+            "device_type": self.device_type,
+        }
+
+
+@dataclass
+class ACLEntry:
+    """Represents a Matter Access Control List entry."""
+
+    privilege: int  # 1=View, 2=ProxyView, 3=Operate, 4=Manage, 5=Administer
+    auth_mode: int  # 1=PASE, 2=CASE, 3=Group
+    subjects: list[int]  # Node IDs or Group IDs (empty = all matching authMode)
+    targets: list[ACLTarget]  # Cluster/endpoint restrictions (empty = all)
+    fabric_index: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "privilege": self.privilege,
+            "privilege_name": self._get_privilege_name(),
+            "auth_mode": self.auth_mode,
+            "auth_mode_name": self._get_auth_mode_name(),
+            "subjects": self.subjects,
+            "targets": [t.to_dict() for t in self.targets],
+            "fabric_index": self.fabric_index,
+        }
+
+    def _get_privilege_name(self) -> str:
+        """Get human-readable privilege name."""
+        names = {
+            ACL_PRIVILEGE_VIEW: "View",
+            ACL_PRIVILEGE_PROXY_VIEW: "ProxyView",
+            ACL_PRIVILEGE_OPERATE: "Operate",
+            ACL_PRIVILEGE_MANAGE: "Manage",
+            ACL_PRIVILEGE_ADMINISTER: "Administer",
+        }
+        return names.get(self.privilege, f"Unknown ({self.privilege})")
+
+    def _get_auth_mode_name(self) -> str:
+        """Get human-readable auth mode name."""
+        names = {
+            ACL_AUTH_MODE_PASE: "PASE",
+            ACL_AUTH_MODE_CASE: "CASE",
+            ACL_AUTH_MODE_GROUP: "Group",
+        }
+        return names.get(self.auth_mode, f"Unknown ({self.auth_mode})")
 
 
 def _is_demo_mode(hass: HomeAssistant) -> bool:
@@ -1178,6 +1248,93 @@ async def get_bindings(
         endpoint_id,
     )
     return bindings
+
+
+# Demo ACL entries for testing
+_demo_acl: list[ACLEntry] = [
+    ACLEntry(
+        privilege=ACL_PRIVILEGE_ADMINISTER,
+        auth_mode=ACL_AUTH_MODE_CASE,
+        subjects=[1],  # HA fabric node
+        targets=[],  # All resources
+        fabric_index=1,
+    ),
+]
+
+
+async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
+    """Get Access Control List entries for a node.
+
+    ACL is always read from endpoint 0, cluster 0x001F (Access Control), attribute 0.
+    """
+    # Check for demo mode first
+    if _is_demo_mode(hass):
+        _LOGGER.debug("Demo mode enabled, returning demo ACL for node %s", node_id)
+        return _demo_acl
+
+    client = get_matter_client(hass)
+    if not client:
+        _LOGGER.warning("get_acl: Matter client not available")
+        return []
+
+    acl_entries: list[ACLEntry] = []
+    try:
+        # ACL is on endpoint 0, Access Control cluster (0x001F), attribute 0
+        attribute_path = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
+        _LOGGER.debug(
+            "get_acl: Reading ACL for node %s with path: %s", node_id, attribute_path
+        )
+
+        result = await client.read_attribute(
+            node_id=node_id,
+            attribute_path=attribute_path,
+        )
+
+        _LOGGER.debug(
+            "get_acl: read_attribute returned type=%s, value=%s",
+            type(result).__name__,
+            result,
+        )
+
+        if result and isinstance(result, list):
+            for entry in result:
+                _LOGGER.debug("get_acl: Processing ACL entry: %s", entry)
+
+                # Parse targets if present
+                targets: list[ACLTarget] = []
+                raw_targets = entry.get("targets") or []
+                for t in raw_targets:
+                    targets.append(
+                        ACLTarget(
+                            cluster=t.get("cluster"),
+                            endpoint=t.get("endpoint"),
+                            device_type=t.get("deviceType"),
+                        )
+                    )
+
+                acl_entry = ACLEntry(
+                    privilege=entry.get("privilege", 0),
+                    auth_mode=entry.get("authMode", 0),
+                    subjects=entry.get("subjects") or [],
+                    targets=targets,
+                    fabric_index=entry.get("fabricIndex", 0),
+                )
+                acl_entries.append(acl_entry)
+
+    except Exception as err:
+        _LOGGER.error(
+            "Error reading ACL for node %s: %s",
+            node_id,
+            err,
+            exc_info=True,
+        )
+
+    _LOGGER.debug(
+        "get_acl: Returning %d ACL entries for node %s",
+        len(acl_entries),
+        node_id,
+    )
+    return acl_entries
 
 
 def _get_bindings_from_node_cache(
