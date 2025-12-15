@@ -17,6 +17,9 @@ build/
 node_modules/
 frontend/dist/
 
+# Built frontend (distributed via zip_release)
+custom_components/matter_binding_helper/frontend/
+
 # IDE
 .idea/
 .vscode/
