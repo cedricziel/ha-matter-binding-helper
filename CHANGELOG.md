@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.20.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.19.1...v0.20.0) (2025-12-15)
+
+
+### Features
+
+* add binding verification with read-after-write confirmation ([eadd3fd](https://github.com/cedricziel/ha-matter-binding-helper/commit/eadd3fd5d1ac5f1abce0d1fdc35e4056ac544391)), closes [#38](https://github.com/cedricziel/ha-matter-binding-helper/issues/38)
+
+
+### Miscellaneous
+
+* **deps:** bump actions/checkout from 4 to 6 ([#37](https://github.com/cedricziel/ha-matter-binding-helper/issues/37)) ([3235056](https://github.com/cedricziel/ha-matter-binding-helper/commit/323505653f2dab86793f3408587b09ef1032780b))
+* **deps:** bump actions/setup-node from 4 to 6 ([#35](https://github.com/cedricziel/ha-matter-binding-helper/issues/35)) ([47987fe](https://github.com/cedricziel/ha-matter-binding-helper/commit/47987fe52ad11c2233c0a3db911af3cff1890f74))
+* **deps:** bump actions/setup-python from 5 to 6 ([#36](https://github.com/cedricziel/ha-matter-binding-helper/issues/36)) ([0c6bd2a](https://github.com/cedricziel/ha-matter-binding-helper/commit/0c6bd2ab3ab74d53b86974b33846f8e7e7152739))
+
 ## [0.19.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.19.0...v0.19.1) (2025-12-05)
 
 
