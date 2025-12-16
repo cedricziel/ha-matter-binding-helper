@@ -25,12 +25,26 @@ cd frontend && npm run build  # Production build (outputs to custom_components/.
 cd frontend && npm run watch  # Watch mode with auto-rebuild
 ```
 
-### Mock Device Testing
+### Virtual Matter Devices (rs-matter)
 
 ```bash
-make devices-start     # Start mock Matter devices
-make devices-test      # Test mock device API
-make devices-logs      # View mock device logs
+make devices-start     # Build and start real rs-matter devices
+make devices-logs      # View device logs (includes QR commissioning code)
+make devices-reset     # Reset device state (requires re-commissioning)
+make devices-commission CODE=<pairing-code>  # Commission device to Matter server
+```
+
+### Integration Testing
+
+```bash
+make test-integration  # Run pytest tests with testcontainers (isolated Docker environment)
+```
+
+Tests use testcontainers to automatically spin up Home Assistant and Matter server containers. Demo mode is enabled for predictable test data.
+
+To run a single test:
+```bash
+.venv/bin/python -m pytest tests/test_nodes.py::test_list_nodes_returns_devices -v
 ```
 
 ### Python Linting
@@ -67,10 +81,19 @@ The `matter.sh` script connects to a real HA instance via WebSocket (credentials
 - **`frontend/src/types.ts`**: TypeScript types plus cluster/device type name lookup tables
 - Built output goes to `custom_components/matter_binding_helper/frontend/`
 
-### Mock Devices (Rust)
+### Virtual Devices (Rust - rs-matter)
 
-- **`devices/rust-device/`**: TCP JSON API mock device for testing without real Matter hardware
-- Does NOT implement actual Matter protocol - for UI testing only
+- **`devices/rust-device/`**: Real Matter devices using rs-matter library
+- **Binaries**: `dimmable_light` (On/Off + Level Control + Binding), `on_off_switch` (Binding only)
+- Devices can be commissioned to the Matter server and controlled via HA
+- Environment variables: `MATTER_DISCRIMINATOR`, `MATTER_PASSCODE`, `MATTER_PORT`, `MATTER_DEVICE_NAME`
+
+### Integration Tests
+
+- **`tests/conftest.py`**: Testcontainers fixtures (HA, Matter server), HABootstrapper for automated onboarding
+- **`tests/test_nodes.py`**: Node discovery tests
+- **`tests/test_bindings.py`**: Binding CRUD tests
+- **`tests/test_acl.py`**: ACL verification tests
 
 ## Key Technical Details
 
@@ -109,7 +132,8 @@ Enable via Settings → Devices & Services → Matter Binding Helper → Configu
 
 - `homeassistant`: HA with custom component mounted read-only
 - `matter-server`: python-matter-server on ws://matter-server:5580/ws
-- `rust-light`: Mock device on port 5540
+- `dimmable-light`: rs-matter dimmable light on port 5540 (discriminator 3840)
+- `on-off-switch`: rs-matter on/off switch on port 5541 (discriminator 3841)
 
 ## Matter Survey (matter-survey.org)
 
