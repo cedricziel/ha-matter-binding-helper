@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.9](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.8...v0.23.9) (2025-12-16)
+
+
+### Bug Fixes
+
+* add detailed logging to ACL cache lookup ([186a4eb](https://github.com/cedricziel/ha-matter-binding-helper/commit/186a4ebefe448daf5a000784747ad223704d5b4d))
+* handle Nullable targets in ACL parsing ([2729e5d](https://github.com/cedricziel/ha-matter-binding-helper/commit/2729e5d266781a02f80e18ccdf9f761815afa4f0))
+
 ## [0.23.8](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.7...v0.23.8) (2025-12-16)
 
 
