@@ -1,4 +1,4 @@
-.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-list devices-reset survey-install survey-deploy survey-serve venv lint format test
+.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-logs devices-reset devices-build survey-install survey-deploy survey-serve venv lint format test test-integration
 
 # Python virtual environment
 VENV := .venv
@@ -71,34 +71,45 @@ format: venv ## Format Python code
 test: venv ## Run Python tests
 	$(PYTHON) -m pytest tests/ -v
 
+test-integration: venv ## Run integration tests (uses testcontainers for isolated environment)
+	@echo "Running integration tests with testcontainers..."
+	@echo "Fresh containers will be started automatically."
+	@echo ""
+	$(PIP) install -q -r requirements-test.txt
+	$(PYTHON) -m pytest tests/ -v --tb=short
+
 # Utility
 shell: ## Open a shell in the HA container
 	docker compose exec homeassistant bash
 
-# Mock Matter devices
-devices-start: ## Start mock Matter devices
+# Matter virtual devices (rs-matter)
+devices-start: ## Build and start Matter test devices
 	cd devices && docker compose up -d --build
 	@echo ""
-	@echo "Mock Matter device running on port 5540"
-	@echo "Test: echo '{\"cmd\":\"get_state\"}' | nc localhost 5540"
+	@echo "Matter device starting..."
+	@echo "Check logs for QR code: make devices-logs"
 
-devices-stop: ## Stop mock Matter devices
+devices-stop: ## Stop Matter test devices
 	cd devices && docker compose down
 
-devices-logs: ## Show mock device logs
+devices-logs: ## Show Matter device logs (includes QR code)
 	cd devices && docker compose logs -f
 
-devices-test: ## Test mock device API
-	@echo '{"cmd":"get_state"}' | nc -w1 localhost 5540 | python3 -m json.tool 2>/dev/null || echo '{"cmd":"get_state"}' | nc -w1 localhost 5540
+devices-reset: ## Reset device state (remove persisted data)
+	cd devices && docker compose down -v
+	@echo "Device state reset. Will need to re-commission."
+
+devices-build: ## Build Matter devices without starting
+	cd devices && docker compose build
 
 # Full development environment
-dev-full: frontend-build devices-start start ## Start HA + mock devices + Matter server
+dev-full: frontend-build devices-start start ## Start HA + Matter devices + Matter server
 	@echo ""
 	@echo "=========================================="
 	@echo "Full dev environment running:"
 	@echo "  - Home Assistant:  http://localhost:8123"
 	@echo "  - Matter Server:   ws://localhost:5580/ws"
-	@echo "  - Mock Device API: localhost:5540"
+	@echo "  - Matter Device:   Real rs-matter device"
 	@echo "=========================================="
 	@echo ""
 	@echo "Setup Matter in HA:"
@@ -106,10 +117,27 @@ dev-full: frontend-build devices-start start ## Start HA + mock devices + Matter
 	@echo "  2. Add Integration > Matter"
 	@echo "  3. Use URL: ws://matter-server:5580/ws"
 	@echo ""
+	@echo "Commission the test device:"
+	@echo "  1. Run: make devices-logs"
+	@echo "  2. Find the QR code or manual pairing code"
+	@echo "  3. Use Matter integration to commission"
+	@echo ""
 	@echo "Commands:"
-	@echo "  make devices-test  - Test mock device"
-	@echo "  make devices-logs  - View device logs"
+	@echo "  make devices-logs  - View device logs (QR code)"
+	@echo "  make devices-reset - Reset device state"
 	@echo "  make logs          - View HA logs"
+
+# Device commissioning
+devices-commission: ## Commission a Matter device (usage: make devices-commission CODE=34970112332)
+	@if [ -z "$(CODE)" ]; then \
+		echo "Usage: make devices-commission CODE=<pairing-code>"; \
+		echo ""; \
+		echo "Examples:"; \
+		echo "  make devices-commission CODE=34970112332"; \
+		echo "  make devices-commission CODE=MT:-24J0AFN00KA064IJ3P0WISA0DK5N1K8SQ1RYCU1O0"; \
+		exit 1; \
+	fi
+	docker exec matter-server python3 /scripts/commission-device.py $(CODE)
 
 # Matter Survey (matter-survey.org)
 survey-install: ## Install Matter Survey PHP dependencies

@@ -1,38 +1,35 @@
-# Mock Matter devices for development
+# Matter virtual devices using rs-matter SDK
+#
+# These are real Matter protocol devices that can be commissioned
+# into a Matter fabric and used for testing bindings and ACLs.
 #
 # Usage:
-#   docker compose up -d              # Start default device
-#   docker compose logs -f            # View logs
+#   docker compose up -d              # Start dimmable light
+#   docker compose logs -f            # View logs (includes QR code)
 #   docker compose down               # Stop devices
 #
-# Test API:
-#   echo '{"cmd":"get_state"}' | nc localhost 5540
+# Commissioning:
+#   Look for the QR code in the logs, or use the manual pairing code.
 
 services:
-  rust-light:
+  dimmable-light:
     build: ./rust-device
-    container_name: matter-mock-light
-    command:
-      - --discriminator=3840
-      - --passcode=20202021
-      - --port=5540
-      - --name=MockLight
-      - --device-type=light
-    ports:
-      - "5540:5540"
+    container_name: matter-dimmable-light
+    environment:
+      - MATTER_DISCRIMINATOR=3840
+      - MATTER_PASSCODE=20202021
+      - MATTER_PORT=5540
+      - MATTER_DEVICE_NAME=Test Dimmable Light
+      - MATTER_PERSIST_PATH=/data/matter.bin
+      - RUST_LOG=info
+    volumes:
+      - dimmable-light-data:/data
+    # Host networking required for mDNS discovery
+    network_mode: host
     restart: unless-stopped
 
-  rust-switch:
-    build: ./rust-device
-    container_name: matter-mock-switch
-    command:
-      - --discriminator=3841
-      - --passcode=20202022
-      - --port=5541
-      - --name=MockSwitch
-      - --device-type=switch
-    ports:
-      - "5541:5541"
-    restart: unless-stopped
-    profiles:
-      - multi
+  # Additional devices can be added here with different discriminators/ports
+  # Example: dimmer-switch, room-thermostat, etc.
+
+volumes:
+  dimmable-light-data:
