@@ -1341,37 +1341,37 @@ def _get_acl_from_node_cache(client: MatterClient, node_id: int) -> list | None:
                     return acl_value
 
             # Method 3: Try node_data.attributes (raw Matter data)
+            # Keys are strings in format "endpoint/cluster/attribute" e.g. "0/31/0"
             node_data = getattr(node, "node_data", None)
             if node_data:
                 node_data_attrs = getattr(node_data, "attributes", {})
                 if node_data_attrs:
-                    # Keys are AttributePath objects with EndpointId, ClusterId, AttributeId
+                    # Direct key lookup: "0/31/0" (endpoint 0, cluster 31, attribute 0)
+                    acl_key = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
+                    if acl_key in node_data_attrs:
+                        value = node_data_attrs[acl_key]
+                        _LOGGER.debug(
+                            "_get_acl_from_node_cache: Found via direct key[%s]: %s",
+                            acl_key,
+                            value,
+                        )
+                        return value
+
+                    # Fallback: iterate and check for matching pattern
                     for key, value in node_data_attrs.items():
-                        # Check if key is an AttributePath object
-                        if hasattr(key, "EndpointId") and hasattr(key, "ClusterId"):
-                            if (
-                                key.EndpointId == 0
-                                and key.ClusterId == CLUSTER_ACCESS_CONTROL
-                                and getattr(key, "AttributeId", None) == ATTR_ACL
-                            ):
-                                _LOGGER.debug(
-                                    "_get_acl_from_node_cache: Found via AttributePath: %s",
-                                    value,
-                                )
-                                return value
-                        else:
-                            # Fallback: check string representation
-                            key_str = str(key)
-                            if (
-                                f"0/{CLUSTER_ACCESS_CONTROL}/" in key_str
-                                and key_str.endswith(f"/{ATTR_ACL}")
-                            ):
-                                _LOGGER.debug(
-                                    "_get_acl_from_node_cache: Found via string key[%s]: %s",
-                                    key_str,
-                                    value,
-                                )
-                                return value
+                        key_str = str(key)
+                        # Check exact match or pattern match
+                        if key_str == acl_key or (
+                            key_str.startswith("0/")
+                            and "/31/" in key_str
+                            and key_str.endswith("/0")
+                        ):
+                            _LOGGER.debug(
+                                "_get_acl_from_node_cache: Found via pattern key[%s]: %s",
+                                key_str,
+                                value,
+                            )
+                            return value
 
             return None
 
