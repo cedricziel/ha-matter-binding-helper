@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.6](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.5...v0.23.6) (2025-12-16)
+
+
+### Bug Fixes
+
+* use string key lookup for node_data.attributes ACL ([7eff82b](https://github.com/cedricziel/ha-matter-binding-helper/commit/7eff82b8ca3650da8d8c63e13500300c49064a3e))
+
 ## [0.23.5](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.4...v0.23.5) (2025-12-16)
 
 
