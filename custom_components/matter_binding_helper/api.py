@@ -1029,6 +1029,7 @@ async def ws_list_acl(
     """
     _LOGGER.info("ws_list_acl called for node %s", msg["node_id"])
     acl_keys: list[str] = []
+    sample_keys: list[str] = []
     try:
         # Debug: dump node_data.attributes keys for this node
         client = matter_client.get_matter_client(hass)
@@ -1038,13 +1039,21 @@ async def ws_list_acl(
                     node_data = getattr(node, "node_data", None)
                     if node_data:
                         attrs = getattr(node_data, "attributes", {})
-                        for key in attrs.keys():
+                        for i, key in enumerate(attrs.keys()):
+                            # Sample first 5 keys to see their format
+                            if i < 5:
+                                sample_keys.append(f"{type(key).__name__}:{key}")
+                            # Check for ACL cluster (31 = 0x001F)
+                            key_str = str(key)
                             if hasattr(key, "ClusterId") and key.ClusterId == 31:
                                 acl_keys.append(
-                                    f"EP{key.EndpointId}/C{key.ClusterId}/A{getattr(key, 'AttributeId', '?')}"
+                                    f"attr:EP{key.EndpointId}/C{key.ClusterId}/A{getattr(key, 'AttributeId', '?')}"
                                 )
+                            elif "/31/" in key_str or "31/" in key_str:
+                                acl_keys.append(f"str:{key_str}")
                         _LOGGER.info(
-                            "ws_list_acl DEBUG: node_data.attributes ACL keys: %s",
+                            "ws_list_acl DEBUG: sample_keys=%s, acl_keys=%s",
+                            sample_keys,
                             acl_keys,
                         )
                     break
@@ -1053,6 +1062,7 @@ async def ws_list_acl(
         result = {
             "success": True,
             "entries": [entry.to_dict() for entry in entries],
+            "debug_sample_keys": sample_keys,
             "debug_acl_keys": acl_keys,
         }
         _LOGGER.info("ws_list_acl: Found %d ACL entries", len(entries))
