@@ -1028,11 +1028,32 @@ async def ws_list_acl(
         entries: List of ACL entries with privilege, auth_mode, subjects, targets
     """
     _LOGGER.info("ws_list_acl called for node %s", msg["node_id"])
+    acl_keys: list[str] = []
     try:
+        # Debug: dump node_data.attributes keys for this node
+        client = matter_client.get_matter_client(hass)
+        if client:
+            for node in client.get_nodes():
+                if node.node_id == msg["node_id"]:
+                    node_data = getattr(node, "node_data", None)
+                    if node_data:
+                        attrs = getattr(node_data, "attributes", {})
+                        for key in attrs.keys():
+                            if hasattr(key, "ClusterId") and key.ClusterId == 31:
+                                acl_keys.append(
+                                    f"EP{key.EndpointId}/C{key.ClusterId}/A{getattr(key, 'AttributeId', '?')}"
+                                )
+                        _LOGGER.info(
+                            "ws_list_acl DEBUG: node_data.attributes ACL keys: %s",
+                            acl_keys,
+                        )
+                    break
+
         entries = await matter_client.get_acl(hass, node_id=msg["node_id"])
         result = {
             "success": True,
             "entries": [entry.to_dict() for entry in entries],
+            "debug_acl_keys": acl_keys,
         }
         _LOGGER.info("ws_list_acl: Found %d ACL entries", len(entries))
         connection.send_result(msg["id"], result)
