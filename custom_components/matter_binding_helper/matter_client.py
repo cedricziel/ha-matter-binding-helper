@@ -1340,6 +1340,26 @@ def _get_acl_from_node_cache(client: MatterClient, node_id: int) -> list | None:
                     )
                     return acl_value
 
+            # Method 3: Try node_data.attributes (raw Matter data)
+            node_data = getattr(node, "node_data", None)
+            if node_data:
+                node_data_attrs = getattr(node_data, "attributes", {})
+                if node_data_attrs:
+                    # Keys might be attribute path objects or strings
+                    for key, value in node_data_attrs.items():
+                        key_str = str(key)
+                        # Check for endpoint/cluster/attribute pattern
+                        if (
+                            f"0/{CLUSTER_ACCESS_CONTROL}/" in key_str
+                            and key_str.endswith(f"/{ATTR_ACL}")
+                        ):
+                            _LOGGER.debug(
+                                "_get_acl_from_node_cache: Found via node_data.attributes[%s]: %s",
+                                key_str,
+                                value,
+                            )
+                            return value
+
             return None
 
     except Exception as err:
