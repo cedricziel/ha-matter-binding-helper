@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.8](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.7...v0.23.8) (2025-12-16)
+
+
+### Bug Fixes
+
+* add more debug logging to get_acl ([6e5e024](https://github.com/cedricziel/ha-matter-binding-helper/commit/6e5e0245ab1657da78c9c415162c6c40f5e2b39c))
+
 ## [0.23.7](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.6...v0.23.7) (2025-12-16)
 
 
