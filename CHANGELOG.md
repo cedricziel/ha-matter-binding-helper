@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.7](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.6...v0.23.7) (2025-12-16)
+
+
+### Bug Fixes
+
+* add raw ACL value debug output ([1184b4a](https://github.com/cedricziel/ha-matter-binding-helper/commit/1184b4aab43d796b33e7e23732e65724dae628dd))
+
 ## [0.23.6](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.5...v0.23.6) (2025-12-16)
 
 
