@@ -1304,25 +1304,31 @@ def _get_acl_from_node_cache(client: MatterClient, node_id: int) -> list | None:
             # Method 1: Try get_cluster() to get the AccessControl cluster
             if hasattr(endpoint, "get_cluster"):
                 acl_cluster = endpoint.get_cluster(CLUSTER_ACCESS_CONTROL)
-                _LOGGER.debug(
-                    "_get_acl_from_node_cache: get_cluster(%s) returned: %s (type=%s)",
+                _LOGGER.info(
+                    "_get_acl_from_node_cache: Method 1 - get_cluster(%s) returned: %s (type=%s)",
                     CLUSTER_ACCESS_CONTROL,
                     acl_cluster,
                     type(acl_cluster).__name__ if acl_cluster else None,
                 )
                 if acl_cluster:
                     # Try to get the ACL attribute from the cluster
-                    if hasattr(acl_cluster, "acl"):
+                    has_acl = hasattr(acl_cluster, "acl")
+                    _LOGGER.info(
+                        "_get_acl_from_node_cache: Method 1 - has .acl=%s",
+                        has_acl,
+                    )
+                    if has_acl:
                         acl_value = acl_cluster.acl
-                        _LOGGER.debug(
-                            "_get_acl_from_node_cache: Found via cluster.acl: %s",
+                        _LOGGER.info(
+                            "_get_acl_from_node_cache: Method 1 - cluster.acl type=%s, value=%s",
+                            type(acl_value).__name__,
                             acl_value,
                         )
                         return acl_value
                     elif hasattr(acl_cluster, "get_attribute_value"):
                         acl_value = acl_cluster.get_attribute_value(ATTR_ACL)
-                        _LOGGER.debug(
-                            "_get_acl_from_node_cache: Found via get_attribute_value: %s",
+                        _LOGGER.info(
+                            "_get_acl_from_node_cache: Method 1 - get_attribute_value: %s",
                             acl_value,
                         )
                         return acl_value
