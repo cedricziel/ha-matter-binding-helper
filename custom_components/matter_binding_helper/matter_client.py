@@ -1489,9 +1489,9 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
                     fabric_index,
                 )
 
-                # Parse targets if present
+                # Parse targets if present (raw_targets may be Nullable, not a list)
                 targets: list[ACLTarget] = []
-                if raw_targets:
+                if raw_targets and isinstance(raw_targets, list):
                     for t in raw_targets:
                         # Handle multiple key formats for targets
                         # TLV tags: 0=cluster, 1=endpoint, 2=deviceType
