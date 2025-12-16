@@ -1403,6 +1403,12 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
     try:
         # First, try to get ACL from node cache
         result = _get_acl_from_node_cache(client, node_id)
+        _LOGGER.info(
+            "get_acl: _get_acl_from_node_cache returned type=%s, is_list=%s, len=%s",
+            type(result).__name__,
+            isinstance(result, list),
+            len(result) if isinstance(result, list) else "N/A",
+        )
         if result is not None:
             _LOGGER.debug(
                 "get_acl: Found %d ACL entries in node cache for node %s",
@@ -1468,6 +1474,13 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
                 )
                 fabric_index = _get_value(
                     entry, "254", 254, "fabricIndex", "FabricIndex", default=0
+                )
+                _LOGGER.info(
+                    "get_acl: Parsed entry - priv=%s, auth=%s, subj=%s, fab=%s",
+                    privilege,
+                    auth_mode,
+                    subjects,
+                    fabric_index,
                 )
 
                 # Parse targets if present
