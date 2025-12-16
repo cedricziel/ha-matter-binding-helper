@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.22.0...v0.23.0) (2025-12-16)
+
+
+### Features
+
+* add structured error types for Matter operations ([e2ca786](https://github.com/cedricziel/ha-matter-binding-helper/commit/e2ca786a3bb32e648b5487d6ad6aee2cae5bcfc0))
+
 ## [0.22.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.21.1...v0.22.0) (2025-12-15)
 
 
