@@ -1,4 +1,4 @@
-.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-logs devices-reset devices-build survey-install survey-deploy survey-serve venv lint format test
+.PHONY: help start stop restart logs frontend-build frontend-watch clean devices-start devices-stop devices-logs devices-reset devices-build survey-install survey-deploy survey-serve venv lint format test test-integration
 
 # Python virtual environment
 VENV := .venv
@@ -70,6 +70,13 @@ format: venv ## Format Python code
 
 test: venv ## Run Python tests
 	$(PYTHON) -m pytest tests/ -v
+
+test-integration: venv ## Run integration tests (uses testcontainers for isolated environment)
+	@echo "Running integration tests with testcontainers..."
+	@echo "Fresh containers will be started automatically."
+	@echo ""
+	$(PIP) install -q -r requirements-test.txt
+	$(PYTHON) -m pytest tests/ -v --tb=short
 
 # Utility
 shell: ## Open a shell in the HA container
