@@ -1027,63 +1027,14 @@ async def ws_list_acl(
         success: True if the read operation succeeded
         entries: List of ACL entries with privilege, auth_mode, subjects, targets
     """
-    _LOGGER.info("ws_list_acl called for node %s", msg["node_id"])
-    acl_keys: list[str] = []
-    sample_keys: list[str] = []
+    _LOGGER.debug("ws_list_acl called for node %s", msg["node_id"])
     try:
-        # Debug: dump node_data.attributes keys for this node
-        client = matter_client.get_matter_client(hass)
-        if client:
-            for node in client.get_nodes():
-                if node.node_id == msg["node_id"]:
-                    node_data = getattr(node, "node_data", None)
-                    if node_data:
-                        attrs = getattr(node_data, "attributes", {})
-                        for i, key in enumerate(attrs.keys()):
-                            # Sample first 5 keys to see their format
-                            if i < 5:
-                                sample_keys.append(f"{type(key).__name__}:{key}")
-                            # Check for ACL cluster (31 = 0x001F)
-                            key_str = str(key)
-                            if hasattr(key, "ClusterId") and key.ClusterId == 31:
-                                acl_keys.append(
-                                    f"attr:EP{key.EndpointId}/C{key.ClusterId}/A{getattr(key, 'AttributeId', '?')}"
-                                )
-                            elif "/31/" in key_str or "31/" in key_str:
-                                acl_keys.append(f"str:{key_str}")
-                        _LOGGER.info(
-                            "ws_list_acl DEBUG: sample_keys=%s, acl_keys=%s",
-                            sample_keys,
-                            acl_keys,
-                        )
-                    break
-
-        # Debug: get raw value at 0/31/0
-        raw_acl_value = None
-        if client:
-            for node in client.get_nodes():
-                if node.node_id == msg["node_id"]:
-                    node_data = getattr(node, "node_data", None)
-                    if node_data:
-                        attrs = getattr(node_data, "attributes", {})
-                        raw_acl_value = attrs.get("0/31/0")
-                    break
-
         entries = await matter_client.get_acl(hass, node_id=msg["node_id"])
         result = {
             "success": True,
             "entries": [entry.to_dict() for entry in entries],
-            "debug_sample_keys": sample_keys,
-            "debug_acl_keys": acl_keys,
-            "debug_raw_type": type(raw_acl_value).__name__ if raw_acl_value else None,
-            "debug_raw_len": len(raw_acl_value)
-            if isinstance(raw_acl_value, list)
-            else None,
-            "debug_raw_first": str(raw_acl_value[0])[:200]
-            if isinstance(raw_acl_value, list) and raw_acl_value
-            else None,
         }
-        _LOGGER.info("ws_list_acl: Found %d ACL entries", len(entries))
+        _LOGGER.debug("ws_list_acl: Found %d ACL entries", len(entries))
         connection.send_result(msg["id"], result)
     except Exception as err:
         _LOGGER.error("ws_list_acl error: %s", err, exc_info=True)
