@@ -1275,6 +1275,80 @@ _demo_acl: list[ACLEntry] = [
 ]
 
 
+def _get_acl_from_node_cache(client: MatterClient, node_id: int) -> list | None:
+    """Try to get ACL from the node's cached endpoint 0 data.
+
+    Returns None if ACL is not found in the cache.
+    Returns empty list if the ACL attribute exists but is empty.
+    """
+    try:
+        for node in client.get_nodes():
+            if node.node_id != node_id:
+                continue
+
+            # ACL is always on endpoint 0
+            endpoints = getattr(node, "endpoints", None)
+            if not endpoints:
+                _LOGGER.debug(
+                    "_get_acl_from_node_cache: Node %s has no endpoints", node_id
+                )
+                return None
+
+            endpoint = endpoints.get(0)
+            if not endpoint:
+                _LOGGER.debug(
+                    "_get_acl_from_node_cache: Node %s has no endpoint 0", node_id
+                )
+                return None
+
+            # Method 1: Try get_cluster() to get the AccessControl cluster
+            if hasattr(endpoint, "get_cluster"):
+                acl_cluster = endpoint.get_cluster(CLUSTER_ACCESS_CONTROL)
+                _LOGGER.debug(
+                    "_get_acl_from_node_cache: get_cluster(%s) returned: %s (type=%s)",
+                    CLUSTER_ACCESS_CONTROL,
+                    acl_cluster,
+                    type(acl_cluster).__name__ if acl_cluster else None,
+                )
+                if acl_cluster:
+                    # Try to get the ACL attribute from the cluster
+                    if hasattr(acl_cluster, "acl"):
+                        acl_value = acl_cluster.acl
+                        _LOGGER.debug(
+                            "_get_acl_from_node_cache: Found via cluster.acl: %s",
+                            acl_value,
+                        )
+                        return acl_value
+                    elif hasattr(acl_cluster, "get_attribute_value"):
+                        acl_value = acl_cluster.get_attribute_value(ATTR_ACL)
+                        _LOGGER.debug(
+                            "_get_acl_from_node_cache: Found via get_attribute_value: %s",
+                            acl_value,
+                        )
+                        return acl_value
+
+            # Method 2: Try node.attributes dict directly
+            node_attributes = getattr(node, "attributes", {})
+            if node_attributes:
+                attr_key = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
+                if attr_key in node_attributes:
+                    acl_value = node_attributes[attr_key]
+                    _LOGGER.debug(
+                        "_get_acl_from_node_cache: Found via node.attributes[%s]: %s",
+                        attr_key,
+                        acl_value,
+                    )
+                    return acl_value
+
+            return None
+
+    except Exception as err:
+        _LOGGER.debug("_get_acl_from_node_cache: Error: %s", err)
+        return None
+
+    return None
+
+
 async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
     """Get Access Control List entries for a node.
 
@@ -1291,49 +1365,75 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
         return []
 
     acl_entries: list[ACLEntry] = []
+    result = None
+
     try:
-        # ACL is on endpoint 0, Access Control cluster (0x001F), attribute 0
-        attribute_path = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
-        _LOGGER.debug(
-            "get_acl: Reading ACL for node %s with path: %s", node_id, attribute_path
-        )
+        # First, try to get ACL from node cache
+        result = _get_acl_from_node_cache(client, node_id)
+        if result is not None:
+            _LOGGER.debug(
+                "get_acl: Found %d ACL entries in node cache for node %s",
+                len(result) if isinstance(result, list) else 0,
+                node_id,
+            )
+        else:
+            # Fall back to reading via read_attribute API
+            attribute_path = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
+            _LOGGER.debug(
+                "get_acl: No cached ACL, trying read_attribute for node %s path %s",
+                node_id,
+                attribute_path,
+            )
 
-        result = await client.read_attribute(
-            node_id=node_id,
-            attribute_path=attribute_path,
-        )
+            result = await client.read_attribute(
+                node_id=node_id,
+                attribute_path=attribute_path,
+            )
 
-        _LOGGER.debug(
-            "get_acl: read_attribute returned type=%s, value=%s",
-            type(result).__name__,
-            result,
-        )
+            _LOGGER.debug(
+                "get_acl: read_attribute returned type=%s, value=%s",
+                type(result).__name__,
+                result,
+            )
 
         if result and isinstance(result, list):
             for entry in result:
-                _LOGGER.debug("get_acl: Processing ACL entry: %s", entry)
+                _LOGGER.debug(
+                    "get_acl: Processing ACL entry: %s (type=%s)",
+                    entry,
+                    type(entry).__name__,
+                )
 
-                # Handle multiple possible key formats:
-                # - TLV string keys: "1", "2", "3", "4", "254" (from read_attribute)
-                # - TLV int keys: 1, 2, 3, 4, 254
-                # - camelCase: privilege, authMode, subjects, targets, fabricIndex
-                # - PascalCase: Privilege, AuthMode, Subjects, Targets, FabricIndex
-                # Note: Use explicit None checks since 0 is a valid value
-                def _get_first(d: dict, *keys, default=None):
-                    for k in keys:
-                        if k in d and d[k] is not None:
-                            return d[k]
+                # Handle multiple possible formats:
+                # - Dict with TLV string keys: {"1": 5, "2": 2, ...}
+                # - Dict with TLV int keys: {1: 5, 2: 2, ...}
+                # - Dict with camelCase: {"privilege": 5, "authMode": 2, ...}
+                # - Struct object with attributes: entry.privilege, entry.authMode
+                def _get_value(obj, *keys, default=None):
+                    """Get value from dict or object attributes."""
+                    # Try dict access first
+                    if isinstance(obj, dict):
+                        for k in keys:
+                            if k in obj and obj[k] is not None:
+                                return obj[k]
+                    else:
+                        # Try attribute access for struct objects
+                        for k in keys:
+                            if isinstance(k, str) and hasattr(obj, k):
+                                val = getattr(obj, k, None)
+                                if val is not None:
+                                    return val
                     return default
 
-                privilege = _get_first(
+                privilege = _get_value(
                     entry, "1", 1, "privilege", "Privilege", default=0
                 )
-                auth_mode = _get_first(entry, "2", 2, "authMode", "AuthMode", default=0)
-                subjects = _get_first(entry, "3", 3, "subjects", "Subjects", default=[])
-                raw_targets = _get_first(
+                auth_mode = _get_value(entry, "2", 2, "authMode", "AuthMode", default=0)
+                subjects = _get_value(entry, "3", 3, "subjects", "Subjects", default=[])
+                raw_targets = _get_value(
                     entry, "4", 4, "targets", "Targets", default=[]
                 )
-                fabric_index = _get_first(
+                fabric_index = _get_value(
                     entry, "254", 254, "fabricIndex", "FabricIndex", default=0
                 )
 
@@ -1345,13 +1445,13 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
                         # TLV tags: 0=cluster, 1=endpoint, 2=deviceType
                         targets.append(
                             ACLTarget(
-                                cluster=_get_first(
+                                cluster=_get_value(
                                     t, "0", 0, "cluster", "Cluster", default=None
                                 ),
-                                endpoint=_get_first(
+                                endpoint=_get_value(
                                     t, "1", 1, "endpoint", "Endpoint", default=None
                                 ),
-                                device_type=_get_first(
+                                device_type=_get_value(
                                     t, "2", 2, "deviceType", "DeviceType", default=None
                                 ),
                             )
