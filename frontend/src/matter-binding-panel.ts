@@ -16,6 +16,7 @@ import type {
   AutomationRecommendation,
   EveSchedule,
   ACLEntry,
+  OperationErrorType,
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
@@ -55,9 +56,9 @@ export class MatterBindingPanel extends LitElement {
   @state() private _eveSchedules: Map<number, EveSchedule> = new Map();
   @state() private _eveScheduleLoading: Set<number> = new Set();
   @state() private _verificationInProgress = false;
-  @state() private _lastVerificationResult: { success: boolean; verified: boolean; message: string } | null = null;
+  @state() private _lastVerificationResult: { success: boolean; verified: boolean; message: string; error_type?: OperationErrorType } | null = null;
   @state() private _showVerificationModal = false;
-  @state() private _verificationModalResult: { success: boolean; verified: boolean; message: string; bindingContext?: BindingWithContext } | null = null;
+  @state() private _verificationModalResult: { success: boolean; verified: boolean; message: string; error_type?: OperationErrorType; bindingContext?: BindingWithContext } | null = null;
   @state() private _aclLoading = false;
   @state() private _aclEntries: ACLEntry[] | null = null;
   @state() private _targetACLCache: Map<number, ACLEntry[]> = new Map();
@@ -2051,6 +2052,7 @@ export class MatterBindingPanel extends LitElement {
         success: result.success,
         verified: result.verified,
         message: result.message,
+        error_type: result.error_type,
       };
       await this._loadBindings();
     } catch (err) {
@@ -2076,6 +2078,7 @@ export class MatterBindingPanel extends LitElement {
         success: result.success,
         verified: result.verified,
         message: result.message,
+        error_type: result.error_type,
       };
       // Reload bindings to refresh the list
       await this._loadBindings();
@@ -2084,6 +2087,7 @@ export class MatterBindingPanel extends LitElement {
         success: false,
         verified: false,
         message: `Failed to verify bindings: ${err}`,
+        error_type: "unknown_error",
       };
     } finally {
       this._verificationInProgress = false;
@@ -2250,6 +2254,7 @@ export class MatterBindingPanel extends LitElement {
         success: result.success,
         verified: result.verified,
         message: result.message,
+        error_type: result.error_type,
       };
       this._pendingManualBinding = null;
       await this._loadBindings();
@@ -2686,6 +2691,7 @@ export class MatterBindingPanel extends LitElement {
         success: result.success,
         verified: result.verified,
         message: result.message,
+        error_type: result.error_type,
       };
       this._closeDeleteConfirmDialog();
       // Reload overview data
@@ -2735,6 +2741,7 @@ export class MatterBindingPanel extends LitElement {
         success: result.success,
         verified: result.verified,
         message: result.message,
+        error_type: result.error_type,
       };
       this._closeBindingConfirmDialog();
       // Reload overview data
@@ -2851,9 +2858,15 @@ export class MatterBindingPanel extends LitElement {
           </div>
           ${this._lastVerificationResult
             ? html`
-                <div class="verification-result ${this._lastVerificationResult.verified ? "verified" : this._lastVerificationResult.success ? "warning" : "error"}">
+                <div class="verification-result ${this._lastVerificationResult.verified ? "verified" : this._lastVerificationResult.success ? "warning" : "error"} ${this._lastVerificationResult.error_type ? this._getErrorDisplay(this._lastVerificationResult.error_type).cssClass : ""}">
                   <span class="verification-icon">
-                    ${this._lastVerificationResult.verified ? "✓" : this._lastVerificationResult.success ? "⚠" : "✗"}
+                    ${this._lastVerificationResult.verified
+                      ? "✓"
+                      : this._lastVerificationResult.success
+                        ? "⚠"
+                        : this._lastVerificationResult.error_type
+                          ? this._getErrorDisplay(this._lastVerificationResult.error_type).icon
+                          : "✗"}
                   </span>
                   <span class="verification-message">${this._lastVerificationResult.message}</span>
                   <button class="verification-dismiss" @click=${() => this._lastVerificationResult = null}>×</button>
@@ -3029,6 +3042,27 @@ export class MatterBindingPanel extends LitElement {
       status: "missing",
       reason: `Target missing ${requiredPrivilegeName} permission for source node ${sourceNodeId}`,
     };
+  }
+
+  /**
+   * Get display information for an operation error type.
+   */
+  private _getErrorDisplay(errorType?: OperationErrorType): { icon: string; cssClass: string } {
+    switch (errorType) {
+      case "permission_denied":
+        return { icon: "🔒", cssClass: "error-permission" };
+      case "device_unavailable":
+        return { icon: "📴", cssClass: "error-unavailable" };
+      case "device_timeout":
+        return { icon: "⏱️", cssClass: "error-timeout" };
+      case "device_rejected":
+        return { icon: "🚫", cssClass: "error-rejected" };
+      case "invalid_request":
+        return { icon: "⚠️", cssClass: "error-invalid" };
+      case "unknown_error":
+      default:
+        return { icon: "❌", cssClass: "error-unknown" };
+    }
   }
 
   private _renderACLSection(node: MatterNode) {

@@ -127,11 +127,22 @@ export interface SuccessResponse {
   success: boolean;
 }
 
+// Error types for Matter operations
+export type OperationErrorType =
+  | "success"
+  | "permission_denied"
+  | "device_unavailable"
+  | "device_timeout"
+  | "device_rejected"
+  | "invalid_request"
+  | "unknown_error";
+
 export interface BindingVerificationResponse {
   success: boolean;
   verified: boolean;
   message: string;
   bindings_found: number;
+  error_type: OperationErrorType;
 }
 
 // ACL (Access Control List) types

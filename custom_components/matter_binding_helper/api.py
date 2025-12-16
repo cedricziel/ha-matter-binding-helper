@@ -966,7 +966,8 @@ async def ws_create_binding(
     if result.success:
         connection.send_result(msg["id"], result.to_dict())
     else:
-        connection.send_error(msg["id"], "create_failed", result.message)
+        # Use specific error type for better frontend handling
+        connection.send_error(msg["id"], result.error_type.value, result.message)
 
 
 @websocket_api.websocket_command(
@@ -1079,7 +1080,8 @@ async def ws_delete_binding(
     if result.success:
         connection.send_result(msg["id"], result.to_dict())
     else:
-        connection.send_error(msg["id"], "delete_failed", result.message)
+        # Use specific error type for better frontend handling
+        connection.send_error(msg["id"], result.error_type.value, result.message)
 
 
 @websocket_api.websocket_command(

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
@@ -41,6 +42,18 @@ if TYPE_CHECKING:
     from matter_server.common.models import MatterNodeData
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class OperationErrorType(Enum):
+    """Error types for Matter operations."""
+
+    SUCCESS = "success"
+    PERMISSION_DENIED = "permission_denied"
+    DEVICE_UNAVAILABLE = "device_unavailable"
+    DEVICE_TIMEOUT = "device_timeout"
+    DEVICE_REJECTED = "device_rejected"  # Silent rejection detected via verification
+    INVALID_REQUEST = "invalid_request"
+    UNKNOWN_ERROR = "unknown_error"
 
 
 @dataclass
@@ -1300,24 +1313,56 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
             for entry in result:
                 _LOGGER.debug("get_acl: Processing ACL entry: %s", entry)
 
+                # Handle multiple possible key formats:
+                # - TLV string keys: "1", "2", "3", "4", "254" (from read_attribute)
+                # - TLV int keys: 1, 2, 3, 4, 254
+                # - camelCase: privilege, authMode, subjects, targets, fabricIndex
+                # - PascalCase: Privilege, AuthMode, Subjects, Targets, FabricIndex
+                # Note: Use explicit None checks since 0 is a valid value
+                def _get_first(d: dict, *keys, default=None):
+                    for k in keys:
+                        if k in d and d[k] is not None:
+                            return d[k]
+                    return default
+
+                privilege = _get_first(
+                    entry, "1", 1, "privilege", "Privilege", default=0
+                )
+                auth_mode = _get_first(entry, "2", 2, "authMode", "AuthMode", default=0)
+                subjects = _get_first(entry, "3", 3, "subjects", "Subjects", default=[])
+                raw_targets = _get_first(
+                    entry, "4", 4, "targets", "Targets", default=[]
+                )
+                fabric_index = _get_first(
+                    entry, "254", 254, "fabricIndex", "FabricIndex", default=0
+                )
+
                 # Parse targets if present
                 targets: list[ACLTarget] = []
-                raw_targets = entry.get("targets") or []
-                for t in raw_targets:
-                    targets.append(
-                        ACLTarget(
-                            cluster=t.get("cluster"),
-                            endpoint=t.get("endpoint"),
-                            device_type=t.get("deviceType"),
+                if raw_targets:
+                    for t in raw_targets:
+                        # Handle multiple key formats for targets
+                        # TLV tags: 0=cluster, 1=endpoint, 2=deviceType
+                        targets.append(
+                            ACLTarget(
+                                cluster=_get_first(
+                                    t, "0", 0, "cluster", "Cluster", default=None
+                                ),
+                                endpoint=_get_first(
+                                    t, "1", 1, "endpoint", "Endpoint", default=None
+                                ),
+                                device_type=_get_first(
+                                    t, "2", 2, "deviceType", "DeviceType", default=None
+                                ),
+                            )
                         )
-                    )
 
                 acl_entry = ACLEntry(
-                    privilege=entry.get("privilege", 0),
-                    auth_mode=entry.get("authMode", 0),
-                    subjects=entry.get("subjects") or [],
+                    privilege=privilege,
+                    auth_mode=auth_mode,
+                    subjects=subjects if isinstance(subjects, list) else [],
                     targets=targets,
-                    fabric_index=entry.get("fabricIndex", 0),
+                    fabric_index=fabric_index,
                 )
                 acl_entries.append(acl_entry)
 
@@ -1560,6 +1605,7 @@ class BindingVerificationResult:
     verified: bool  # True if binding was confirmed on device
     message: str
     bindings_found: int = 0
+    error_type: OperationErrorType = field(default=OperationErrorType.SUCCESS)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -1568,7 +1614,88 @@ class BindingVerificationResult:
             "verified": self.verified,
             "message": self.message,
             "bindings_found": self.bindings_found,
+            "error_type": self.error_type.value,
         }
+
+
+def _parse_error_type(err: Exception) -> OperationErrorType:
+    """Parse an exception to determine the error type."""
+    error_str = str(err).lower()
+
+    # Check for permission/access errors
+    if any(
+        keyword in error_str
+        for keyword in ["unsupported", "access", "permission", "denied", "not allowed"]
+    ):
+        return OperationErrorType.PERMISSION_DENIED
+
+    # Check for timeout errors
+    if any(keyword in error_str for keyword in ["timeout", "timed out"]):
+        return OperationErrorType.DEVICE_TIMEOUT
+
+    # Check for unavailability errors
+    if any(
+        keyword in error_str
+        for keyword in ["unavailable", "offline", "not reachable", "disconnected"]
+    ):
+        return OperationErrorType.DEVICE_UNAVAILABLE
+
+    # Check for invalid request errors
+    if any(
+        keyword in error_str
+        for keyword in ["invalid", "malformed", "not found", "does not exist"]
+    ):
+        return OperationErrorType.INVALID_REQUEST
+
+    return OperationErrorType.UNKNOWN_ERROR
+
+
+def _get_user_friendly_error(
+    error_type: OperationErrorType, original: Exception
+) -> str:
+    """Get a user-friendly error message for the given error type."""
+    messages = {
+        OperationErrorType.PERMISSION_DENIED: (
+            "Permission denied. Check if Home Assistant has administrator access "
+            "to this device."
+        ),
+        OperationErrorType.DEVICE_UNAVAILABLE: (
+            "Device is unavailable. Ensure it's powered on and connected to the network."
+        ),
+        OperationErrorType.DEVICE_TIMEOUT: (
+            "Device did not respond. It may be busy or temporarily unreachable."
+        ),
+        OperationErrorType.DEVICE_REJECTED: (
+            "Device rejected the operation. This may be a device limitation or "
+            "security policy."
+        ),
+        OperationErrorType.INVALID_REQUEST: (
+            "Invalid request. The operation parameters may be incorrect."
+        ),
+    }
+    return messages.get(error_type, f"Operation failed: {original}")
+
+
+def _check_node_available(
+    client: "MatterClient", node_id: int
+) -> tuple[bool, str | None]:
+    """Check if a node is available.
+
+    Returns:
+        Tuple of (is_available, error_message if not available)
+    """
+    try:
+        nodes = client.get_nodes()
+        node = next((n for n in nodes if n.node_id == node_id), None)
+        if node is None:
+            return False, f"Node {node_id} not found"
+        if not node.available:
+            return False, f"Node {node_id} is currently unavailable"
+        return True, None
+    except Exception as err:
+        _LOGGER.warning("Error checking node availability: %s", err)
+        # Don't block operation if we can't check availability
+        return True, None
 
 
 def _binding_matches(
@@ -1748,6 +1875,20 @@ async def create_binding(
             success=False,
             verified=False,
             message="Matter client not available",
+            error_type=OperationErrorType.DEVICE_UNAVAILABLE,
+        )
+
+    # Pre-check: Is the source device available?
+    is_available, unavail_msg = _check_node_available(client, source_node_id)
+    if not is_available:
+        _LOGGER.warning("create_binding: Source node unavailable: %s", unavail_msg)
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message=_get_user_friendly_error(
+                OperationErrorType.DEVICE_UNAVAILABLE, Exception(unavail_msg or "")
+            ),
+            error_type=OperationErrorType.DEVICE_UNAVAILABLE,
         )
 
     try:
@@ -1855,8 +1996,12 @@ async def create_binding(
                 return BindingVerificationResult(
                     success=True,
                     verified=False,
-                    message="Binding written but not found when verifying - device may have rejected it",
+                    message=_get_user_friendly_error(
+                        OperationErrorType.DEVICE_REJECTED,
+                        Exception("binding not found"),
+                    ),
                     bindings_found=len(read_bindings),
+                    error_type=OperationErrorType.DEVICE_REJECTED,
                 )
 
         return BindingVerificationResult(
@@ -1868,10 +2013,12 @@ async def create_binding(
 
     except Exception as err:
         _LOGGER.error("Error creating binding: %s", err, exc_info=True)
+        error_type = _parse_error_type(err)
         return BindingVerificationResult(
             success=False,
             verified=False,
-            message=f"Failed to create binding: {err}",
+            message=_get_user_friendly_error(error_type, err),
+            error_type=error_type,
         )
 
 
@@ -1943,6 +2090,20 @@ async def delete_binding(
             success=False,
             verified=False,
             message="Matter client not available",
+            error_type=OperationErrorType.DEVICE_UNAVAILABLE,
+        )
+
+    # Pre-check: Is the source device available?
+    is_available, unavail_msg = _check_node_available(client, source_node_id)
+    if not is_available:
+        _LOGGER.warning("delete_binding: Source node unavailable: %s", unavail_msg)
+        return BindingVerificationResult(
+            success=False,
+            verified=False,
+            message=_get_user_friendly_error(
+                OperationErrorType.DEVICE_UNAVAILABLE, Exception(unavail_msg or "")
+            ),
+            error_type=OperationErrorType.DEVICE_UNAVAILABLE,
         )
 
     try:
@@ -2047,8 +2208,12 @@ async def delete_binding(
                 return BindingVerificationResult(
                     success=True,
                     verified=False,
-                    message="Binding deletion written but binding still present - device may have rejected it",
+                    message=_get_user_friendly_error(
+                        OperationErrorType.DEVICE_REJECTED,
+                        Exception("binding still present"),
+                    ),
                     bindings_found=len(read_bindings),
+                    error_type=OperationErrorType.DEVICE_REJECTED,
                 )
 
         return BindingVerificationResult(
@@ -2060,10 +2225,12 @@ async def delete_binding(
 
     except Exception as err:
         _LOGGER.error("Error deleting binding: %s", err, exc_info=True)
+        error_type = _parse_error_type(err)
         return BindingVerificationResult(
             success=False,
             verified=False,
-            message=f"Failed to delete binding: {err}",
+            message=_get_user_friendly_error(error_type, err),
+            error_type=error_type,
         )
 
 

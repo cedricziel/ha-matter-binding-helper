@@ -180,6 +180,15 @@ debug_v3() {
   ws_call "matter_binding_helper/debug_v3_extraction" "{\"node_id\": $NODE_ID, \"endpoint_id\": $ENDPOINT_ID}"
 }
 
+list_acl() {
+  local NODE_ID="$1"
+  if [[ -z "$NODE_ID" ]]; then
+    echo "Usage: $0 acl <node_id>"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/list_acl" "{\"node_id\": $NODE_ID}"
+}
+
 # --- COMMAND DISPATCH ---
 
 show_help() {
@@ -199,6 +208,7 @@ show_help() {
   echo "  devices                            Debug: List HA devices with Matter identifiers"
   echo "  match <node_id>                    Debug: Test device matching for a node"
   echo "  eve-schedule <node_id> [ep_id]     Get parsed Eve thermostat schedule"
+  echo "  acl <node_id>                      List Access Control List entries for a node"
   echo "  telemetry                          Debug: Preview telemetry data (v3)"
   echo "  debug-v3 <node_id> [ep_id]         Debug: Show v3 extraction details"
   echo ""
@@ -240,6 +250,9 @@ case "${1:-}" in
     ;;
   eve-schedule)
     eve_schedule "${2:-}" "${3:-}"
+    ;;
+  acl)
+    list_acl "${2:-}"
     ;;
   telemetry)
     debug_telemetry
