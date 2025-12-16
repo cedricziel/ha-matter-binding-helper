@@ -2,19 +2,45 @@
 name = "matter-virtual-device"
 version = "0.1.0"
 edition = "2021"
-description = "Virtual Matter device with binding cluster support"
+description = "Virtual Matter devices using rs-matter SDK for testing bindings and ACLs"
+license = "Apache-2.0"
+
+[[bin]]
+name = "dimmable_light"
+path = "src/bin/dimmable_light.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+# mDNS backends (optional, builtin works without)
+zbus = ["rs-matter/zbus"]
+avahi = ["rs-matter/zbus"]
 
 [dependencies]
+# Matter protocol
+rs-matter = { git = "https://github.com/project-chip/rs-matter", features = ["async-io"] }
+
 # Async runtime
-tokio = { version = "1", features = ["full", "signal", "net", "io-util"] }
+embassy-futures = "0.1"
+embassy-sync = "0.7"
+embassy-time = { version = "0.5", features = ["std"] }
+embassy-time-queue-utils = { version = "0.3", features = ["generic-queue-64"] }
+
+# Networking
+async-io = "2"
+futures-lite = "2"
+socket2 = "0.5"
+nix = { version = "0.27", features = ["net"] }
+
+# Utilities
+static_cell = "1"
+async-signal = "0.2"
 
 # Logging
 log = "0.4"
 env_logger = "0.11"
 
 # CLI
-clap = { version = "4", features = ["derive"] }
-
-# Serialization
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+clap = { version = "4", features = ["derive", "env"] }
