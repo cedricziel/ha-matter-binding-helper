@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.5](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.4...v0.23.5) (2025-12-16)
+
+
+### Bug Fixes
+
+* add sample key debug to ACL endpoint ([fcb1e7d](https://github.com/cedricziel/ha-matter-binding-helper/commit/fcb1e7d23d1461d4d82764009ade65eada857ecd))
+
 ## [0.23.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.3...v0.23.4) (2025-12-16)
 
 
