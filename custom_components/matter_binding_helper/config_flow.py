@@ -42,21 +42,16 @@ class MatterBindingHelperConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
 
-        errors: dict[str, str] = {}
-
-        # Check if Matter integration is available (warn but don't block)
-        matter_available = MATTER_DOMAIN in self.hass.data
-        if not matter_available:
-            errors["base"] = "matter_not_configured"
+        # Require Matter integration to be configured
+        if MATTER_DOMAIN not in self.hass.data:
+            return self.async_abort(reason="matter_not_configured")
 
         if user_input is not None:
-            # Proceed to telemetry step (allow even without Matter - demo mode available)
             return await self.async_step_telemetry()
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({}),
-            errors=errors if not matter_available else {},
             description_placeholders={"matter_integration": "Matter"},
         )
 
