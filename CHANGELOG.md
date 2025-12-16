@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.0...v0.23.1) (2025-12-16)
+
+
+### Bug Fixes
+
+* improve ACL reading with node cache lookup and multi-format support ([9290ecb](https://github.com/cedricziel/ha-matter-binding-helper/commit/9290ecb47320c536ed08625ce17b32bcec0eb4a7))
+
 ## [0.23.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.22.0...v0.23.0) (2025-12-16)
 
 
