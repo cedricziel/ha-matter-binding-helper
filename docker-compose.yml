@@ -32,7 +32,10 @@ services:
 
   # Matter test device (rs-matter dimmable light)
   dimmable-light:
-    build: ./devices/rust-device
+    build:
+      context: ./devices/rust-device
+      args:
+        BINARY: dimmable_light
     container_name: matter-dimmable-light
     environment:
       - MATTER_DISCRIMINATOR=3840
@@ -43,6 +46,28 @@ services:
       - RUST_LOG=info
     volumes:
       - dimmable-light-data:/data
+    # Host networking required for mDNS discovery
+    network_mode: host
+    restart: unless-stopped
+    profiles:
+      - devices
+
+  # Matter test device (rs-matter on/off switch)
+  on-off-switch:
+    build:
+      context: ./devices/rust-device
+      args:
+        BINARY: on_off_switch
+    container_name: matter-on-off-switch
+    environment:
+      - MATTER_DISCRIMINATOR=3841
+      - MATTER_PASSCODE=20202022
+      - MATTER_PORT=5541
+      - MATTER_DEVICE_NAME=Test On/Off Switch
+      - MATTER_PERSIST_PATH=/data/matter.bin
+      - RUST_LOG=info
+    volumes:
+      - on-off-switch-data:/data
     # Host networking required for mDNS discovery
     network_mode: host
     restart: unless-stopped
@@ -66,3 +91,5 @@ volumes:
     name: matter-server-data
   dimmable-light-data:
     name: dimmable-light-data
+  on-off-switch-data:
+    name: on-off-switch-data

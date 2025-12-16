@@ -9,6 +9,10 @@ license = "Apache-2.0"
 name = "dimmable_light"
 path = "src/bin/dimmable_light.rs"
 
+[[bin]]
+name = "on_off_switch"
+path = "src/bin/on_off_switch.rs"
+
 [lib]
 path = "src/lib.rs"
 

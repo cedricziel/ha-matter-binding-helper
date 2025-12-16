@@ -118,7 +118,7 @@ def recv_ws_frame(sock):
         # Other frame types - skip
 
 
-def commission_device(server_url, ip_addr, pin_code):
+def commission_device(server_url, ip_addr, pin_code, pairing_code=None):
     """Commission a device using raw WebSocket."""
     parsed = urlparse(server_url)
     host = parsed.hostname or "localhost"
@@ -154,15 +154,29 @@ def commission_device(server_url, ip_addr, pin_code):
             pass  # Non-critical
 
         # Send commission command
-        print(f"Commissioning device at {ip_addr} with PIN {pin_code}...")
-        cmd = {
-            "message_id": "1",
-            "command": "commission_on_network",
-            "args": {
-                "setup_pin_code": pin_code,
-                "ip_addr": ip_addr
+        if pairing_code:
+            # Use commission_with_code for mDNS-based discovery (supports different ports)
+            print(f"Commissioning device with pairing code {pairing_code}...")
+            cmd = {
+                "message_id": "1",
+                "command": "commission_with_code",
+                "args": {
+                    "code": pairing_code,
+                    "network_only": True
+                }
             }
-        }
+        elif ip_addr:
+            print(f"Commissioning device at {ip_addr} with PIN {pin_code}...")
+            cmd = {
+                "message_id": "1",
+                "command": "commission_on_network",
+                "args": {
+                    "setup_pin_code": pin_code,
+                    "ip_addr": ip_addr
+                }
+            }
+        else:
+            raise Exception("Either --ip or --code must be provided")
         send_ws_frame(sock, json.dumps(cmd))
 
         # Wait for response
@@ -194,14 +208,21 @@ def commission_device(server_url, ip_addr, pin_code):
 
 def main():
     parser = argparse.ArgumentParser(description="Commission a Matter device")
-    parser.add_argument("code", help="PIN code (e.g., 20202021)")
-    parser.add_argument("--ip", required=True, help="Device IP address")
+    parser.add_argument("code", nargs="?", help="PIN code (e.g., 20202021) - required with --ip")
+    parser.add_argument("--ip", help="Device IP address (uses commission_on_network)")
+    parser.add_argument("--pairing-code", help="QR or manual pairing code (uses commission_with_code for mDNS discovery)")
     parser.add_argument("--server", default="ws://localhost:5580/ws", help="Matter server URL")
 
     args = parser.parse_args()
 
+    if not args.ip and not args.pairing_code:
+        parser.error("Either --ip or --pairing-code must be provided")
+    if args.ip and not args.code:
+        parser.error("PIN code is required when using --ip")
+
     try:
-        result = commission_device(args.server, args.ip, int(args.code))
+        pin = int(args.code) if args.code else None
+        result = commission_device(args.server, args.ip, pin, args.pairing_code)
         if result:
             print("Done.")
             sys.exit(0)

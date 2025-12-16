@@ -7,22 +7,25 @@ Real Matter protocol devices built with [rs-matter](https://github.com/project-c
 ```bash
 # From project root:
 
-# Start matter-server and dimmable light device
+# Start matter-server and all devices (dimmable light + on/off switch)
 docker compose --profile devices up -d
 
 # Wait for initialization (~15 seconds)
 sleep 15
 
-# Commission the device
+# Commission the dimmable light (PIN: 20202021)
 docker exec matter-server python3 /scripts/commission-device.py --ip 192.168.65.3 20202021
 
+# Commission the on/off switch (PIN: 20202022)
+docker exec matter-server python3 /scripts/commission-device.py --ip 192.168.65.3 20202022
+
 # View device logs
-docker compose logs dimmable-light -f
+docker compose logs dimmable-light on-off-switch -f
 ```
 
 ## Available Devices
 
-### Dimmable Light
+### Dimmable Light (Port 5540)
 
 A Matter dimmable light (device type 0x0101) with:
 
@@ -41,6 +44,26 @@ A Matter dimmable light (device type 0x0101) with:
 | `MATTER_PASSCODE` | 20202021 | Setup PIN code |
 | `MATTER_PORT` | 5540 | Matter UDP port |
 | `MATTER_DEVICE_NAME` | Test Dimmable Light | Device name |
+| `MATTER_PERSIST_PATH` | /data/matter.bin | Persistence file path |
+| `RUST_LOG` | info | Log level (debug, info, warn, error) |
+
+### On/Off Light Switch (Port 5541)
+
+A Matter on/off light switch (device type 0x0103) that controls other devices via bindings:
+
+| Cluster | ID | Description |
+|---------|------|-------------|
+| Binding | 0x001E | Device-to-device bindings (targets for control) |
+| Descriptor | 0x001D | Device description |
+
+**Configuration (via environment variables):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MATTER_DISCRIMINATOR` | 3841 | Device discriminator |
+| `MATTER_PASSCODE` | 20202022 | Setup PIN code |
+| `MATTER_PORT` | 5541 | Matter UDP port |
+| `MATTER_DEVICE_NAME` | Test On/Off Switch | Device name |
 | `MATTER_PERSIST_PATH` | /data/matter.bin | Persistence file path |
 | `RUST_LOG` | info | Log level (debug, info, warn, error) |
 
