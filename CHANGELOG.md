@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.3...v0.23.4) (2025-12-16)
+
+
+### Bug Fixes
+
+* add ACL key dump to ws_list_acl ([eb1fced](https://github.com/cedricziel/ha-matter-binding-helper/commit/eb1fcedbeac90eebe82a9c0a68be04f9a4240bc5))
+
 ## [0.23.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.2...v0.23.3) (2025-12-16)
 
 
