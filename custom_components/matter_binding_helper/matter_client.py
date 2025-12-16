@@ -1345,20 +1345,33 @@ def _get_acl_from_node_cache(client: MatterClient, node_id: int) -> list | None:
             if node_data:
                 node_data_attrs = getattr(node_data, "attributes", {})
                 if node_data_attrs:
-                    # Keys might be attribute path objects or strings
+                    # Keys are AttributePath objects with EndpointId, ClusterId, AttributeId
                     for key, value in node_data_attrs.items():
-                        key_str = str(key)
-                        # Check for endpoint/cluster/attribute pattern
-                        if (
-                            f"0/{CLUSTER_ACCESS_CONTROL}/" in key_str
-                            and key_str.endswith(f"/{ATTR_ACL}")
-                        ):
-                            _LOGGER.debug(
-                                "_get_acl_from_node_cache: Found via node_data.attributes[%s]: %s",
-                                key_str,
-                                value,
-                            )
-                            return value
+                        # Check if key is an AttributePath object
+                        if hasattr(key, "EndpointId") and hasattr(key, "ClusterId"):
+                            if (
+                                key.EndpointId == 0
+                                and key.ClusterId == CLUSTER_ACCESS_CONTROL
+                                and getattr(key, "AttributeId", None) == ATTR_ACL
+                            ):
+                                _LOGGER.debug(
+                                    "_get_acl_from_node_cache: Found via AttributePath: %s",
+                                    value,
+                                )
+                                return value
+                        else:
+                            # Fallback: check string representation
+                            key_str = str(key)
+                            if (
+                                f"0/{CLUSTER_ACCESS_CONTROL}/" in key_str
+                                and key_str.endswith(f"/{ATTR_ACL}")
+                            ):
+                                _LOGGER.debug(
+                                    "_get_acl_from_node_cache: Found via string key[%s]: %s",
+                                    key_str,
+                                    value,
+                                )
+                                return value
 
             return None
 
