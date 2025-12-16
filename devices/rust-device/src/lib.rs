@@ -5,5 +5,7 @@
 pub mod clusters;
 pub mod config;
 pub mod mdns;
+pub mod netif;
 
 pub use config::DeviceConfig;
+pub use netif::FilteredNetifs;

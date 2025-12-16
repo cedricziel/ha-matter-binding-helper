@@ -120,6 +120,18 @@ dev-full: frontend-build devices-start start ## Start HA + Matter devices + Matt
 	@echo "  make devices-reset - Reset device state"
 	@echo "  make logs          - View HA logs"
 
+# Device commissioning
+devices-commission: ## Commission a Matter device (usage: make devices-commission CODE=34970112332)
+	@if [ -z "$(CODE)" ]; then \
+		echo "Usage: make devices-commission CODE=<pairing-code>"; \
+		echo ""; \
+		echo "Examples:"; \
+		echo "  make devices-commission CODE=34970112332"; \
+		echo "  make devices-commission CODE=MT:-24J0AFN00KA064IJ3P0WISA0DK5N1K8SQ1RYCU1O0"; \
+		exit 1; \
+	fi
+	docker exec matter-server python3 /scripts/commission-device.py $(CODE)
+
 # Matter Survey (matter-survey.org)
 survey-install: ## Install Matter Survey PHP dependencies
 	cd matter-survey && composer install --no-dev --optimize-autoloader

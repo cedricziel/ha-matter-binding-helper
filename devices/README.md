@@ -1,82 +1,108 @@
-# Mock Matter Devices
+# Matter Test Devices
 
-Mock Matter devices for development and testing the Home Assistant integration.
+Real Matter protocol devices built with [rs-matter](https://github.com/project-chip/rs-matter) for testing the Home Assistant integration.
 
 ## Quick Start
 
 ```bash
-# Start mock device
-docker compose up -d
+# From project root:
 
-# Test API
-echo '{"cmd":"get_state"}' | nc localhost 5540
+# Start matter-server and dimmable light device
+docker compose --profile devices up -d
 
-# View logs
-docker compose logs -f
+# Wait for initialization (~15 seconds)
+sleep 15
+
+# Commission the device
+docker exec matter-server python3 /scripts/commission-device.py --ip 192.168.65.3 20202021
+
+# View device logs
+docker compose logs dimmable-light -f
 ```
 
-## API
+## Available Devices
 
-The mock device exposes a JSON TCP API on port 5540.
+### Dimmable Light
 
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `{"cmd":"get_state"}` | Get full device state |
-| `{"cmd":"toggle"}` | Toggle on/off |
-| `{"cmd":"set_on","value":true}` | Set on/off state |
-| `{"cmd":"set_level","value":50}` | Set brightness (0-100) |
-| `{"cmd":"add_binding","node_id":123,"endpoint_id":1,"cluster_id":6}` | Add binding |
-| `{"cmd":"remove_binding","node_id":123,"endpoint_id":1}` | Remove binding |
-| `{"cmd":"get_bindings"}` | List all bindings |
-| `{"cmd":"add_group","group_id":1}` | Join group |
-| `{"cmd":"remove_group","group_id":1}` | Leave group |
-
-### Example
-
-```bash
-# Get state
-echo '{"cmd":"get_state"}' | nc localhost 5540
-# {"success":true,"data":{"on":false,"level":100,"bindings":[],"groups":[]}}
-
-# Toggle light
-echo '{"cmd":"toggle"}' | nc localhost 5540
-# {"success":true,"data":{"on":true}}
-
-# Add a binding
-echo '{"cmd":"add_binding","node_id":12345,"endpoint_id":1,"cluster_id":6}' | nc localhost 5540
-# {"success":true,"data":{"node_id":12345,"endpoint_id":1,"cluster_id":6}}
-```
-
-## Device Configuration
-
-Default device (rust-light):
-- Port: 5540
-- Discriminator: 3840
-- Passcode: 20202021
-
-Additional device (rust-switch, use `--profile multi`):
-- Port: 5541
-- Discriminator: 3841
-- Passcode: 20202022
-
-## Simulated Clusters
-
-The mock device simulates these Matter clusters:
+A Matter dimmable light (device type 0x0101) with:
 
 | Cluster | ID | Description |
 |---------|------|-------------|
-| On/Off | 0x0006 | Basic on/off control |
-| Level Control | 0x0008 | Dimming |
-| **Binding** | 0x001E | Device-to-device bindings |
+| On/Off | 0x0006 | On/off control |
+| Level Control | 0x0008 | Brightness dimming |
+| Binding | 0x001E | Device-to-device bindings |
 | Descriptor | 0x001D | Device description |
 
-## Note on Real Matter Devices
+**Configuration (via environment variables):**
 
-This mock device provides a JSON API for testing the HA integration UI. It does **not** implement the full Matter protocol.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MATTER_DISCRIMINATOR` | 3840 | Device discriminator |
+| `MATTER_PASSCODE` | 20202021 | Setup PIN code |
+| `MATTER_PORT` | 5540 | Matter UDP port |
+| `MATTER_DEVICE_NAME` | Test Dimmable Light | Device name |
+| `MATTER_PERSIST_PATH` | /data/matter.bin | Persistence file path |
+| `RUST_LOG` | info | Log level (debug, info, warn, error) |
 
-For actual Matter commissioning, you need either:
-- Real Matter-certified devices
-- The C++ Matter SDK (`chip-all-clusters-app`)
-- An ESP32 with Matter firmware
+## Commission Script
+
+The `scripts/commission-device.py` script commissions devices via the matter-server WebSocket API:
+
+```bash
+# Commission device at IP with PIN code
+docker exec matter-server python3 /scripts/commission-device.py --ip <device-ip> <pin-code>
+
+# Example
+docker exec matter-server python3 /scripts/commission-device.py --ip 192.168.65.3 20202021
+```
+
+## Development
+
+### Reset Device State
+
+```bash
+# Stop containers and remove data volumes
+docker compose --profile devices down
+docker volume rm dimmable-light-data matter-server-data
+
+# Start fresh
+docker compose --profile devices up -d
+```
+
+### Rebuild After Code Changes
+
+```bash
+docker compose --profile devices build dimmable-light
+docker compose --profile devices up -d
+```
+
+### View Commissioning QR Code
+
+```bash
+docker compose logs dimmable-light 2>&1 | grep -A 20 "COMMISSIONING INFO"
+```
+
+## Architecture
+
+The device uses:
+
+- **rs-matter**: Rust implementation of the Matter protocol
+- **Host networking**: Required for mDNS device discovery
+- **FilteredNetifs**: Reports minimal network interface to avoid Docker veth overflow
+
+## Troubleshooting
+
+**Device interview fails with InvalidAction:**
+
+- This was caused by too many Docker network interfaces being reported
+- Fixed by using `FilteredNetifs` which reports a single interface
+
+**Commission script hangs:**
+
+- Ensure matter-server is fully initialized before commissioning
+- Wait ~15 seconds after starting containers
+
+**Device not discovered:**
+
+- Both device and matter-server need host networking for mDNS
+- On macOS with Docker Desktop, host networking is virtualized

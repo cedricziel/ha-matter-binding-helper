@@ -30,7 +30,7 @@ use rs_matter::dm::clusters::on_off::{self, OnOffHooks, StartUpOnOffEnum};
 use rs_matter::dm::devices::test::{TEST_DEV_ATT, TEST_DEV_COMM, TEST_DEV_DET};
 use rs_matter::dm::devices::DEV_TYPE_DIMMABLE_LIGHT;
 use rs_matter::dm::endpoints;
-use rs_matter::dm::networks::unix::UnixNetifs;
+use matter_virtual_device::FilteredNetifs;
 use rs_matter::dm::subscriptions::DefaultSubscriptions;
 use rs_matter::dm::IMBuffer;
 use rs_matter::dm::{
@@ -132,7 +132,6 @@ fn run() -> Result<(), Error> {
         },
     );
 
-    // Create binding handler for endpoint 1
     let binding_handler = BindingHandler::new(Dataver::new_rand(matter.rand()), 1);
 
     // Wire up coupled cluster handlers
@@ -238,11 +237,13 @@ fn dm_handler<'a, LH: LevelControlHooks, OH: OnOffHooks>(
     level_control: &'a level_control::LevelControlHandler<'a, LH, OH>,
     binding: &'a BindingHandler,
 ) -> impl AsyncMetadata + AsyncHandler + 'a {
+    static FILTERED_NETIFS: FilteredNetifs = FilteredNetifs::new();
+
     (
         NODE,
         endpoints::with_eth(
             &(),
-            &UnixNetifs,
+            &FILTERED_NETIFS,
             matter.rand(),
             endpoints::with_sys(
                 &false,
