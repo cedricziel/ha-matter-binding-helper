@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.0...v0.25.1) (2025-12-17)
+
+
+### Bug Fixes
+
+* handle object-shaped error messages in progress dialogs ([de2d699](https://github.com/cedricziel/ha-matter-binding-helper/commit/de2d699d5ad71ce8943d0a048ce3500cde4cb02f))
+
 ## [0.25.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.4...v0.25.0) (2025-12-17)
 
 
