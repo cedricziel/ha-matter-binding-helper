@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.0...v0.24.1) (2025-12-17)
+
+
+### Bug Fixes
+
+* convert ACL values to native Python types for JSON serialization ([#65](https://github.com/cedricziel/ha-matter-binding-helper/issues/65)) ([a62b86f](https://github.com/cedricziel/ha-matter-binding-helper/commit/a62b86fffe4c58e40cf1dd90c1dda1790264631d))
+
 ## [0.24.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.9...v0.24.0) (2025-12-17)
 
 
