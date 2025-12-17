@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.24.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.9...v0.24.0) (2025-12-17)
+
+
+### Features
+
+* add ACL provisioning for Matter bindings ([#63](https://github.com/cedricziel/ha-matter-binding-helper/issues/63)) ([c2371d9](https://github.com/cedricziel/ha-matter-binding-helper/commit/c2371d94e047217eeb168f6cd5470c00b44a032c))
+* **devices:** add on/off light switch device for binding tests ([762aac2](https://github.com/cedricziel/ha-matter-binding-helper/commit/762aac2fb7504a0b7b4c7be9929c383bfd76a769))
+* **devices:** replace mock device with real rs-matter implementation ([762aac2](https://github.com/cedricziel/ha-matter-binding-helper/commit/762aac2fb7504a0b7b4c7be9929c383bfd76a769))
+* **frontend:** add multi-step binding wizard and ACL repair ([#64](https://github.com/cedricziel/ha-matter-binding-helper/issues/64)) ([379810c](https://github.com/cedricziel/ha-matter-binding-helper/commit/379810c21b5798ccf6e084d61ffc3eb8c51d2772))
+* rs-matter virtual devices and integration tests ([#62](https://github.com/cedricziel/ha-matter-binding-helper/issues/62)) ([762aac2](https://github.com/cedricziel/ha-matter-binding-helper/commit/762aac2fb7504a0b7b4c7be9929c383bfd76a769))
+* **tests:** add pytest integration tests with testcontainers ([762aac2](https://github.com/cedricziel/ha-matter-binding-helper/commit/762aac2fb7504a0b7b4c7be9929c383bfd76a769))
+
+
+### Bug Fixes
+
+* **devices:** resolve Matter interview failure with Docker networking ([762aac2](https://github.com/cedricziel/ha-matter-binding-helper/commit/762aac2fb7504a0b7b4c7be9929c383bfd76a769))
+
+
+### Miscellaneous
+
+* remove debug output from ACL endpoint ([17020e4](https://github.com/cedricziel/ha-matter-binding-helper/commit/17020e44c4f2530f7eac8e40b371453ddbc02d74))
+
 ## [0.23.9](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.23.8...v0.23.9) (2025-12-16)
 
 
