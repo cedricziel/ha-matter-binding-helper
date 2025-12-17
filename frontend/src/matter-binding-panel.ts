@@ -433,6 +433,14 @@ export class MatterBindingPanel extends LitElement {
       text-overflow: ellipsis;
     }
 
+    .node-id {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      opacity: 0.7;
+      font-weight: normal;
+      margin-left: 6px;
+    }
+
     .device-link {
       cursor: pointer;
       text-decoration: underline;
@@ -2782,7 +2790,7 @@ export class MatterBindingPanel extends LitElement {
             >${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>
           </div>
           <div class="binding-meta">
-            EP ${sourceEndpoint.endpoint_id} → ${isGroupBinding ? `Group` : `EP ${binding.target_endpoint_id}`}
+            #${sourceNode.node_id} EP ${sourceEndpoint.endpoint_id} → ${isGroupBinding ? `Group` : `#${binding.target_node_id} EP ${binding.target_endpoint_id}`}
             ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
             ${!aclStatus.hasPermission
               ? html`<span class="acl-warning-text"> · ${aclStatus.reason}</span>`
@@ -2973,7 +2981,7 @@ export class MatterBindingPanel extends LitElement {
             </span>
           </div>
           <div class="binding-meta">
-            EP ${sourceEndpoint.endpoint_id} → EP ${targetEndpoint.endpoint_id}
+            #${sourceNode.node_id} EP ${sourceEndpoint.endpoint_id} → #${targetNode.node_id} EP ${targetEndpoint.endpoint_id}
             ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
           </div>
         </div>
@@ -3224,7 +3232,7 @@ export class MatterBindingPanel extends LitElement {
             class="node-status ${node.available ? "" : "unavailable"}"
           ></span>
           <div class="node-info">
-            <span class="node-name">${node.name}</span>
+            <span class="node-name">${node.name}<span class="node-id">#${node.node_id}</span></span>
             <div class="node-meta">
               ${primaryDeviceType
                 ? html`<span class="node-device-type">${primaryDeviceType}</span>`

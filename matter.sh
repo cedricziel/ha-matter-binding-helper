@@ -52,18 +52,30 @@ ws_call() {
   local AUTH_MSG
   AUTH_MSG=$(jq -nc --arg token "$HA_TOKEN" '{type: "auth", access_token: $token}')
 
-  # Send auth + command via stdin with small delays, capture all output
+  # Send auth + command via stdin with delays, capture all output
+  # Increase sleep to allow time for Matter server to respond (can be slow)
   local OUTPUT
-  OUTPUT=$({ echo "$AUTH_MSG"; sleep 0.1; echo "$CMD_JSON"; sleep 0.5; } | timeout 10 websocat "$WS_URL" 2>/dev/null)
+  OUTPUT=$({ echo "$AUTH_MSG"; sleep 0.2; echo "$CMD_JSON"; sleep 3; } | timeout 15 websocat "$WS_URL" 2>/dev/null)
 
   if [[ -z "$OUTPUT" ]]; then
     echo "Error: No response from WebSocket" >&2
     return 1
   fi
 
-  # Get the last line (the result)
+  # Get the command result - find lines starting with {"id":1 and join if split
   local RESULT
-  RESULT=$(echo "$OUTPUT" | tail -1)
+  # Use awk to extract JSON that starts with {"id":1
+  RESULT=$(echo "$OUTPUT" | awk '/^\{"id":1/{found=1} found{printf "%s", $0} /\}$/ && found{exit}')
+
+  if [[ -z "$RESULT" ]]; then
+    # Fallback: try grep approach
+    RESULT=$(echo "$OUTPUT" | grep '"id":1' | tr -d '\n')
+  fi
+
+  if [[ -z "$RESULT" ]]; then
+    echo "Error: No command result received (got: $(echo "$OUTPUT" | tail -1))" >&2
+    return 1
+  fi
 
   # Check for error in result
   if echo "$RESULT" | jq -e '.error' &>/dev/null; then
