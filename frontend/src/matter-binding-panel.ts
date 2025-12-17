@@ -2105,6 +2105,26 @@ export class MatterBindingPanel extends LitElement {
     this._loadOverviewData();
   }
 
+  /**
+   * Safely extract error message from API response.
+   * Handles cases where message might be an object instead of string.
+   */
+  private _extractErrorMessage(message: unknown): string {
+    if (typeof message === "string") {
+      return message;
+    }
+    if (message && typeof message === "object") {
+      // Try common error object shapes
+      const obj = message as Record<string, unknown>;
+      if (typeof obj.message === "string") return obj.message;
+      if (typeof obj.error === "string") return obj.error;
+      if (typeof obj.text === "string") return obj.text;
+      // Fallback to JSON
+      return JSON.stringify(message);
+    }
+    return String(message);
+  }
+
   private _cancelOperation(): void {
     if (!this._operationProgress) return;
 
@@ -3159,8 +3179,9 @@ export class MatterBindingPanel extends LitElement {
       );
 
       if (!result.success) {
-        this._updateStepStatus(0, "error", result.message);
-        this._operationProgress = { ...this._operationProgress!, completed: true, error: result.message };
+        const errorMsg = this._extractErrorMessage(result.message);
+        this._updateStepStatus(0, "error", errorMsg);
+        this._operationProgress = { ...this._operationProgress!, completed: true, error: errorMsg };
         return;
       }
 
@@ -3190,7 +3211,7 @@ export class MatterBindingPanel extends LitElement {
           this._targetACLCache = new Map(this._targetACLCache);
           this._targetACLCache.delete(binding.target_node_id);
         } else {
-          this._updateStepStatus(1, "error", aclResult.message);
+          this._updateStepStatus(1, "error", this._extractErrorMessage(aclResult.message));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -4606,8 +4627,9 @@ export class MatterBindingPanel extends LitElement {
       );
 
       if (!result.success) {
-        this._updateStepStatus(0, "error", result.message);
-        this._operationProgress = { ...this._operationProgress!, completed: true, error: result.message };
+        const errorMsg = this._extractErrorMessage(result.message);
+        this._updateStepStatus(0, "error", errorMsg);
+        this._operationProgress = { ...this._operationProgress!, completed: true, error: errorMsg };
         return;
       }
 
@@ -4684,7 +4706,7 @@ export class MatterBindingPanel extends LitElement {
         if (result.success) {
           this._updateStepStatus(i, "success");
         } else {
-          this._updateStepStatus(i, "error", result.message);
+          this._updateStepStatus(i, "error", this._extractErrorMessage(result.message));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
