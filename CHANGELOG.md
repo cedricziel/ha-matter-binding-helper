@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.4...v0.25.0) (2025-12-17)
+
+
+### Features
+
+* add blocking progress dialogs for binding operations ([#75](https://github.com/cedricziel/ha-matter-binding-helper/issues/75)) ([735dae2](https://github.com/cedricziel/ha-matter-binding-helper/commit/735dae2b19ccb2578cbc313cb14f93cf29a40d7f))
+* display node IDs in UI and fix matter.sh timeout ([#73](https://github.com/cedricziel/ha-matter-binding-helper/issues/73)) ([c041305](https://github.com/cedricziel/ha-matter-binding-helper/commit/c041305a34e1006f7c99ebd6cfe49826d0519463))
+
 ## [0.24.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.3...v0.24.4) (2025-12-17)
 
 
