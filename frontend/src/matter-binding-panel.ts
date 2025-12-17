@@ -34,11 +34,9 @@ import * as api from "./api";
 import "./components/node-list/node-list";
 import "./components/bindings/binding-card";
 import "./components/acl/acl-section";
-import "./components/dialogs/confirm-dialog";
 import "./components/dialogs/create-binding-dialog";
 import "./components/wizard/binding-wizard";
 import "./components/device-panel/endpoint-selector";
-import "./components/overview/recommendation-list";
 
 @customElement("matter-binding-helper-panel")
 export class MatterBindingPanel extends LitElement {
@@ -2968,6 +2966,42 @@ export class MatterBindingPanel extends LitElement {
         })
       : this._recommendations;
 
+    const hiddenCount = this._recommendations.length - filteredRecommendations.length;
+
+    // Show custom empty state when filtered to empty
+    if (filteredRecommendations.length === 0) {
+      return html`
+        <div class="card overview-card">
+          <div class="card-header">
+            Recommended Bindings
+            <span class="count-badge">0</span>
+          </div>
+          <div class="filter-controls">
+            <label>
+              <span class="toggle-switch">
+                <input
+                  type="checkbox"
+                  ?checked=${this._filterSameAreaOnly}
+                  @change=${this._toggleAreaFilter}
+                />
+                <span class="toggle-slider"></span>
+              </span>
+              Same area only
+            </label>
+            ${this._filterSameAreaOnly && hiddenCount > 0
+              ? html`<span class="filter-info">(${hiddenCount} hidden)</span>`
+              : nothing}
+          </div>
+          <div class="empty-state">
+            ${this._filterSameAreaOnly && this._recommendations.length > 0
+              ? "No same-area recommendations. Toggle filter to see cross-area bindings."
+              : "No binding recommendations. All compatible endpoints are already bound."}
+          </div>
+        </div>
+      `;
+    }
+
+    // Use component for the list, wrapping with filter controls
     return html`
       <div class="card overview-card">
         <div class="card-header">
@@ -2986,21 +3020,13 @@ export class MatterBindingPanel extends LitElement {
             </span>
             Same area only
           </label>
-          ${this._filterSameAreaOnly && filteredRecommendations.length !== this._recommendations.length
-            ? html`<span class="filter-info">(${this._recommendations.length - filteredRecommendations.length} hidden)</span>`
+          ${this._filterSameAreaOnly && hiddenCount > 0
+            ? html`<span class="filter-info">(${hiddenCount} hidden)</span>`
             : nothing}
         </div>
-        ${filteredRecommendations.length === 0
-          ? html`<div class="empty-state">
-              ${this._filterSameAreaOnly && this._recommendations.length > 0
-                ? "No same-area recommendations. Toggle filter to see cross-area bindings."
-                : "No binding recommendations. All compatible endpoints are already bound."}
-            </div>`
-          : html`
-              <div class="binding-list">
-                ${filteredRecommendations.map((r) => this._renderRecommendationRow(r))}
-              </div>
-            `}
+        <div class="recommendation-list">
+          ${filteredRecommendations.map((r) => this._renderRecommendationRow(r))}
+        </div>
       </div>
     `;
   }
