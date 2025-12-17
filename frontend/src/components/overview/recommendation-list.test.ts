@@ -277,4 +277,54 @@ describe("RecommendationList", () => {
       expect(createBtn?.disabled).toBe(true);
     });
   });
+
+  describe("hideCard mode", () => {
+    it("renders without card wrapper when hideCard is true", async () => {
+      element = await fixture<RecommendationList>(html`
+        <matter-recommendation-list
+          .recommendations=${recommendations}
+          .hideCard=${true}
+        ></matter-recommendation-list>
+      `);
+
+      await elementUpdated(element);
+
+      const card = queryShadow(element, ".card");
+      expect(card).toBeNull();
+
+      // Should still render the list
+      const rows = queryShadowAll(element, ".recommendation-row");
+      expect(rows.length).toBe(2);
+    });
+
+    it("renders with card wrapper by default", async () => {
+      element = await fixture<RecommendationList>(html`
+        <matter-recommendation-list
+          .recommendations=${recommendations}
+        ></matter-recommendation-list>
+      `);
+
+      await elementUpdated(element);
+
+      const card = queryShadow(element, ".card");
+      expect(card).not.toBeNull();
+    });
+  });
+
+  describe("custom empty message", () => {
+    it("displays custom empty message when provided", async () => {
+      const customMessage = "No same-area recommendations available.";
+      element = await fixture<RecommendationList>(html`
+        <matter-recommendation-list
+          .recommendations=${[]}
+          .emptyMessage=${customMessage}
+        ></matter-recommendation-list>
+      `);
+
+      await elementUpdated(element);
+
+      const text = element.shadowRoot?.textContent;
+      expect(text).toContain(customMessage);
+    });
+  });
 });

@@ -37,6 +37,7 @@ import "./components/acl/acl-section";
 import "./components/dialogs/create-binding-dialog";
 import "./components/wizard/binding-wizard";
 import "./components/device-panel/endpoint-selector";
+import "./components/overview/recommendation-list";
 
 @customElement("matter-binding-helper-panel")
 export class MatterBindingPanel extends LitElement {
@@ -2967,41 +2968,10 @@ export class MatterBindingPanel extends LitElement {
       : this._recommendations;
 
     const hiddenCount = this._recommendations.length - filteredRecommendations.length;
+    const emptyMessage = this._filterSameAreaOnly && this._recommendations.length > 0
+      ? "No same-area recommendations. Toggle filter to see cross-area bindings."
+      : "No binding recommendations. All compatible endpoints are already bound.";
 
-    // Show custom empty state when filtered to empty
-    if (filteredRecommendations.length === 0) {
-      return html`
-        <div class="card overview-card">
-          <div class="card-header">
-            Recommended Bindings
-            <span class="count-badge">0</span>
-          </div>
-          <div class="filter-controls">
-            <label>
-              <span class="toggle-switch">
-                <input
-                  type="checkbox"
-                  ?checked=${this._filterSameAreaOnly}
-                  @change=${this._toggleAreaFilter}
-                />
-                <span class="toggle-slider"></span>
-              </span>
-              Same area only
-            </label>
-            ${this._filterSameAreaOnly && hiddenCount > 0
-              ? html`<span class="filter-info">(${hiddenCount} hidden)</span>`
-              : nothing}
-          </div>
-          <div class="empty-state">
-            ${this._filterSameAreaOnly && this._recommendations.length > 0
-              ? "No same-area recommendations. Toggle filter to see cross-area bindings."
-              : "No binding recommendations. All compatible endpoints are already bound."}
-          </div>
-        </div>
-      `;
-    }
-
-    // Use component for the list, wrapping with filter controls
     return html`
       <div class="card overview-card">
         <div class="card-header">
@@ -3024,11 +2994,24 @@ export class MatterBindingPanel extends LitElement {
             ? html`<span class="filter-info">(${hiddenCount} hidden)</span>`
             : nothing}
         </div>
-        <div class="recommendation-list">
-          ${filteredRecommendations.map((r) => this._renderRecommendationRow(r))}
-        </div>
+        <matter-recommendation-list
+          .recommendations=${filteredRecommendations}
+          .actionInProgress=${this._actionInProgress !== null}
+          .hideCard=${true}
+          .emptyMessage=${emptyMessage}
+          @create-binding=${this._handleRecommendationCreateBinding}
+          @navigate-device=${this._handleRecommendationNavigateDevice}
+        ></matter-recommendation-list>
       </div>
     `;
+  }
+
+  private _handleRecommendationCreateBinding(e: CustomEvent<{ recommendation: BindingRecommendation }>) {
+    this._showBindingConfirmDialog(e.detail.recommendation);
+  }
+
+  private _handleRecommendationNavigateDevice(e: CustomEvent<{ deviceId: string }>) {
+    this._navigateToDevice(e.detail.deviceId);
   }
 
   private _renderRecommendedAutomations() {
@@ -3093,62 +3076,6 @@ export class MatterBindingPanel extends LitElement {
   private _toggleAreaFilter(e: Event): void {
     const input = e.target as HTMLInputElement;
     this._filterSameAreaOnly = input.checked;
-  }
-
-  private _renderRecommendationRow(recommendation: BindingRecommendation) {
-    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = recommendation;
-
-    // Build action description from compatible clusters
-    const actions = compatibleClusters.map((c) => {
-      const desc = getClusterBindingDescription(c);
-      return desc.action.replace(/^(control |read |receive |trigger |manage )/, '');
-    });
-    // Deduplicate and join
-    const uniqueActions = [...new Set(actions)];
-    const actionText = uniqueActions.length > 2
-      ? `${uniqueActions.slice(0, 2).join(', ')}...`
-      : uniqueActions.join(', ');
-
-    return html`
-      <div class="overview-binding-row recommendation readable">
-        <div class="binding-description">
-          <div class="binding-sentence">
-            <strong
-              class="${sourceNode.ha_device_id ? "device-link" : ""}"
-              @click=${sourceNode.ha_device_id
-                ? () => this._navigateToDevice(sourceNode.ha_device_id)
-                : nothing}
-            >${sourceNode.name}</strong>
-            <span class="binding-action">can ${compatibleClusters.length === 1 ? getClusterBindingDescription(compatibleClusters[0]).action : `access ${actionText} from`}</span>
-            <strong
-              class="${targetNode.ha_device_id ? "device-link" : ""}"
-              @click=${targetNode.ha_device_id
-                ? () => this._navigateToDevice(targetNode.ha_device_id)
-                : nothing}
-            >${targetNode.name}</strong>
-            <span class="cluster-badges">
-              ${compatibleClusters.map((clusterId) => {
-                const clusterName = getClusterName(clusterId);
-                const clusterDesc = getClusterBindingDescription(clusterId);
-                const tooltip = `${clusterName}: ${clusterDesc.dataType}`;
-                return html`<span class="cluster-badge" title="${tooltip}">${clusterName}</span>`;
-              })}
-            </span>
-          </div>
-          <div class="binding-meta">
-            #${sourceNode.node_id} EP ${sourceEndpoint.endpoint_id} → #${targetNode.node_id} EP ${targetEndpoint.endpoint_id}
-            ${sourceNode.area_name ? html` · ${sourceNode.area_name}` : nothing}
-          </div>
-        </div>
-        <button
-          class="btn btn-small btn-primary"
-          ?disabled=${this._actionInProgress !== null}
-          @click=${() => this._showBindingConfirmDialog(recommendation)}
-        >
-          Create
-        </button>
-      </div>
-    `;
   }
 
   private _showDeleteConfirmDialog(bindingCtx: BindingWithContext): void {

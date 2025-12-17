@@ -141,7 +141,19 @@ export class RecommendationList extends LitElement {
   @property({ type: String })
   title = "Recommended Bindings";
 
+  /** Hide the card wrapper (for embedding in existing cards) */
+  @property({ type: Boolean })
+  hideCard = false;
+
+  /** Custom empty state message */
+  @property({ type: String })
+  emptyMessage = "No binding recommendations. All compatible endpoints are already bound.";
+
   render() {
+    if (this.hideCard) {
+      return this._renderContent();
+    }
+
     return html`
       <div class="card overview-card">
         <div class="card-header">
@@ -161,7 +173,7 @@ export class RecommendationList extends LitElement {
     if (this.recommendations.length === 0) {
       return html`
         <div class="empty-state">
-          No binding recommendations. All compatible endpoints are already bound.
+          ${this.emptyMessage}
         </div>
       `;
     }
