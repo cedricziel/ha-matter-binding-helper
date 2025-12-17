@@ -19,6 +19,8 @@ import type {
   OperationErrorType,
   BindingWizardState,
   ProvisionACLForBindingsResponse,
+  OperationProgressState,
+  OperationStep,
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
@@ -73,6 +75,9 @@ export class MatterBindingPanel extends LitElement {
   @state() private _bulkRepairInProgress = false;
   @state() private _bulkRepairResult: ProvisionACLForBindingsResponse | null = null;
   @state() private _showBulkRepairModal = false;
+
+  // Operation progress state for blocking dialogs
+  @state() private _operationProgress: OperationProgressState | null = null;
 
   static styles = css`
     :host {
@@ -2000,7 +2005,121 @@ export class MatterBindingPanel extends LitElement {
     .bulk-repair-item-icon.failed {
       color: var(--error-color, #f44336);
     }
+
+    /* Operation Progress Modal Styles */
+    .dialog-overlay.blocking {
+      pointer-events: auto;
+    }
+
+    .operation-progress-dialog {
+      min-width: 400px;
+    }
+
+    .operation-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .operation-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      background: var(--secondary-background-color);
+    }
+
+    .operation-step.in_progress {
+      background: rgba(var(--rgb-primary-color), 0.1);
+    }
+
+    .operation-step.success .step-icon {
+      color: var(--success-color, #4caf50);
+    }
+
+    .operation-step.error .step-icon {
+      color: var(--error-color, #f44336);
+    }
+
+    .operation-step.skipped {
+      opacity: 0.6;
+    }
+
+    .step-icon {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+
+    .step-label {
+      flex: 1;
+    }
+
+    .step-message {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    .operation-hint {
+      text-align: center;
+      color: var(--secondary-text-color);
+      font-size: 13px;
+      margin-top: 16px;
+    }
+
+    .operation-error {
+      color: var(--error-color, #f44336);
+      background: rgba(244, 67, 54, 0.1);
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 16px;
+    }
   `;
+
+  // =============================================================================
+  // Operation Progress Helper Methods
+  // =============================================================================
+
+  private _updateStepStatus(
+    stepIndex: number,
+    status: OperationStep["status"],
+    message?: string
+  ): void {
+    if (!this._operationProgress) return;
+
+    const newSteps = [...this._operationProgress.steps];
+    newSteps[stepIndex] = { ...newSteps[stepIndex], status, message };
+
+    this._operationProgress = {
+      ...this._operationProgress,
+      steps: newSteps,
+      currentStepIndex: stepIndex,
+    };
+  }
+
+  private _closeOperationProgress(): void {
+    this._operationProgress = null;
+    // Reload data after operation completes
+    this._loadOverviewData();
+  }
+
+  private _cancelOperation(): void {
+    if (!this._operationProgress) return;
+
+    // Mark remaining pending steps as skipped
+    const newSteps = this._operationProgress.steps.map((step) =>
+      step.status === "pending" ? { ...step, status: "skipped" as const } : step
+    );
+
+    this._operationProgress = {
+      ...this._operationProgress,
+      steps: newSteps,
+      completed: true,
+      error: "Operation cancelled by user",
+    };
+  }
 
   protected firstUpdated(): void {
     this._loadNodes().then(() => {
@@ -2702,6 +2821,7 @@ export class MatterBindingPanel extends LitElement {
         ${this._showVerificationModal ? this._renderVerificationModal() : nothing}
         ${this._bindingWizard ? this._renderBindingWizard() : nothing}
         ${this._showBulkRepairModal ? this._renderBulkRepairModal() : nothing}
+        ${this._operationProgress ? this._renderOperationProgressModal() : nothing}
         ${this._renderSurveyResultDialog()}
       </div>
     `;
@@ -3007,11 +3127,27 @@ export class MatterBindingPanel extends LitElement {
   private async _confirmDeleteBinding(): Promise<void> {
     if (!this._pendingDeleteBinding) return;
 
-    const { binding } = this._pendingDeleteBinding;
-    const actionKey = `delete-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
+    const bindingCtx = this._pendingDeleteBinding;
+    const { binding, sourceNode } = bindingCtx;
+    const hasACLToRemove = binding.target_node_id !== null && binding.target_group_id === null;
 
-    this._actionInProgress = actionKey;
+    // Close the confirm dialog
+    this._closeDeleteConfirmDialog();
 
+    // Initialize progress state
+    this._operationProgress = {
+      title: "Removing Binding",
+      steps: [
+        { label: "Removing binding from device", status: "pending" },
+        ...(hasACLToRemove ? [{ label: "Cleaning up ACL entry", status: "pending" as const }] : []),
+      ],
+      currentStepIndex: 0,
+      canCancel: false,
+      completed: false,
+    };
+
+    // Step 1: Delete binding
+    this._updateStepStatus(0, "in_progress");
     try {
       const result = await api.deleteBinding(
         this.hass,
@@ -3021,20 +3157,48 @@ export class MatterBindingPanel extends LitElement {
         binding.target_endpoint_id ?? undefined,
         binding.target_group_id ?? undefined
       );
-      this._lastVerificationResult = {
-        success: result.success,
-        verified: result.verified,
-        message: result.message,
-        error_type: result.error_type,
-      };
-      this._closeDeleteConfirmDialog();
-      // Reload overview data
-      await this._loadOverviewData();
+
+      if (!result.success) {
+        this._updateStepStatus(0, "error", result.message);
+        this._operationProgress = { ...this._operationProgress!, completed: true, error: result.message };
+        return;
+      }
+
+      this._updateStepStatus(0, "success");
     } catch (err) {
-      this._error = `Failed to delete binding: ${err instanceof Error ? err.message : String(err)}`;
-    } finally {
-      this._actionInProgress = null;
+      const message = err instanceof Error ? err.message : String(err);
+      this._updateStepStatus(0, "error", message);
+      this._operationProgress = { ...this._operationProgress!, completed: true, error: message };
+      return;
     }
+
+    // Step 2: Remove ACL (if applicable)
+    if (hasACLToRemove && binding.target_node_id !== null && binding.target_endpoint_id !== null) {
+      this._updateStepStatus(1, "in_progress");
+      try {
+        const aclResult = await api.removeACL(
+          this.hass,
+          binding.target_node_id,
+          sourceNode.node_id,
+          binding.target_endpoint_id,
+          binding.cluster_id
+        );
+
+        if (aclResult.success) {
+          this._updateStepStatus(1, "success");
+          // Invalidate ACL cache for the target node
+          this._targetACLCache = new Map(this._targetACLCache);
+          this._targetACLCache.delete(binding.target_node_id);
+        } else {
+          this._updateStepStatus(1, "error", aclResult.message);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this._updateStepStatus(1, "error", message);
+      }
+    }
+
+    this._operationProgress = { ...this._operationProgress!, completed: true };
   }
 
   private _showBindingConfirmDialog(recommendation: BindingRecommendation): void {
@@ -4416,11 +4580,22 @@ export class MatterBindingPanel extends LitElement {
 
     const targetNodeId = bindingCtx.binding.target_node_id;
     const targetEndpointId = bindingCtx.binding.target_endpoint_id;
-    const key = `${bindingCtx.sourceNode.node_id}-${bindingCtx.sourceEndpoint.endpoint_id}-${targetNodeId}-${bindingCtx.binding.cluster_id}`;
+    const targetNode = this._nodes.find((n) => n.node_id === targetNodeId);
+    const targetName = targetNode?.name || `Node ${targetNodeId}`;
 
-    this._aclRepairInProgress = new Map(this._aclRepairInProgress);
-    this._aclRepairInProgress.set(key, true);
+    // Initialize progress state
+    this._operationProgress = {
+      title: "Repairing ACL Permission",
+      steps: [
+        { label: `Provisioning ACL on ${targetName}`, status: "pending" },
+      ],
+      currentStepIndex: 0,
+      canCancel: false,
+      completed: false,
+    };
 
+    // Execute ACL provisioning
+    this._updateStepStatus(0, "in_progress");
     try {
       const result = await api.provisionACL(
         this.hass,
@@ -4431,23 +4606,24 @@ export class MatterBindingPanel extends LitElement {
       );
 
       if (!result.success) {
-        this._error = `Failed to repair ACL: ${result.message}`;
+        this._updateStepStatus(0, "error", result.message);
+        this._operationProgress = { ...this._operationProgress!, completed: true, error: result.message };
         return;
       }
+
+      this._updateStepStatus(0, "success");
 
       // Invalidate ACL cache for the target node
       this._targetACLCache = new Map(this._targetACLCache);
       this._targetACLCache.delete(targetNodeId);
-
-      // Reload to refresh the view
-      await this._loadOverviewData();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this._error = `Failed to repair ACL: ${message}`;
-    } finally {
-      this._aclRepairInProgress = new Map(this._aclRepairInProgress);
-      this._aclRepairInProgress.delete(key);
+      this._updateStepStatus(0, "error", message);
+      this._operationProgress = { ...this._operationProgress!, completed: true, error: message };
+      return;
     }
+
+    this._operationProgress = { ...this._operationProgress!, completed: true };
   }
 
   private async _repairAllACLs(): Promise<void> {
@@ -4461,23 +4637,40 @@ export class MatterBindingPanel extends LitElement {
 
     if (bindingsToRepair.length === 0) return;
 
-    this._bulkRepairInProgress = true;
-    this._bulkRepairResult = null;
+    // Build step labels
+    const steps = bindingsToRepair.map((bindingCtx) => {
+      const targetNode = this._nodes.find((n) => n.node_id === bindingCtx.binding.target_node_id);
+      const targetName = targetNode?.name || `Node ${bindingCtx.binding.target_node_id}`;
+      return {
+        label: `Provisioning ACL on ${targetName}`,
+        status: "pending" as const,
+      };
+    });
 
-    const results: Array<{
-      target_node_id: number;
-      target_endpoint_id: number;
-      cluster_id: number;
-      success: boolean;
-      message: string;
-    }> = [];
+    // Initialize progress state
+    this._operationProgress = {
+      title: `Repairing ${bindingsToRepair.length} ACL Permission${bindingsToRepair.length !== 1 ? "s" : ""}`,
+      steps,
+      currentStepIndex: 0,
+      canCancel: true,
+      completed: false,
+    };
 
     // Repair each binding sequentially to avoid overwhelming devices
-    for (const bindingCtx of bindingsToRepair) {
-      const { binding, sourceNode } = bindingCtx;
-      if (binding.target_node_id === null || binding.target_endpoint_id === null) {
+    for (let i = 0; i < bindingsToRepair.length; i++) {
+      // Check if cancelled
+      if (this._operationProgress?.steps[i]?.status === "skipped") {
         continue;
       }
+
+      const bindingCtx = bindingsToRepair[i];
+      const { binding, sourceNode } = bindingCtx;
+      if (binding.target_node_id === null || binding.target_endpoint_id === null) {
+        this._updateStepStatus(i, "skipped", "Invalid binding");
+        continue;
+      }
+
+      this._updateStepStatus(i, "in_progress");
 
       try {
         const result = await api.provisionACL(
@@ -4487,40 +4680,23 @@ export class MatterBindingPanel extends LitElement {
           sourceNode.node_id,
           binding.cluster_id
         );
-        results.push({
-          target_node_id: binding.target_node_id,
-          target_endpoint_id: binding.target_endpoint_id,
-          cluster_id: binding.cluster_id,
-          success: result.success,
-          message: result.success ? "ACL provisioned successfully" : result.message,
-        });
+
+        if (result.success) {
+          this._updateStepStatus(i, "success");
+        } else {
+          this._updateStepStatus(i, "error", result.message);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        results.push({
-          target_node_id: binding.target_node_id,
-          target_endpoint_id: binding.target_endpoint_id,
-          cluster_id: binding.cluster_id,
-          success: false,
-          message,
-        });
+        this._updateStepStatus(i, "error", message);
       }
     }
-
-    const succeeded = results.filter((r) => r.success).length;
-    this._bulkRepairResult = {
-      success: succeeded > 0,
-      results,
-      total: results.length,
-      succeeded,
-    };
-    this._showBulkRepairModal = true;
 
     // Invalidate all ACL caches
     this._targetACLCache = new Map();
 
-    // Reload to refresh the view
-    await this._loadOverviewData();
-    this._bulkRepairInProgress = false;
+    // Mark as completed
+    this._operationProgress = { ...this._operationProgress!, completed: true, canCancel: false };
   }
 
   private _closeBulkRepairModal(): void {
@@ -4831,6 +5007,49 @@ export class MatterBindingPanel extends LitElement {
             <button type="button" class="btn btn-primary" @click=${this._closeBulkRepairModal}>
               Close
             </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // =============================================================================
+  // Operation Progress Modal Render
+  // =============================================================================
+
+  private _renderOperationProgressModal() {
+    if (!this._operationProgress) return nothing;
+
+    const { title, steps, completed, error, canCancel } = this._operationProgress;
+
+    return html`
+      <div class="dialog-overlay blocking">
+        <div class="dialog operation-progress-dialog" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">${title}</div>
+          <div class="dialog-content">
+            <div class="operation-steps">
+              ${steps.map((step) => html`
+                <div class="operation-step ${step.status}">
+                  <span class="step-icon">
+                    ${step.status === "in_progress" ? "⏳" :
+                      step.status === "success" ? "✓" :
+                      step.status === "error" ? "✗" :
+                      step.status === "skipped" ? "–" : "○"}
+                  </span>
+                  <span class="step-label">${step.label}</span>
+                  ${step.message ? html`<span class="step-message">${step.message}</span>` : nothing}
+                </div>
+              `)}
+            </div>
+            ${error ? html`<div class="operation-error">${error}</div>` : nothing}
+            ${!completed ? html`<div class="operation-hint">Communicating with Matter device...</div>` : nothing}
+          </div>
+          <div class="dialog-actions">
+            ${completed
+              ? html`<button class="btn btn-primary" @click=${this._closeOperationProgress}>Done</button>`
+              : canCancel
+                ? html`<button class="btn btn-secondary" @click=${this._cancelOperation}>Cancel</button>`
+                : nothing}
           </div>
         </div>
       </div>
