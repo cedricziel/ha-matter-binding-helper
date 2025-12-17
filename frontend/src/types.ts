@@ -167,6 +167,63 @@ export interface ListACLResponse {
   entries: ACLEntry[];
 }
 
+// ACL Privilege levels (matches backend const.py)
+export const ACL_PRIVILEGE_VIEW = 1;
+export const ACL_PRIVILEGE_PROXY_VIEW = 2;
+export const ACL_PRIVILEGE_OPERATE = 3;
+export const ACL_PRIVILEGE_MANAGE = 4;
+export const ACL_PRIVILEGE_ADMINISTER = 5;
+
+export const ACL_PRIVILEGE_NAMES: Record<number, string> = {
+  [ACL_PRIVILEGE_VIEW]: "View",
+  [ACL_PRIVILEGE_PROXY_VIEW]: "Proxy View",
+  [ACL_PRIVILEGE_OPERATE]: "Operate",
+  [ACL_PRIVILEGE_MANAGE]: "Manage",
+  [ACL_PRIVILEGE_ADMINISTER]: "Administer",
+};
+
+// ACL provisioning response types
+export interface ProvisionACLResponse {
+  success: boolean;
+  message: string;
+  acl_entries_count: number;
+  error_type?: OperationErrorType;
+}
+
+export interface ProvisionACLForBindingsResponse {
+  success: boolean;
+  results: Array<{
+    target_node_id: number;
+    target_endpoint_id: number;
+    cluster_id: number;
+    success: boolean;
+    message: string;
+  }>;
+  total: number;
+  succeeded: number;
+}
+
+// Binding wizard types
+export type BindingWizardStep = "binding" | "acl" | "verify";
+
+export interface BindingWizardState {
+  currentStep: BindingWizardStep;
+  sourceNode: MatterNode;
+  sourceEndpoint: MatterEndpoint;
+  targetNode: MatterNode;
+  targetEndpoint: MatterEndpoint;
+  clusterId: number;
+  selectedPrivilege: number;
+  // Step results
+  bindingResult?: BindingVerificationResponse;
+  aclResult?: ProvisionACLResponse;
+  verifyResult?: BindingVerificationResponse;
+  // Loading states per step
+  bindingInProgress: boolean;
+  aclInProgress: boolean;
+  verifyInProgress: boolean;
+}
+
 // Cluster IDs
 export const CLUSTER_IDENTIFY = 0x0003;
 export const CLUSTER_GROUPS = 0x0004;
