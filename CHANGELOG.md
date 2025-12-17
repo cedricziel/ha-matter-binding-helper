@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.2...v0.24.3) (2025-12-17)
+
+
+### Bug Fixes
+
+* properly handle error messages in ACL repair and other error handlers ([#69](https://github.com/cedricziel/ha-matter-binding-helper/issues/69)) ([4c9081c](https://github.com/cedricziel/ha-matter-binding-helper/commit/4c9081cf4f23645041d98721a731c5d46135a918))
+
 ## [0.24.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.1...v0.24.2) (2025-12-17)
 
 
