@@ -23,6 +23,8 @@ make restart           # Restart HA to pick up Python changes
 cd frontend && npm install    # Install dependencies
 cd frontend && npm run build  # Production build (outputs to custom_components/.../frontend/)
 cd frontend && npm run watch  # Watch mode with auto-rebuild
+cd frontend && npm test       # Run vitest unit tests (watch mode)
+cd frontend && npm test -- --run  # Run tests once (CI mode)
 ```
 
 ### Virtual Matter Devices (rs-matter)
@@ -109,6 +111,13 @@ The `matter.sh` script connects to a real HA instance via WebSocket (credentials
 - Cluster ID: `0x001E` (30)
 - Bindings are stored as attributes on the source device's endpoint
 - Each binding specifies: target node ID, target endpoint ID, and cluster ID
+
+### Access Control Lists (ACL)
+
+- ACLs grant permission for one node to control another
+- When creating a binding from Node A → Node B, an ACL entry must be added to Node B allowing Node A to operate
+- The UI automatically provisions ACLs when creating bindings (`provision_acl=true`)
+- "Repair ACL" feature fixes bindings created before automatic ACL provisioning was added
 
 ### HA Device Registry Integration
 
