@@ -3364,7 +3364,7 @@ export class MatterBindingPanel extends LitElement {
                           ? this._getErrorDisplay(this._lastVerificationResult.error_type).icon
                           : "✗"}
                   </span>
-                  <span class="verification-message">${this._lastVerificationResult.message}</span>
+                  <span class="verification-message">${this._extractErrorMessage(this._lastVerificationResult.message)}</span>
                   <button class="verification-dismiss" @click=${() => this._lastVerificationResult = null}>×</button>
                 </div>
               `
@@ -4223,7 +4223,7 @@ export class MatterBindingPanel extends LitElement {
                   </div>
 
                   <div class="verification-details">
-                    <p class="verification-message">${result.message}</p>
+                    <p class="verification-message">${this._extractErrorMessage(result.message)}</p>
 
                     ${bindingCtx
                       ? html`
@@ -4879,7 +4879,7 @@ export class MatterBindingPanel extends LitElement {
       ${wizard.bindingResult ? html`
         <div class="wizard-result ${wizard.bindingResult.success ? "success" : "error"}">
           <span class="wizard-result-icon">${wizard.bindingResult.success ? "✓" : "✗"}</span>
-          <span class="wizard-result-message">${wizard.bindingResult.message}</span>
+          <span class="wizard-result-message">${this._extractErrorMessage(wizard.bindingResult.message)}</span>
         </div>
       ` : nothing}
     `;
@@ -4926,7 +4926,7 @@ export class MatterBindingPanel extends LitElement {
       ${wizard.aclResult ? html`
         <div class="wizard-result ${wizard.aclResult.success ? "success" : "error"}">
           <span class="wizard-result-icon">${wizard.aclResult.success ? "✓" : "✗"}</span>
-          <span class="wizard-result-message">${wizard.aclResult.message}</span>
+          <span class="wizard-result-message">${this._extractErrorMessage(wizard.aclResult.message)}</span>
         </div>
       ` : nothing}
     `;
@@ -4953,7 +4953,7 @@ export class MatterBindingPanel extends LitElement {
       ${wizard.verifyResult ? html`
         <div class="wizard-result ${wizard.verifyResult.verified ? "success" : wizard.verifyResult.success ? "success" : "error"}">
           <span class="wizard-result-icon">${wizard.verifyResult.verified ? "✓" : wizard.verifyResult.success ? "⚠" : "✗"}</span>
-          <span class="wizard-result-message">${wizard.verifyResult.message}</span>
+          <span class="wizard-result-message">${this._extractErrorMessage(wizard.verifyResult.message)}</span>
         </div>
 
         ${wizard.verifyResult.verified ? html`
@@ -5013,7 +5013,7 @@ export class MatterBindingPanel extends LitElement {
                     <span>
                       ${targetNode?.name || `Node ${item.target_node_id}`}
                       (EP ${item.target_endpoint_id}, Cluster ${getClusterName(item.cluster_id)})
-                      ${!item.success ? html`<br><small style="color: var(--error-color);">${item.message}</small>` : nothing}
+                      ${!item.success ? html`<br><small style="color: var(--error-color);">${this._extractErrorMessage(item.message)}</small>` : nothing}
                     </span>
                   </div>
                 `;
