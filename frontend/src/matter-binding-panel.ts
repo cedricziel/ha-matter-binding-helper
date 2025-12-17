@@ -2643,6 +2643,46 @@ export class MatterBindingPanel extends LitElement {
     this._selectedTargetEndpointId = parseInt(select.value, 10);
   }
 
+  private _handleCreateDialogTargetNodeChange(e: CustomEvent<{ nodeId: number }>) {
+    this._selectedTargetNodeId = e.detail.nodeId;
+    // Reset endpoint selection when node changes
+    const targetNode = this._nodes.find((n) => n.node_id === this._selectedTargetNodeId);
+    if (targetNode) {
+      const firstValidEndpoint = getFirstValidTargetEndpoint(targetNode);
+      this._selectedTargetEndpointId = firstValidEndpoint?.endpoint_id ?? null;
+    }
+  }
+
+  private _handleCreateDialogTargetEndpointChange(e: CustomEvent<{ endpointId: number }>) {
+    this._selectedTargetEndpointId = e.detail.endpointId;
+  }
+
+  private _handleCreateDialogCreateBinding(e: CustomEvent<{ targetNodeId: number; targetEndpointId: number; clusterId: number }>) {
+    const { targetNodeId, targetEndpointId, clusterId } = e.detail;
+
+    if (!this._selectedSourceNode || !this._selectedSourceEndpoint) return;
+
+    const targetNode = this._nodes.find((n) => n.node_id === targetNodeId);
+    const targetEndpoint = targetNode?.endpoints.find((ep) => ep.endpoint_id === targetEndpointId);
+
+    if (!targetNode || !targetEndpoint) {
+      this._error = "Invalid target selection";
+      return;
+    }
+
+    // Set pending manual binding for confirmation dialog
+    this._pendingManualBinding = {
+      sourceNode: this._selectedSourceNode,
+      sourceEndpoint: this._selectedSourceEndpoint,
+      targetNode,
+      targetEndpoint,
+      clusterId,
+    };
+
+    // Close create dialog
+    this._showCreateDialog = false;
+  }
+
   private _getCompatibleClusters(): number[] {
     if (!this._selectedSourceEndpoint || !this._selectedTargetNodeId || !this._selectedTargetEndpointId) {
       return [];
@@ -2844,12 +2884,33 @@ export class MatterBindingPanel extends LitElement {
           : this._activeTab === "bindings"
             ? this._renderBindingsTab()
             : this._renderGroupsTab()}
-        ${this._showCreateDialog ? this._renderCreateDialog() : nothing}
+        <matter-create-binding-dialog
+          .open=${this._showCreateDialog}
+          .sourceNode=${this._selectedSourceNode}
+          .sourceEndpoint=${this._selectedSourceEndpoint}
+          .availableNodes=${this._nodes.filter((n) => n.node_id !== this._selectedSourceNode?.node_id)}
+          .selectedTargetNodeId=${this._selectedTargetNodeId}
+          .selectedTargetEndpointId=${this._selectedTargetEndpointId}
+          .loading=${this._actionInProgress !== null}
+          @target-node-change=${this._handleCreateDialogTargetNodeChange}
+          @target-endpoint-change=${this._handleCreateDialogTargetEndpointChange}
+          @create-binding=${this._handleCreateDialogCreateBinding}
+          @cancel=${this._closeCreateDialog}
+        ></matter-create-binding-dialog>
         ${this._pendingBindingRecommendation ? this._renderBindingConfirmDialog() : nothing}
         ${this._pendingManualBinding ? this._renderManualBindingConfirmDialog() : nothing}
         ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
         ${this._showVerificationModal ? this._renderVerificationModal() : nothing}
-        ${this._bindingWizard ? this._renderBindingWizard() : nothing}
+        <matter-binding-wizard
+          .open=${this._bindingWizard !== null}
+          .wizardState=${this._bindingWizard}
+          @execute-binding=${this._handleWizardExecuteBinding}
+          @execute-acl=${this._handleWizardExecuteAcl}
+          @execute-verify=${this._handleWizardExecuteVerify}
+          @privilege-change=${this._handleWizardPrivilegeChange}
+          @step-change=${this._handleWizardStepChange}
+          @close=${this._handleWizardClose}
+        ></matter-binding-wizard>
         ${this._showBulkRepairModal ? this._renderBulkRepairModal() : nothing}
         ${this._operationProgress ? this._renderOperationProgressModal() : nothing}
         ${this._renderSurveyResultDialog()}
@@ -3307,6 +3368,30 @@ export class MatterBindingPanel extends LitElement {
     this._lastVerificationResult = null;
     this._selectedSourceEndpoint = e.detail.endpoint;
     this._loadBindings();
+  }
+
+  private _handleWizardExecuteBinding() {
+    this._executeBindingStep();
+  }
+
+  private _handleWizardExecuteAcl() {
+    this._executeACLStep();
+  }
+
+  private _handleWizardExecuteVerify() {
+    this._executeVerifyStep();
+  }
+
+  private _handleWizardPrivilegeChange(e: CustomEvent<{ privilege: number }>) {
+    this._handlePrivilegeChange(e.detail.privilege);
+  }
+
+  private _handleWizardStepChange(e: CustomEvent<{ step: "binding" | "acl" | "verify" }>) {
+    this._goToWizardStep(e.detail.step);
+  }
+
+  private _handleWizardClose() {
+    this._closeBindingWizard();
   }
 
   private _renderDeviceDetails(node: MatterNode) {
