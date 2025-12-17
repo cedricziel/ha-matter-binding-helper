@@ -2161,22 +2161,62 @@ async def write_acl(
         )
 
     try:
-        # ACL is on endpoint 0, cluster 31, attribute 0
-        attribute_path = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
-
         _LOGGER.info(
             "write_acl: Writing %d ACL entries to node %s",
             len(acl_entries),
             node_id,
         )
 
-        result = await client.write_attribute(
+        # Log the entries being written for debugging
+        for i, entry in enumerate(acl_entries):
+            _LOGGER.debug("write_acl: Entry %d: %s", i, entry)
+
+        # Use the dedicated SET_ACL_ENTRY API for ACL writes
+        # This is more reliable than generic write_attribute
+        result = await client.send_command(
+            "set_acl_entry",
             node_id=node_id,
-            attribute_path=attribute_path,
-            value=acl_entries,
+            entry=acl_entries,
         )
 
-        _LOGGER.info("write_acl: write_attribute result: %s", result)
+        _LOGGER.info(
+            "write_acl: set_acl_entry result: %s (type=%s)",
+            result,
+            type(result).__name__,
+        )
+
+        # Check the result for errors
+        # The result should be a list of AttributeWriteResult or None
+        if result is not None:
+            # AttributeWriteResult has a Status field that indicates success/failure
+            # Status 0 = Success, non-zero = failure with error code
+            failed_entries = []
+            if isinstance(result, list):
+                for i, write_result in enumerate(result):
+                    # AttributeWriteResult may be a dict or object
+                    status = None
+                    if isinstance(write_result, dict):
+                        status = write_result.get("Status") or write_result.get(
+                            "status"
+                        )
+                    elif hasattr(write_result, "Status"):
+                        status = write_result.Status
+                    elif hasattr(write_result, "status"):
+                        status = write_result.status
+
+                    if status is not None and status != 0:
+                        failed_entries.append((i, status))
+                        _LOGGER.error(
+                            "write_acl: Entry %d failed with status %s", i, status
+                        )
+
+            if failed_entries:
+                return ACLProvisioningResult(
+                    success=False,
+                    message=f"ACL write partially failed: {len(failed_entries)} entries rejected",
+                    acl_entries_count=len(acl_entries) - len(failed_entries),
+                    error_type=OperationErrorType.DEVICE_REJECTED,
+                )
 
         return ACLProvisioningResult(
             success=True,
@@ -2275,7 +2315,47 @@ async def add_acl_entry(
         )
 
         # Write the updated ACL
-        return await write_acl(hass, node_id, acl_list)
+        write_result = await write_acl(hass, node_id, acl_list)
+
+        if not write_result.success:
+            return write_result
+
+        # Read-after-write verification: confirm the entry was actually persisted
+        _LOGGER.debug(
+            "add_acl_entry: Verifying ACL entry was persisted for node %s", node_id
+        )
+        verified_entries = await get_acl(hass, node_id)
+
+        if not _acl_entry_exists(
+            verified_entries, source_node_id, target_endpoint_id, cluster_id
+        ):
+            _LOGGER.error(
+                "add_acl_entry: VERIFICATION FAILED - ACL entry not found after write! "
+                "source_node=%s, target_node=%s, endpoint=%s, cluster=0x%04X. "
+                "Device may have rejected the entry silently.",
+                source_node_id,
+                node_id,
+                target_endpoint_id,
+                cluster_id,
+            )
+            return ACLProvisioningResult(
+                success=False,
+                message="ACL write appeared to succeed but entry not found on device. "
+                "The device may have rejected the entry.",
+                acl_entries_count=len(verified_entries),
+                error_type=OperationErrorType.DEVICE_REJECTED,
+            )
+
+        _LOGGER.info(
+            "add_acl_entry: Verified ACL entry persisted on node %s (%d total entries)",
+            node_id,
+            len(verified_entries),
+        )
+        return ACLProvisioningResult(
+            success=True,
+            message=f"Successfully added ACL entry ({len(verified_entries)} total)",
+            acl_entries_count=len(verified_entries),
+        )
 
     except Exception as err:
         _LOGGER.error("Error adding ACL entry: %s", err, exc_info=True)
