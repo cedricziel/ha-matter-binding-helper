@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.3...v0.25.4) (2025-12-17)
+
+
+### Bug Fixes
+
+* use _extractErrorMessage for all caught exceptions in frontend ([ae971ed](https://github.com/cedricziel/ha-matter-binding-helper/commit/ae971ed1619525e3feaf35fc3c705c0b1c69b8c2))
+
 ## [0.25.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.2...v0.25.3) (2025-12-17)
 
 
