@@ -2157,7 +2157,7 @@ export class MatterBindingPanel extends LitElement {
       const response = await api.listNodes(this.hass);
       this._nodes = response.nodes;
     } catch (err) {
-      this._error = `Failed to load nodes: ${err instanceof Error ? err.message : String(err)}`;
+      this._error = `Failed to load nodes: ${this._extractErrorMessage(err)}`;
     } finally {
       this._loading = false;
     }
@@ -2187,7 +2187,7 @@ export class MatterBindingPanel extends LitElement {
         Array.from(targetNodeIds).map((nodeId) => this._loadACLForNode(nodeId))
       ).catch((err) => console.error("Failed to load some target ACLs:", err));
     } catch (err) {
-      this._error = `Failed to load bindings: ${err instanceof Error ? err.message : String(err)}`;
+      this._error = `Failed to load bindings: ${this._extractErrorMessage(err)}`;
     } finally {
       this._loading = false;
     }
@@ -2199,7 +2199,7 @@ export class MatterBindingPanel extends LitElement {
       const response = await api.listGroups(this.hass);
       this._groups = response.groups;
     } catch (err) {
-      this._error = `Failed to load groups: ${err instanceof Error ? err.message : String(err)}`;
+      this._error = `Failed to load groups: ${this._extractErrorMessage(err)}`;
     } finally {
       this._loading = false;
     }
@@ -2406,7 +2406,7 @@ export class MatterBindingPanel extends LitElement {
       // Compute automation recommendations
       this._automationRecommendations = this._computeAutomationRecommendations();
     } catch (err) {
-      this._error = `Failed to load overview data: ${err instanceof Error ? err.message : String(err)}`;
+      this._error = `Failed to load overview data: ${this._extractErrorMessage(err)}`;
     } finally {
       this._overviewLoading = false;
     }
@@ -2522,7 +2522,7 @@ export class MatterBindingPanel extends LitElement {
       };
       await this._loadBindings();
     } catch (err) {
-      this._error = `Failed to delete binding: ${err instanceof Error ? err.message : String(err)}`;
+      this._error = `Failed to delete binding: ${this._extractErrorMessage(err)}`;
     } finally {
       this._actionInProgress = null;
     }
@@ -2552,7 +2552,7 @@ export class MatterBindingPanel extends LitElement {
       this._lastVerificationResult = {
         success: false,
         verified: false,
-        message: `Failed to verify bindings: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Failed to verify bindings: ${this._extractErrorMessage(err)}`,
         error_type: "unknown_error",
       };
     } finally {
@@ -2583,7 +2583,7 @@ export class MatterBindingPanel extends LitElement {
       this._verificationModalResult = {
         success: false,
         verified: false,
-        message: `Failed to verify: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Failed to verify: ${this._extractErrorMessage(err)}`,
         bindingContext: bindingCtx,
       };
     } finally {
@@ -2738,7 +2738,7 @@ export class MatterBindingPanel extends LitElement {
     } catch (err) {
       this._surveyResult = {
         success: false,
-        message: `Failed to submit survey: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Failed to submit survey: ${this._extractErrorMessage(err)}`,
       };
     } finally {
       this._surveySubmitting = false;
@@ -3187,7 +3187,7 @@ export class MatterBindingPanel extends LitElement {
 
       this._updateStepStatus(0, "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = this._extractErrorMessage(err);
       this._updateStepStatus(0, "error", message);
       this._operationProgress = { ...this._operationProgress!, completed: true, error: message };
       return;
@@ -3214,7 +3214,7 @@ export class MatterBindingPanel extends LitElement {
           this._updateStepStatus(1, "error", this._extractErrorMessage(aclResult.message));
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = this._extractErrorMessage(err);
         this._updateStepStatus(1, "error", message);
       }
     }
@@ -4507,7 +4507,7 @@ export class MatterBindingPanel extends LitElement {
         bindingResult: {
           success: false,
           verified: false,
-          message: `Failed to create binding: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to create binding: ${this._extractErrorMessage(err)}`,
           bindings_found: 0,
           error_type: "unknown_error",
         },
@@ -4547,7 +4547,7 @@ export class MatterBindingPanel extends LitElement {
         ...this._bindingWizard,
         aclResult: {
           success: false,
-          message: `Failed to provision ACL: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to provision ACL: ${this._extractErrorMessage(err)}`,
           acl_entries_count: 0,
         },
         aclInProgress: false,
@@ -4580,7 +4580,7 @@ export class MatterBindingPanel extends LitElement {
         verifyResult: {
           success: false,
           verified: false,
-          message: `Failed to verify bindings: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to verify bindings: ${this._extractErrorMessage(err)}`,
           bindings_found: 0,
           error_type: "unknown_error",
         },
@@ -4639,7 +4639,7 @@ export class MatterBindingPanel extends LitElement {
       this._targetACLCache = new Map(this._targetACLCache);
       this._targetACLCache.delete(targetNodeId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = this._extractErrorMessage(err);
       this._updateStepStatus(0, "error", message);
       this._operationProgress = { ...this._operationProgress!, completed: true, error: message };
       return;
@@ -4709,7 +4709,7 @@ export class MatterBindingPanel extends LitElement {
           this._updateStepStatus(i, "error", this._extractErrorMessage(result.message));
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = this._extractErrorMessage(err);
         this._updateStepStatus(i, "error", message);
       }
     }
