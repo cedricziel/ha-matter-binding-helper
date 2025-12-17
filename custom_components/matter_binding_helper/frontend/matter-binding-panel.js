@@ -799,7 +799,7 @@ const de=e=>(i,t)=>{void 0!==t?t.addInitializer(()=>{customElements.define(e,i)}
             >${s?`Group ${i.target_group_id}`:o}</strong>
           </div>
           <div class="binding-meta">
-            EP ${n.endpoint_id} → ${s?"Group":`EP ${i.target_endpoint_id}`}
+            #${t.node_id} EP ${n.endpoint_id} → ${s?"Group":`#${i.target_node_id} EP ${i.target_endpoint_id}`}
             ${t.area_name?V` · ${t.area_name}`:F}
             ${d.hasPermission?F:V`<span class="acl-warning-text"> · ${d.reason}</span>`}
           </div>
@@ -919,7 +919,7 @@ const de=e=>(i,t)=>{void 0!==t?t.addInitializer(()=>{customElements.define(e,i)}
             </span>
           </div>
           <div class="binding-meta">
-            EP ${t.endpoint_id} → EP ${r.endpoint_id}
+            #${i.node_id} EP ${t.endpoint_id} → #${n.node_id} EP ${r.endpoint_id}
             ${i.area_name?V` · ${i.area_name}`:F}
           </div>
         </div>
@@ -1041,7 +1041,7 @@ const de=e=>(i,t)=>{void 0!==t?t.addInitializer(()=>{customElements.define(e,i)}
             class="node-status ${e.available?"":"unavailable"}"
           ></span>
           <div class="node-info">
-            <span class="node-name">${e.name}</span>
+            <span class="node-name">${e.name}<span class="node-id">#${e.node_id}</span></span>
             <div class="node-meta">
               ${t?V`<span class="node-device-type">${t}</span>`:F}
               ${t&&e.area_name?V`<span class="node-meta-sep">·</span>`:F}
@@ -2158,6 +2158,14 @@ const de=e=>(i,t)=>{void 0!==t?t.addInitializer(()=>{customElements.define(e,i)}
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .node-id {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      opacity: 0.7;
+      font-weight: normal;
+      margin-left: 6px;
     }
 
     .device-link {
