@@ -17,12 +17,15 @@ import type {
   EveSchedule,
   ACLEntry,
   OperationErrorType,
+  BindingWizardState,
+  ProvisionACLForBindingsResponse,
 } from "./types";
 import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
 import "./thermostat-schedule-editor";
 import { computeBindingRecommendations } from "./recommendation-logic";
 import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters, filterControlClusters } from "./binding-ui-logic";
+import { getRecommendedPrivilege, PRIVILEGE_OPTIONS } from "./acl-logic";
 import * as api from "./api";
 
 @customElement("matter-binding-helper-panel")
@@ -63,6 +66,13 @@ export class MatterBindingPanel extends LitElement {
   @state() private _aclEntries: ACLEntry[] | null = null;
   @state() private _targetACLCache: Map<number, ACLEntry[]> = new Map();
   @state() private _aclLoadingNodes: Set<number> = new Set();
+
+  // Binding wizard state
+  @state() private _bindingWizard: BindingWizardState | null = null;
+  @state() private _aclRepairInProgress: Map<string, boolean> = new Map();
+  @state() private _bulkRepairInProgress = false;
+  @state() private _bulkRepairResult: ProvisionACLForBindingsResponse | null = null;
+  @state() private _showBulkRepairModal = false;
 
   static styles = css`
     :host {
@@ -1673,6 +1683,315 @@ export class MatterBindingPanel extends LitElement {
       color: var(--primary-text-color);
       word-break: break-word;
     }
+
+    /* Binding Wizard Styles */
+    .wizard-steps {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 24px;
+      gap: 0;
+    }
+
+    .wizard-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .wizard-step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+      font-size: 14px;
+      background: var(--divider-color);
+      color: var(--secondary-text-color);
+      transition: all 0.3s ease;
+    }
+
+    .wizard-step.active .wizard-step-circle {
+      background: var(--primary-color);
+      color: var(--text-primary-color);
+    }
+
+    .wizard-step.completed .wizard-step-circle {
+      background: var(--success-color, #4caf50);
+      color: white;
+    }
+
+    .wizard-step-label {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      margin-top: 6px;
+      text-align: center;
+      max-width: 80px;
+    }
+
+    .wizard-step.active .wizard-step-label {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .wizard-step.completed .wizard-step-label {
+      color: var(--success-color, #4caf50);
+    }
+
+    .wizard-connector {
+      flex: 0 0 60px;
+      height: 2px;
+      background: var(--divider-color);
+      margin: 0 8px;
+      margin-bottom: 22px;
+    }
+
+    .wizard-connector.completed {
+      background: var(--success-color, #4caf50);
+    }
+
+    .wizard-content {
+      min-height: 120px;
+    }
+
+    .wizard-step-info {
+      text-align: center;
+      padding: 16px;
+    }
+
+    .wizard-step-title {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--primary-text-color);
+    }
+
+    .wizard-step-description {
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      margin-bottom: 16px;
+    }
+
+    .wizard-progress-note {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      font-style: italic;
+      margin-top: 8px;
+    }
+
+    .wizard-result {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .wizard-result.success {
+      background: rgba(76, 175, 80, 0.1);
+      border: 1px solid var(--success-color, #4caf50);
+    }
+
+    .wizard-result.error {
+      background: rgba(244, 67, 54, 0.1);
+      border: 1px solid var(--error-color, #f44336);
+    }
+
+    .wizard-result-icon {
+      font-size: 20px;
+      margin-right: 8px;
+    }
+
+    .wizard-result-message {
+      font-size: 13px;
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--divider-color);
+    }
+
+    /* Privilege Selector */
+    .privilege-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .privilege-option {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px;
+      border: 2px solid var(--divider-color);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .privilege-option:hover {
+      border-color: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 33, 150, 243), 0.05);
+    }
+
+    .privilege-option.selected {
+      border-color: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 33, 150, 243), 0.1);
+    }
+
+    .privilege-radio {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--divider-color);
+      border-radius: 50%;
+      margin-right: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .privilege-option.selected .privilege-radio {
+      border-color: var(--primary-color);
+    }
+
+    .privilege-option.selected .privilege-radio::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--primary-color);
+    }
+
+    .privilege-content {
+      flex: 1;
+    }
+
+    .privilege-label {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .privilege-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .privilege-badge.recommended {
+      background: var(--success-color, #4caf50);
+      color: white;
+    }
+
+    .privilege-description {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    /* Repair Buttons */
+    .btn-repair {
+      background: rgba(255, 152, 0, 0.15);
+      color: var(--warning-color, #ff9800);
+      border: 1px solid var(--warning-color, #ff9800);
+    }
+
+    .btn-repair:hover:not(:disabled) {
+      background: rgba(255, 152, 0, 0.25);
+    }
+
+    .repair-icon {
+      cursor: pointer;
+      color: var(--warning-color, #ff9800);
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .repair-icon:hover {
+      background: rgba(255, 152, 0, 0.15);
+    }
+
+    .repair-icon.loading {
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Bulk Repair Modal */
+    .bulk-repair-results {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .bulk-repair-summary {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--secondary-background-color);
+      border-radius: 8px;
+    }
+
+    .bulk-repair-stat {
+      text-align: center;
+    }
+
+    .bulk-repair-stat-value {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .bulk-repair-stat-label {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    .bulk-repair-stat.success .bulk-repair-stat-value {
+      color: var(--success-color, #4caf50);
+    }
+
+    .bulk-repair-stat.failed .bulk-repair-stat-value {
+      color: var(--error-color, #f44336);
+    }
+
+    .bulk-repair-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .bulk-repair-item:last-child {
+      border-bottom: none;
+    }
+
+    .bulk-repair-item-icon {
+      font-size: 16px;
+    }
+
+    .bulk-repair-item-icon.success {
+      color: var(--success-color, #4caf50);
+    }
+
+    .bulk-repair-item-icon.failed {
+      color: var(--error-color, #f44336);
+    }
   `;
 
   protected firstUpdated(): void {
@@ -2233,36 +2552,14 @@ export class MatterBindingPanel extends LitElement {
     this._showCreateDialog = false;
   }
 
-  private async _confirmManualBinding(): Promise<void> {
+  private _confirmManualBinding(): void {
     if (!this._pendingManualBinding) return;
 
     const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId } = this._pendingManualBinding;
-    const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}-${clusterId}`;
 
-    this._actionInProgress = actionKey;
-
-    try {
-      const result = await api.createBinding(
-        this.hass,
-        sourceNode.node_id,
-        sourceEndpoint.endpoint_id,
-        clusterId,
-        targetNode.node_id,
-        targetEndpoint.endpoint_id
-      );
-      this._lastVerificationResult = {
-        success: result.success,
-        verified: result.verified,
-        message: result.message,
-        error_type: result.error_type,
-      };
-      this._pendingManualBinding = null;
-      await this._loadBindings();
-    } catch (err) {
-      this._error = `Failed to create binding: ${err}`;
-    } finally {
-      this._actionInProgress = null;
-    }
+    // Close the confirm dialog and launch the wizard
+    this._pendingManualBinding = null;
+    this._startBindingWizard(sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId);
   }
 
   private _closeManualBindingConfirmDialog(): void {
@@ -2395,6 +2692,8 @@ export class MatterBindingPanel extends LitElement {
         ${this._pendingManualBinding ? this._renderManualBindingConfirmDialog() : nothing}
         ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
         ${this._showVerificationModal ? this._renderVerificationModal() : nothing}
+        ${this._bindingWizard ? this._renderBindingWizard() : nothing}
+        ${this._showBulkRepairModal ? this._renderBulkRepairModal() : nothing}
         ${this._renderSurveyResultDialog()}
       </div>
     `;
@@ -2415,11 +2714,29 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _renderEstablishedBindings() {
+    // Count bindings with missing ACL permissions
+    const bindingsWithMissingACL = this._allBindings.filter((b) => {
+      const isGroupBinding = b.binding.target_group_id !== null;
+      if (isGroupBinding) return false;
+      const aclStatus = this._checkBindingACL(b.binding, b.sourceNode.node_id);
+      return !aclStatus.hasPermission;
+    });
+
     return html`
       <div class="card overview-card">
         <div class="card-header">
           Established Bindings
           <span class="count-badge">${this._allBindings.length}</span>
+          ${bindingsWithMissingACL.length > 0 ? html`
+            <button
+              class="btn btn-small btn-repair ${this._bulkRepairInProgress ? "btn-loading" : ""}"
+              ?disabled=${this._bulkRepairInProgress}
+              @click=${this._repairAllACLs}
+              title="Repair ACL permissions for all bindings"
+            >
+              ${this._bulkRepairInProgress ? "Repairing..." : `🔧 Repair All (${bindingsWithMissingACL.length})`}
+            </button>
+          ` : nothing}
         </div>
         ${this._allBindings.length === 0
           ? html`<div class="empty-state">No bindings configured yet.</div>`
@@ -2473,6 +2790,15 @@ export class MatterBindingPanel extends LitElement {
           </div>
         </div>
         <div class="binding-actions">
+          ${!aclStatus.hasPermission && !isGroupBinding ? html`
+            <span
+              class="repair-icon ${this._aclRepairInProgress.get(`${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${binding.target_node_id}-${binding.cluster_id}`) ? "loading" : ""}"
+              title="Repair ACL permissions"
+              @click=${() => this._repairBindingACL(bindingCtx)}
+            >
+              ${this._aclRepairInProgress.get(`${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${binding.target_node_id}-${binding.cluster_id}`) ? "⏳" : "🔧"}
+            </span>
+          ` : nothing}
           <button
             class="btn-icon verify"
             title="Verify binding on device"
@@ -2719,38 +3045,15 @@ export class MatterBindingPanel extends LitElement {
     this._selectedClusterForBinding = parseInt(select.value, 10);
   }
 
-  private async _confirmCreateBinding(): Promise<void> {
+  private _confirmCreateBinding(): void {
     if (!this._pendingBindingRecommendation || !this._selectedClusterForBinding) return;
 
     const { sourceNode, sourceEndpoint, targetNode, targetEndpoint } = this._pendingBindingRecommendation;
     const clusterId = this._selectedClusterForBinding;
-    const actionKey = `create-${sourceNode.node_id}-${sourceEndpoint.endpoint_id}-${targetNode.node_id}-${targetEndpoint.endpoint_id}`;
 
-    this._actionInProgress = actionKey;
-
-    try {
-      const result = await api.createBinding(
-        this.hass,
-        sourceNode.node_id,
-        sourceEndpoint.endpoint_id,
-        clusterId,
-        targetNode.node_id,
-        targetEndpoint.endpoint_id
-      );
-      this._lastVerificationResult = {
-        success: result.success,
-        verified: result.verified,
-        message: result.message,
-        error_type: result.error_type,
-      };
-      this._closeBindingConfirmDialog();
-      // Reload overview data
-      await this._loadOverviewData();
-    } catch (err) {
-      this._error = `Failed to create binding: ${err}`;
-    } finally {
-      this._actionInProgress = null;
-    }
+    // Close the confirm dialog and launch the wizard
+    this._closeBindingConfirmDialog();
+    this._startBindingWizard(sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId);
   }
 
   private _renderBindingsTab() {
@@ -3929,6 +4232,591 @@ export class MatterBindingPanel extends LitElement {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    `;
+  }
+
+  // =============================================================================
+  // Binding Wizard Methods
+  // =============================================================================
+
+  private _startBindingWizard(
+    sourceNode: MatterNode,
+    sourceEndpoint: MatterEndpoint,
+    targetNode: MatterNode,
+    targetEndpoint: MatterEndpoint,
+    clusterId: number
+  ): void {
+    this._bindingWizard = {
+      currentStep: "binding",
+      sourceNode,
+      sourceEndpoint,
+      targetNode,
+      targetEndpoint,
+      clusterId,
+      selectedPrivilege: getRecommendedPrivilege(clusterId),
+      bindingInProgress: false,
+      aclInProgress: false,
+      verifyInProgress: false,
+    };
+  }
+
+  private _closeBindingWizard(): void {
+    this._bindingWizard = null;
+    // Reload data after wizard completes
+    this._loadOverviewData();
+  }
+
+  private _goToWizardStep(step: "binding" | "acl" | "verify"): void {
+    if (!this._bindingWizard) return;
+    this._bindingWizard = { ...this._bindingWizard, currentStep: step };
+  }
+
+  private _handlePrivilegeChange(privilege: number): void {
+    if (!this._bindingWizard) return;
+    this._bindingWizard = { ...this._bindingWizard, selectedPrivilege: privilege };
+  }
+
+  private async _executeBindingStep(): Promise<void> {
+    if (!this._bindingWizard) return;
+
+    const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId } = this._bindingWizard;
+
+    this._bindingWizard = { ...this._bindingWizard, bindingInProgress: true };
+
+    try {
+      const result = await api.createBinding(
+        this.hass,
+        sourceNode.node_id,
+        sourceEndpoint.endpoint_id,
+        clusterId,
+        targetNode.node_id,
+        targetEndpoint.endpoint_id,
+        undefined, // no group
+        true, // verify
+        false // don't auto-provision ACL - we do it in step 2
+      );
+
+      this._bindingWizard = {
+        ...this._bindingWizard,
+        bindingResult: result,
+        bindingInProgress: false,
+      };
+
+      // Auto-advance to ACL step if binding succeeded
+      if (result.success) {
+        this._goToWizardStep("acl");
+      }
+    } catch (err) {
+      this._bindingWizard = {
+        ...this._bindingWizard,
+        bindingResult: {
+          success: false,
+          verified: false,
+          message: `Failed to create binding: ${err}`,
+          bindings_found: 0,
+          error_type: "unknown_error",
+        },
+        bindingInProgress: false,
+      };
+    }
+  }
+
+  private async _executeACLStep(): Promise<void> {
+    if (!this._bindingWizard) return;
+
+    const { sourceNode, targetNode, targetEndpoint, clusterId } = this._bindingWizard;
+
+    this._bindingWizard = { ...this._bindingWizard, aclInProgress: true };
+
+    try {
+      const result = await api.provisionACL(
+        this.hass,
+        targetNode.node_id,
+        targetEndpoint.endpoint_id,
+        sourceNode.node_id,
+        clusterId
+      );
+
+      this._bindingWizard = {
+        ...this._bindingWizard,
+        aclResult: result,
+        aclInProgress: false,
+      };
+
+      // Auto-advance to verify step if ACL succeeded
+      if (result.success) {
+        this._goToWizardStep("verify");
+      }
+    } catch (err) {
+      this._bindingWizard = {
+        ...this._bindingWizard,
+        aclResult: {
+          success: false,
+          message: `Failed to provision ACL: ${err}`,
+          acl_entries_count: 0,
+        },
+        aclInProgress: false,
+      };
+    }
+  }
+
+  private async _executeVerifyStep(): Promise<void> {
+    if (!this._bindingWizard) return;
+
+    const { sourceNode, sourceEndpoint } = this._bindingWizard;
+
+    this._bindingWizard = { ...this._bindingWizard, verifyInProgress: true };
+
+    try {
+      const result = await api.verifyBindings(
+        this.hass,
+        sourceNode.node_id,
+        sourceEndpoint.endpoint_id
+      );
+
+      this._bindingWizard = {
+        ...this._bindingWizard,
+        verifyResult: result,
+        verifyInProgress: false,
+      };
+    } catch (err) {
+      this._bindingWizard = {
+        ...this._bindingWizard,
+        verifyResult: {
+          success: false,
+          verified: false,
+          message: `Failed to verify bindings: ${err}`,
+          bindings_found: 0,
+          error_type: "unknown_error",
+        },
+        verifyInProgress: false,
+      };
+    }
+  }
+
+  // =============================================================================
+  // ACL Repair Methods
+  // =============================================================================
+
+  private async _repairBindingACL(bindingCtx: BindingWithContext): Promise<void> {
+    // Group bindings don't have ACLs to repair
+    if (bindingCtx.binding.target_node_id === null || bindingCtx.binding.target_endpoint_id === null) {
+      return;
+    }
+
+    const targetNodeId = bindingCtx.binding.target_node_id;
+    const targetEndpointId = bindingCtx.binding.target_endpoint_id;
+    const key = `${bindingCtx.sourceNode.node_id}-${bindingCtx.sourceEndpoint.endpoint_id}-${targetNodeId}-${bindingCtx.binding.cluster_id}`;
+
+    this._aclRepairInProgress = new Map(this._aclRepairInProgress);
+    this._aclRepairInProgress.set(key, true);
+
+    try {
+      await api.provisionACL(
+        this.hass,
+        targetNodeId,
+        targetEndpointId,
+        bindingCtx.sourceNode.node_id,
+        bindingCtx.binding.cluster_id
+      );
+
+      // Invalidate ACL cache for the target node
+      this._targetACLCache = new Map(this._targetACLCache);
+      this._targetACLCache.delete(targetNodeId);
+
+      // Reload to refresh the view
+      await this._loadOverviewData();
+    } catch (err) {
+      this._error = `Failed to repair ACL: ${err}`;
+    } finally {
+      this._aclRepairInProgress = new Map(this._aclRepairInProgress);
+      this._aclRepairInProgress.delete(key);
+    }
+  }
+
+  private async _repairAllACLs(): Promise<void> {
+    // Find all bindings with missing ACL permissions
+    const bindingsToRepair = this._allBindings.filter((b) => {
+      const isGroupBinding = b.binding.target_group_id !== null;
+      if (isGroupBinding) return false;
+      const aclStatus = this._checkBindingACL(b.binding, b.sourceNode.node_id);
+      return !aclStatus.hasPermission;
+    });
+
+    if (bindingsToRepair.length === 0) return;
+
+    this._bulkRepairInProgress = true;
+    this._bulkRepairResult = null;
+
+    const results: Array<{
+      target_node_id: number;
+      target_endpoint_id: number;
+      cluster_id: number;
+      success: boolean;
+      message: string;
+    }> = [];
+
+    // Repair each binding sequentially to avoid overwhelming devices
+    for (const bindingCtx of bindingsToRepair) {
+      const { binding, sourceNode } = bindingCtx;
+      if (binding.target_node_id === null || binding.target_endpoint_id === null) {
+        continue;
+      }
+
+      try {
+        await api.provisionACL(
+          this.hass,
+          binding.target_node_id,
+          binding.target_endpoint_id,
+          sourceNode.node_id,
+          binding.cluster_id
+        );
+        results.push({
+          target_node_id: binding.target_node_id,
+          target_endpoint_id: binding.target_endpoint_id,
+          cluster_id: binding.cluster_id,
+          success: true,
+          message: "ACL provisioned successfully",
+        });
+      } catch (err) {
+        results.push({
+          target_node_id: binding.target_node_id,
+          target_endpoint_id: binding.target_endpoint_id,
+          cluster_id: binding.cluster_id,
+          success: false,
+          message: `${err}`,
+        });
+      }
+    }
+
+    const succeeded = results.filter((r) => r.success).length;
+    this._bulkRepairResult = {
+      success: succeeded > 0,
+      results,
+      total: results.length,
+      succeeded,
+    };
+    this._showBulkRepairModal = true;
+
+    // Invalidate all ACL caches
+    this._targetACLCache = new Map();
+
+    // Reload to refresh the view
+    await this._loadOverviewData();
+    this._bulkRepairInProgress = false;
+  }
+
+  private _closeBulkRepairModal(): void {
+    this._showBulkRepairModal = false;
+    this._bulkRepairResult = null;
+  }
+
+  // =============================================================================
+  // Binding Wizard Render
+  // =============================================================================
+
+  private _renderBindingWizard() {
+    if (!this._bindingWizard) return nothing;
+
+    const wizard = this._bindingWizard;
+    const currentStep = wizard.currentStep;
+    const steps = ["binding", "acl", "verify"] as const;
+    const stepIndex = steps.indexOf(currentStep);
+
+    const isAnyLoading = wizard.bindingInProgress || wizard.aclInProgress || wizard.verifyInProgress;
+    const recommendedPrivilege = getRecommendedPrivilege(wizard.clusterId);
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeBindingWizard}>
+        <div class="dialog" style="max-width: 550px;" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">Create Binding</div>
+
+          <!-- Step Indicator -->
+          <div class="wizard-steps">
+            ${steps.map((step, idx) => {
+              const isCompleted = idx < stepIndex || (idx === stepIndex && (
+                (step === "binding" && wizard.bindingResult?.success) ||
+                (step === "acl" && wizard.aclResult?.success) ||
+                (step === "verify" && wizard.verifyResult?.success)
+              ));
+              const isActive = idx === stepIndex;
+              return html`
+                ${idx > 0 ? html`<div class="wizard-connector ${idx <= stepIndex ? "completed" : ""}"></div>` : nothing}
+                <div class="wizard-step ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}">
+                  <div class="wizard-step-circle">${isCompleted ? "✓" : idx + 1}</div>
+                  <div class="wizard-step-label">
+                    ${step === "binding" ? "Create" : step === "acl" ? "Permissions" : "Verify"}
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+
+          <!-- Wizard Content -->
+          <div class="wizard-content">
+            ${currentStep === "binding" ? this._renderBindingStepContent() : nothing}
+            ${currentStep === "acl" ? this._renderACLStepContent(recommendedPrivilege) : nothing}
+            ${currentStep === "verify" ? this._renderVerifyStepContent() : nothing}
+          </div>
+
+          <!-- Actions -->
+          <div class="wizard-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click=${this._closeBindingWizard}
+              ?disabled=${isAnyLoading}
+            >
+              ${currentStep === "verify" && wizard.verifyResult ? "Done" : "Cancel"}
+            </button>
+
+            ${currentStep === "binding" ? html`
+              <button
+                type="button"
+                class="btn btn-primary ${wizard.bindingInProgress ? "btn-loading" : ""}"
+                @click=${this._executeBindingStep}
+                ?disabled=${isAnyLoading}
+              >
+                Create Binding
+              </button>
+            ` : nothing}
+
+            ${currentStep === "acl" ? html`
+              ${wizard.bindingResult?.success ? html`
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  @click=${() => this._goToWizardStep("verify")}
+                  ?disabled=${isAnyLoading}
+                >
+                  Skip
+                </button>
+              ` : nothing}
+              <button
+                type="button"
+                class="btn btn-primary ${wizard.aclInProgress ? "btn-loading" : ""}"
+                @click=${this._executeACLStep}
+                ?disabled=${isAnyLoading}
+              >
+                Set Permissions
+              </button>
+            ` : nothing}
+
+            ${currentStep === "verify" ? html`
+              ${!wizard.verifyResult ? html`
+                <button
+                  type="button"
+                  class="btn btn-primary ${wizard.verifyInProgress ? "btn-loading" : ""}"
+                  @click=${this._executeVerifyStep}
+                  ?disabled=${isAnyLoading}
+                >
+                  Verify Binding
+                </button>
+              ` : nothing}
+            ` : nothing}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderBindingStepContent() {
+    if (!this._bindingWizard) return nothing;
+    const wizard = this._bindingWizard;
+    const clusterDesc = getClusterBindingDescription(wizard.clusterId);
+
+    return html`
+      <div class="wizard-step-info">
+        <div class="wizard-step-title">Step 1: Create Binding</div>
+        <div class="wizard-step-description">
+          Write the binding to <strong>${wizard.sourceNode.name}</strong>
+        </div>
+      </div>
+
+      <div class="binding-devices" style="justify-content: center;">
+        <div class="binding-device-card source">
+          <div class="binding-device-name">${wizard.sourceNode.name}</div>
+          <div class="binding-device-endpoint">Endpoint ${wizard.sourceEndpoint.endpoint_id}</div>
+        </div>
+        <div class="binding-arrow-container">
+          <span class="binding-cluster-label">${getClusterName(wizard.clusterId)}</span>
+          <span class="binding-arrow-large">→</span>
+        </div>
+        <div class="binding-device-card target">
+          <div class="binding-device-name">${wizard.targetNode.name}</div>
+          <div class="binding-device-endpoint">Endpoint ${wizard.targetEndpoint.endpoint_id}</div>
+        </div>
+      </div>
+
+      <div class="binding-explanation">
+        <div class="binding-explanation-content">
+          <strong>${wizard.sourceNode.name}</strong> will ${clusterDesc.action}
+          <strong>${wizard.targetNode.name}</strong> using ${clusterDesc.dataType}.
+        </div>
+      </div>
+
+      ${wizard.bindingInProgress ? html`
+        <div class="wizard-progress-note">
+          Communicating with Matter device... This may take a few seconds.
+        </div>
+      ` : nothing}
+
+      ${wizard.bindingResult ? html`
+        <div class="wizard-result ${wizard.bindingResult.success ? "success" : "error"}">
+          <span class="wizard-result-icon">${wizard.bindingResult.success ? "✓" : "✗"}</span>
+          <span class="wizard-result-message">${wizard.bindingResult.message}</span>
+        </div>
+      ` : nothing}
+    `;
+  }
+
+  private _renderACLStepContent(recommendedPrivilege: number) {
+    if (!this._bindingWizard) return nothing;
+    const wizard = this._bindingWizard;
+
+    return html`
+      <div class="wizard-step-info">
+        <div class="wizard-step-title">Step 2: Set Permissions</div>
+        <div class="wizard-step-description">
+          Allow <strong>${wizard.sourceNode.name}</strong> to control <strong>${wizard.targetNode.name}</strong>
+        </div>
+      </div>
+
+      <div class="privilege-selector">
+        ${PRIVILEGE_OPTIONS.map(option => html`
+          <div
+            class="privilege-option ${wizard.selectedPrivilege === option.value ? "selected" : ""}"
+            @click=${() => this._handlePrivilegeChange(option.value)}
+          >
+            <div class="privilege-radio"></div>
+            <div class="privilege-content">
+              <div class="privilege-label">
+                ${option.label}
+                ${option.value === recommendedPrivilege ? html`
+                  <span class="privilege-badge recommended">Recommended</span>
+                ` : nothing}
+              </div>
+              <div class="privilege-description">${option.description}</div>
+            </div>
+          </div>
+        `)}
+      </div>
+
+      ${wizard.aclInProgress ? html`
+        <div class="wizard-progress-note">
+          Provisioning ACL on ${wizard.targetNode.name}... This may take a few seconds.
+        </div>
+      ` : nothing}
+
+      ${wizard.aclResult ? html`
+        <div class="wizard-result ${wizard.aclResult.success ? "success" : "error"}">
+          <span class="wizard-result-icon">${wizard.aclResult.success ? "✓" : "✗"}</span>
+          <span class="wizard-result-message">${wizard.aclResult.message}</span>
+        </div>
+      ` : nothing}
+    `;
+  }
+
+  private _renderVerifyStepContent() {
+    if (!this._bindingWizard) return nothing;
+    const wizard = this._bindingWizard;
+
+    return html`
+      <div class="wizard-step-info">
+        <div class="wizard-step-title">Step 3: Verify Binding</div>
+        <div class="wizard-step-description">
+          Read the binding back from the device to confirm it was saved correctly
+        </div>
+      </div>
+
+      ${wizard.verifyInProgress ? html`
+        <div class="wizard-progress-note">
+          Reading bindings from ${wizard.sourceNode.name}... This may take a few seconds.
+        </div>
+      ` : nothing}
+
+      ${wizard.verifyResult ? html`
+        <div class="wizard-result ${wizard.verifyResult.verified ? "success" : wizard.verifyResult.success ? "success" : "error"}">
+          <span class="wizard-result-icon">${wizard.verifyResult.verified ? "✓" : wizard.verifyResult.success ? "⚠" : "✗"}</span>
+          <span class="wizard-result-message">${wizard.verifyResult.message}</span>
+        </div>
+
+        ${wizard.verifyResult.verified ? html`
+          <div style="text-align: center; margin-top: 16px; color: var(--success-color);">
+            Binding created and verified successfully!
+          </div>
+        ` : nothing}
+      ` : html`
+        <div style="text-align: center; padding: 24px; color: var(--secondary-text-color);">
+          Click "Verify Binding" to confirm the binding was saved to the device.
+        </div>
+      `}
+    `;
+  }
+
+  // =============================================================================
+  // Bulk Repair Modal Render
+  // =============================================================================
+
+  private _renderBulkRepairModal() {
+    if (!this._showBulkRepairModal || !this._bulkRepairResult) return nothing;
+
+    const result = this._bulkRepairResult;
+    const failed = result.total - result.succeeded;
+
+    return html`
+      <div class="dialog-overlay" @click=${this._closeBulkRepairModal}>
+        <div class="dialog" style="max-width: 500px;" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="dialog-header">ACL Repair Results</div>
+
+          <div class="bulk-repair-summary">
+            <div class="bulk-repair-stat">
+              <div class="bulk-repair-stat-value">${result.total}</div>
+              <div class="bulk-repair-stat-label">Total</div>
+            </div>
+            <div class="bulk-repair-stat success">
+              <div class="bulk-repair-stat-value">${result.succeeded}</div>
+              <div class="bulk-repair-stat-label">Succeeded</div>
+            </div>
+            ${failed > 0 ? html`
+              <div class="bulk-repair-stat failed">
+                <div class="bulk-repair-stat-value">${failed}</div>
+                <div class="bulk-repair-stat-label">Failed</div>
+              </div>
+            ` : nothing}
+          </div>
+
+          ${result.results.length > 0 ? html`
+            <div class="bulk-repair-results">
+              ${result.results.map(item => {
+                const targetNode = this._nodes.find(n => n.node_id === item.target_node_id);
+                return html`
+                  <div class="bulk-repair-item">
+                    <span class="bulk-repair-item-icon ${item.success ? "success" : "failed"}">
+                      ${item.success ? "✓" : "✗"}
+                    </span>
+                    <span>
+                      ${targetNode?.name || `Node ${item.target_node_id}`}
+                      (EP ${item.target_endpoint_id}, Cluster ${getClusterName(item.cluster_id)})
+                      ${!item.success ? html`<br><small style="color: var(--error-color);">${item.message}</small>` : nothing}
+                    </span>
+                  </div>
+                `;
+              })}
+            </div>
+          ` : html`
+            <div style="text-align: center; padding: 16px; color: var(--secondary-text-color);">
+              No bindings found to repair.
+            </div>
+          `}
+
+          <div class="dialog-actions">
+            <button type="button" class="btn btn-primary" @click=${this._closeBulkRepairModal}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     `;

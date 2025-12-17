@@ -10,6 +10,8 @@ import type {
   ListACLResponse,
   SuccessResponse,
   BindingVerificationResponse,
+  ProvisionACLResponse,
+  ProvisionACLForBindingsResponse,
   EveScheduleResponse,
   GetScheduleResponse,
   SetScheduleResponse,
@@ -46,7 +48,8 @@ export async function createBinding(
   targetNodeId?: number,
   targetEndpointId?: number,
   targetGroupId?: number,
-  verify: boolean = true
+  verify: boolean = true,
+  provisionACL: boolean = true
 ): Promise<BindingVerificationResponse> {
   return hass.callWS({
     type: `${DOMAIN}/create_binding`,
@@ -54,6 +57,7 @@ export async function createBinding(
     source_endpoint_id: sourceEndpointId,
     cluster_id: clusterId,
     verify,
+    provision_acl: provisionACL,
     ...(targetNodeId !== undefined && { target_node_id: targetNodeId }),
     ...(targetEndpointId !== undefined && { target_endpoint_id: targetEndpointId }),
     ...(targetGroupId !== undefined && { target_group_id: targetGroupId }),
@@ -110,6 +114,77 @@ export async function listACL(
   return hass.callWS({
     type: `${DOMAIN}/list_acl`,
     node_id: nodeId,
+  });
+}
+
+/**
+ * Provision an ACL entry on the target device to allow the source node
+ * to control the specified endpoint/cluster.
+ *
+ * @param hass - Home Assistant instance
+ * @param targetNodeId - Node that will receive the ACL entry (the device being controlled)
+ * @param targetEndpointId - Endpoint on the target device
+ * @param sourceNodeId - Node that will be granted access (the controller)
+ * @param clusterId - Cluster the source is allowed to access
+ */
+export async function provisionACL(
+  hass: HomeAssistant,
+  targetNodeId: number,
+  targetEndpointId: number,
+  sourceNodeId: number,
+  clusterId: number
+): Promise<ProvisionACLResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/provision_acl`,
+    target_node_id: targetNodeId,
+    target_endpoint_id: targetEndpointId,
+    source_node_id: sourceNodeId,
+    cluster_id: clusterId,
+  });
+}
+
+/**
+ * Remove an ACL entry from a target device.
+ *
+ * @param hass - Home Assistant instance
+ * @param targetNodeId - Node to remove the ACL entry from
+ * @param sourceNodeId - Node whose access is being revoked
+ * @param targetEndpointId - Optional: specific endpoint (if omitted, removes all matching)
+ * @param clusterId - Optional: specific cluster (if omitted, removes all matching)
+ */
+export async function removeACL(
+  hass: HomeAssistant,
+  targetNodeId: number,
+  sourceNodeId: number,
+  targetEndpointId?: number,
+  clusterId?: number
+): Promise<ProvisionACLResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/remove_acl`,
+    target_node_id: targetNodeId,
+    source_node_id: sourceNodeId,
+    ...(targetEndpointId !== undefined && { target_endpoint_id: targetEndpointId }),
+    ...(clusterId !== undefined && { cluster_id: clusterId }),
+  });
+}
+
+/**
+ * Bulk provision ACLs for all existing bindings on an endpoint.
+ * Used for "Repair All" functionality to fix bindings created before ACL provisioning.
+ *
+ * @param hass - Home Assistant instance
+ * @param nodeId - Source node with bindings
+ * @param endpointId - Endpoint with bindings to repair
+ */
+export async function provisionACLForBindings(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number
+): Promise<ProvisionACLForBindingsResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/provision_acl_for_bindings`,
+    node_id: nodeId,
+    endpoint_id: endpointId,
   });
 }
 
