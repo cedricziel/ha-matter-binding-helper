@@ -30,6 +30,16 @@ import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibl
 import { getRecommendedPrivilege, PRIVILEGE_OPTIONS } from "./acl-logic";
 import * as api from "./api";
 
+// Import extracted components
+import "./components/node-list/node-list";
+import "./components/bindings/binding-card";
+import "./components/acl/acl-section";
+import "./components/dialogs/confirm-dialog";
+import "./components/dialogs/create-binding-dialog";
+import "./components/wizard/binding-wizard";
+import "./components/device-panel/endpoint-selector";
+import "./components/overview/recommendation-list";
+
 @customElement("matter-binding-helper-panel")
 export class MatterBindingPanel extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
@@ -3252,16 +3262,12 @@ export class MatterBindingPanel extends LitElement {
   private _renderBindingsTab() {
     return html`
       <div class="content">
-        <div class="card">
-          <div class="card-header">Matter Devices</div>
-          ${this._loading && this._nodes.length === 0
-            ? html`<div class="loading">Loading...</div>`
-            : html`
-                <ul class="node-list">
-                  ${this._nodes.map((node) => this._renderNodeItem(node))}
-                </ul>
-              `}
-        </div>
+        <matter-node-list
+          .nodes=${this._nodes}
+          .selectedNodeId=${this._selectedSourceNode?.node_id ?? null}
+          .loading=${this._loading}
+          @node-selected=${this._handleNodeSelected}
+        ></matter-node-list>
 
         <div class="card device-panel">
           ${this._selectedSourceNode
@@ -3274,6 +3280,33 @@ export class MatterBindingPanel extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  private _handleNodeSelected(e: CustomEvent<{ node: MatterNode }>) {
+    this._selectNode(e.detail.node);
+  }
+
+  private _handleBindingCardDelete(e: CustomEvent<{ binding: BindingWithContext }>) {
+    this._showDeleteConfirmDialog(e.detail.binding);
+  }
+
+  private _handleBindingCardRepairAcl(e: CustomEvent<{ binding: BindingWithContext }>) {
+    this._repairBindingACL(e.detail.binding);
+  }
+
+  private _handleBindingCardNavigate(e: CustomEvent<{ deviceId: string }>) {
+    this._navigateToDevice(e.detail.deviceId);
+  }
+
+  private _handleLoadAcl(e: CustomEvent<{ nodeId: number }>) {
+    this._loadACL(e.detail.nodeId);
+  }
+
+  private _handleEndpointSelected(e: CustomEvent<{ endpoint: MatterEndpoint }>) {
+    if (!e.detail.endpoint.has_binding_cluster) return;
+    this._lastVerificationResult = null;
+    this._selectedSourceEndpoint = e.detail.endpoint;
+    this._loadBindings();
   }
 
   private _renderDeviceDetails(node: MatterNode) {
@@ -3308,19 +3341,20 @@ export class MatterBindingPanel extends LitElement {
         </div>
 
         <div class="device-section">
-          <div class="section-header">Endpoints</div>
-          ${totalEndpoints > 0
-            ? html`
-                <div class="endpoint-list">
-                  ${node.endpoints.map((endpoint) =>
-                    this._renderEndpointItem(endpoint)
-                  )}
-                </div>
-              `
-            : html`<div class="no-endpoints">No endpoints found</div>`}
+          <matter-endpoint-selector
+            .endpoints=${node.endpoints}
+            .selectedEndpointId=${this._selectedSourceEndpoint?.endpoint_id ?? null}
+            @endpoint-selected=${this._handleEndpointSelected}
+          ></matter-endpoint-selector>
         </div>
 
-        ${this._renderACLSection(node)}
+        <matter-acl-section
+          .node=${node}
+          .entries=${this._aclEntries}
+          .nodes=${this._nodes}
+          .loading=${this._aclLoading}
+          @load-acl=${this._handleLoadAcl}
+        ></matter-acl-section>
 
         ${this._renderEntityList(node)}
         ${this._renderDeviceRegistryInfo(node)}
@@ -3373,9 +3407,28 @@ export class MatterBindingPanel extends LitElement {
             ? this._bindings.length > 0
               ? html`
                   <div class="binding-list">
-                    ${this._bindings.map((binding) =>
-                      this._renderBindingCard(binding)
-                    )}
+                    ${this._bindings.map((binding) => {
+                      const bindingCtx = this._getBindingContext(binding);
+                      if (!bindingCtx) return nothing;
+                      const isGroupBinding = binding.target_group_id !== null;
+                      const aclStatus = !isGroupBinding
+                        ? this._checkBindingACL(binding, this._selectedSourceNode!.node_id)
+                        : { hasPermission: true, status: "ok" as const };
+                      const actionKey = `delete-tab-${binding.node_id}-${binding.endpoint_id}-${binding.target_node_id}-${binding.target_endpoint_id}`;
+                      return html`
+                        <matter-binding-card
+                          .binding=${bindingCtx}
+                          .aclMissing=${!aclStatus.hasPermission}
+                          .aclReason=${aclStatus.reason || ""}
+                          .showRepairButton=${!aclStatus.hasPermission && !isGroupBinding}
+                          .deleteInProgress=${this._actionInProgress === actionKey}
+                          .disabled=${this._actionInProgress !== null}
+                          @delete-binding=${this._handleBindingCardDelete}
+                          @repair-acl=${this._handleBindingCardRepairAcl}
+                          @navigate-device=${this._handleBindingCardNavigate}
+                        ></matter-binding-card>
+                      `;
+                    })}
                   </div>
                 `
               : html`
@@ -3470,6 +3523,30 @@ export class MatterBindingPanel extends LitElement {
       newSet.delete(nodeId);
       this._aclLoadingNodes = newSet;
     }
+  }
+
+  /**
+   * Create a BindingWithContext from a Binding using current selection state.
+   */
+  private _getBindingContext(binding: Binding): BindingWithContext | null {
+    if (!this._selectedSourceNode || !this._selectedSourceEndpoint) {
+      return null;
+    }
+
+    const targetNode = binding.target_node_id !== null
+      ? this._nodes.find((n) => n.node_id === binding.target_node_id) || null
+      : null;
+    const targetEndpoint = targetNode && binding.target_endpoint_id !== null
+      ? targetNode.endpoints.find((e) => e.endpoint_id === binding.target_endpoint_id) || null
+      : null;
+
+    return {
+      binding,
+      sourceNode: this._selectedSourceNode,
+      sourceEndpoint: this._selectedSourceEndpoint,
+      targetNode,
+      targetEndpoint,
+    };
   }
 
   /**
