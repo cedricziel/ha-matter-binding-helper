@@ -24,6 +24,9 @@ from .const import (
     WS_TYPE_LIST_BINDINGS,
     WS_TYPE_LIST_GROUPS,
     WS_TYPE_LIST_NODES,
+    WS_TYPE_PROVISION_ACL,
+    WS_TYPE_PROVISION_ACL_FOR_BINDINGS,
+    WS_TYPE_REMOVE_ACL,
     WS_TYPE_REMOVE_FROM_GROUP,
     WS_TYPE_SET_SCHEDULE,
     WS_TYPE_VERIFY_BINDINGS,
@@ -56,6 +59,9 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete_binding)
     websocket_api.async_register_command(hass, ws_verify_bindings)
     websocket_api.async_register_command(hass, ws_list_acl)
+    websocket_api.async_register_command(hass, ws_provision_acl)
+    websocket_api.async_register_command(hass, ws_remove_acl)
+    websocket_api.async_register_command(hass, ws_provision_acl_for_bindings)
     websocket_api.async_register_command(hass, ws_list_groups)
     websocket_api.async_register_command(hass, ws_create_group)
     websocket_api.async_register_command(hass, ws_delete_group)
@@ -935,6 +941,7 @@ def _serialize_value(value: Any) -> dict[str, Any]:
         vol.Optional("target_endpoint_id"): vol.Coerce(int),
         vol.Optional("target_group_id"): vol.Coerce(int),
         vol.Optional("verify", default=True): bool,
+        vol.Optional("provision_acl", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -943,7 +950,7 @@ async def ws_create_binding(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Create a new binding with optional verification.
+    """Create a new binding with optional verification and ACL provisioning.
 
     Returns:
         success: True if the write operation succeeded
@@ -961,6 +968,7 @@ async def ws_create_binding(
         target_endpoint_id=msg.get("target_endpoint_id"),
         target_group_id=msg.get("target_group_id"),
         verify=msg.get("verify", True),
+        provision_acl=msg.get("provision_acl", True),
     )
     _LOGGER.info("ws_create_binding result: %s", result)
     if result.success:
@@ -1043,13 +1051,138 @@ async def ws_list_acl(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): WS_TYPE_PROVISION_ACL,
+        vol.Required("target_node_id"): vol.Coerce(int),
+        vol.Required("target_endpoint_id"): vol.Coerce(int),
+        vol.Required("source_node_id"): vol.Coerce(int),
+        vol.Required("cluster_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_provision_acl(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Provision an ACL entry for a binding.
+
+    Adds an ACL entry on the target device to allow the source node
+    to control the specified endpoint/cluster.
+
+    Returns:
+        success: True if ACL was provisioned
+        message: Status message
+        acl_entries_count: Number of ACL entries after provisioning
+    """
+    _LOGGER.info("ws_provision_acl called with: %s", msg)
+    result = await matter_client.provision_acl_for_binding(
+        hass,
+        source_node_id=msg["source_node_id"],
+        target_node_id=msg["target_node_id"],
+        target_endpoint_id=msg["target_endpoint_id"],
+        cluster_id=msg["cluster_id"],
+    )
+
+    if result.success:
+        connection.send_result(msg["id"], result.to_dict())
+    else:
+        connection.send_error(msg["id"], result.error_type.value, result.message)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_REMOVE_ACL,
+        vol.Required("target_node_id"): vol.Coerce(int),
+        vol.Required("source_node_id"): vol.Coerce(int),
+        vol.Optional("target_endpoint_id"): vol.Coerce(int),
+        vol.Optional("cluster_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_remove_acl(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Remove an ACL entry.
+
+    Removes ACL entry from target device that grants access to source node.
+
+    Returns:
+        success: True if ACL was removed
+        message: Status message
+        acl_entries_count: Number of ACL entries after removal
+    """
+    _LOGGER.info("ws_remove_acl called with: %s", msg)
+    result = await matter_client.remove_acl_entry(
+        hass,
+        node_id=msg["target_node_id"],
+        source_node_id=msg["source_node_id"],
+        target_endpoint_id=msg.get("target_endpoint_id"),
+        cluster_id=msg.get("cluster_id"),
+    )
+
+    if result.success:
+        connection.send_result(msg["id"], result.to_dict())
+    else:
+        connection.send_error(msg["id"], result.error_type.value, result.message)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_PROVISION_ACL_FOR_BINDINGS,
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_provision_acl_for_bindings(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Provision ACLs for all existing bindings on an endpoint.
+
+    Reads all bindings from the endpoint and provisions ACL entries
+    on each target device. Useful for retroactively fixing bindings
+    that were created without ACL provisioning.
+
+    Returns:
+        success: True if all ACLs were provisioned
+        results: List of provisioning results for each binding
+        total: Total number of bindings processed
+        succeeded: Number of successful ACL provisions
+    """
+    _LOGGER.info("ws_provision_acl_for_bindings called with: %s", msg)
+
+    results = await matter_client.provision_acls_for_existing_bindings(
+        hass,
+        node_id=msg["node_id"],
+        endpoint_id=msg["endpoint_id"],
+    )
+
+    connection.send_result(
+        msg["id"],
+        {
+            "success": all(r["success"] for r in results) if results else True,
+            "results": results,
+            "total": len(results),
+            "succeeded": sum(1 for r in results if r["success"]),
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): WS_TYPE_DELETE_BINDING,
         vol.Required("source_node_id"): vol.Coerce(int),
         vol.Required("source_endpoint_id"): vol.Coerce(int),
         vol.Optional("target_node_id"): vol.Coerce(int),
         vol.Optional("target_endpoint_id"): vol.Coerce(int),
         vol.Optional("target_group_id"): vol.Coerce(int),
+        vol.Optional("cluster_id"): vol.Coerce(int),
         vol.Optional("verify", default=True): bool,
+        vol.Optional("remove_acl", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -1058,7 +1191,7 @@ async def ws_delete_binding(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Delete a binding with optional verification.
+    """Delete a binding with optional verification and ACL cleanup.
 
     Returns:
         success: True if the write operation succeeded
@@ -1074,7 +1207,9 @@ async def ws_delete_binding(
         target_node_id=msg.get("target_node_id"),
         target_endpoint_id=msg.get("target_endpoint_id"),
         target_group_id=msg.get("target_group_id"),
+        cluster_id=msg.get("cluster_id"),
         verify=msg.get("verify", True),
+        remove_acl=msg.get("remove_acl", True),
     )
     _LOGGER.info("ws_delete_binding result: %s", result)
     if result.success:

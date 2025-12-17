@@ -65,6 +65,9 @@ CMD_CLEAR_WEEKLY_SCHEDULE = 0x03
 
 # Access Control cluster
 WS_TYPE_LIST_ACL = f"{DOMAIN}/list_acl"
+WS_TYPE_PROVISION_ACL = f"{DOMAIN}/provision_acl"
+WS_TYPE_REMOVE_ACL = f"{DOMAIN}/remove_acl"
+WS_TYPE_PROVISION_ACL_FOR_BINDINGS = f"{DOMAIN}/provision_acl_for_bindings"
 ATTR_ACL = 0  # ACL attribute ID
 
 # ACL privilege levels
@@ -78,3 +81,16 @@ ACL_PRIVILEGE_ADMINISTER = 5
 ACL_AUTH_MODE_PASE = 1  # Commissioning
 ACL_AUTH_MODE_CASE = 2  # Device-to-device (certificate)
 ACL_AUTH_MODE_GROUP = 3  # Group messaging
+
+# Cluster-to-privilege mapping for bindings
+# Maps cluster IDs to the minimum privilege required to operate on them
+CLUSTER_DOOR_LOCK = 0x0101
+CLUSTER_PRIVILEGE_MAP: dict[int, int] = {
+    CLUSTER_ON_OFF: ACL_PRIVILEGE_OPERATE,
+    CLUSTER_LEVEL_CONTROL: ACL_PRIVILEGE_OPERATE,
+    CLUSTER_COLOR_CONTROL: ACL_PRIVILEGE_OPERATE,
+    CLUSTER_THERMOSTAT: ACL_PRIVILEGE_OPERATE,
+    CLUSTER_SCENES: ACL_PRIVILEGE_OPERATE,
+    CLUSTER_DOOR_LOCK: ACL_PRIVILEGE_OPERATE,
+}
+DEFAULT_CLUSTER_PRIVILEGE = ACL_PRIVILEGE_OPERATE

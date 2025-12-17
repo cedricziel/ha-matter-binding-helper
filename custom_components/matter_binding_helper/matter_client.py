@@ -30,9 +30,11 @@ from .const import (
     CLUSTER_DESCRIPTOR,
     CLUSTER_LEVEL_CONTROL,
     CLUSTER_ON_OFF,
+    CLUSTER_PRIVILEGE_MAP,
     CLUSTER_THERMOSTAT,
     CMD_GET_WEEKLY_SCHEDULE,
     CONF_DEMO_MODE,
+    DEFAULT_CLUSTER_PRIVILEGE,
     DEFAULT_DEMO_MODE,
     DOMAIN,
 )
@@ -1263,8 +1265,8 @@ async def get_bindings(
     return bindings
 
 
-# Demo ACL entries for testing
-_demo_acl: list[ACLEntry] = [
+# Demo ACL entries for testing (per-node storage)
+_demo_acl_default: list[ACLEntry] = [
     ACLEntry(
         privilege=ACL_PRIVILEGE_ADMINISTER,
         auth_mode=ACL_AUTH_MODE_CASE,
@@ -1273,6 +1275,9 @@ _demo_acl: list[ACLEntry] = [
         fabric_index=1,
     ),
 ]
+
+# Per-node ACL storage for demo mode (stores ACLEntry objects)
+_demo_acl_entries: dict[int, list[ACLEntry]] = {}
 
 
 def _get_acl_from_node_cache(client: MatterClient, node_id: int) -> list | None:
@@ -1396,7 +1401,8 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
     # Check for demo mode first
     if _is_demo_mode(hass):
         _LOGGER.debug("Demo mode enabled, returning demo ACL for node %s", node_id)
-        return _demo_acl
+        # Return per-node ACL if it exists, otherwise return default
+        return _demo_acl_entries.get(node_id, _demo_acl_default.copy())
 
     client = get_matter_client(hass)
     if not client:
@@ -1770,6 +1776,25 @@ class BindingVerificationResult:
         }
 
 
+@dataclass
+class ACLProvisioningResult:
+    """Result of an ACL provisioning operation."""
+
+    success: bool
+    message: str
+    acl_entries_count: int = 0
+    error_type: OperationErrorType = field(default=OperationErrorType.SUCCESS)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "success": self.success,
+            "message": self.message,
+            "acl_entries_count": self.acl_entries_count,
+            "error_type": self.error_type.value,
+        }
+
+
 def _parse_error_type(err: Exception) -> OperationErrorType:
     """Parse an exception to determine the error type."""
     error_str = str(err).lower()
@@ -1870,6 +1895,593 @@ def _binding_matches(
     if cluster_id is not None and binding.cluster_id != cluster_id:
         return False
     return True
+
+
+# ACL Helper Functions
+
+
+def get_cluster_privilege(cluster_id: int) -> int:
+    """Get the required ACL privilege level for a cluster.
+
+    Maps standard Matter cluster IDs to their typical required privilege levels.
+    Most control clusters require OPERATE privilege (3).
+
+    Args:
+        cluster_id: The Matter cluster ID
+
+    Returns:
+        The ACL privilege level (1=View, 3=Operate, 4=Manage, 5=Administer)
+    """
+    return CLUSTER_PRIVILEGE_MAP.get(cluster_id, DEFAULT_CLUSTER_PRIVILEGE)
+
+
+def _build_acl_entry_for_binding(
+    source_node_id: int,
+    target_endpoint_id: int,
+    cluster_id: int,
+) -> dict[str, Any]:
+    """Build an ACL entry dict for a binding.
+
+    Creates an ACL entry that allows the source node to operate
+    on the target endpoint's cluster.
+
+    Args:
+        source_node_id: The node ID that needs access (source of binding)
+        target_endpoint_id: The endpoint on the target device
+        cluster_id: The cluster to grant access to
+
+    Returns:
+        Dict in Matter ACL entry format
+    """
+    privilege = get_cluster_privilege(cluster_id)
+
+    return {
+        "privilege": privilege,
+        "authMode": ACL_AUTH_MODE_CASE,  # Device-to-device communication
+        "subjects": [source_node_id],  # Only this node can use this entry
+        "targets": [
+            {
+                "cluster": cluster_id,
+                "endpoint": target_endpoint_id,
+                "deviceType": None,
+            }
+        ],
+        "fabricIndex": 0,  # Device sets this automatically
+    }
+
+
+def _acl_entry_exists(
+    existing_entries: list[ACLEntry],
+    source_node_id: int,
+    target_endpoint_id: int | None,
+    cluster_id: int | None,
+) -> bool:
+    """Check if an ACL entry already grants the required access.
+
+    Checks for:
+    1. Exact match (same subject, endpoint, cluster)
+    2. Wildcard match (entry allows all endpoints or all clusters)
+
+    Args:
+        existing_entries: Current ACL entries on the target device
+        source_node_id: The node that needs access
+        target_endpoint_id: The endpoint to access (None = any)
+        cluster_id: The cluster to access (None = any)
+
+    Returns:
+        True if sufficient access already exists
+    """
+    required_privilege = (
+        get_cluster_privilege(cluster_id) if cluster_id else ACL_PRIVILEGE_OPERATE
+    )
+
+    for entry in existing_entries:
+        # Check privilege level (must be >= required)
+        if entry.privilege < required_privilege:
+            continue
+
+        # Check auth mode (CASE for device-to-device)
+        if entry.auth_mode != ACL_AUTH_MODE_CASE:
+            continue
+
+        # Check if source node is allowed
+        # Empty subjects = all nodes with this auth mode
+        if entry.subjects and source_node_id not in entry.subjects:
+            continue
+
+        # Check targets
+        if not entry.targets:
+            # Empty targets = all endpoints and clusters
+            return True
+
+        for target in entry.targets:
+            # Check endpoint match (None in target = any endpoint)
+            endpoint_match = (
+                target.endpoint is None or target.endpoint == target_endpoint_id
+            )
+            # Check cluster match (None in target = any cluster)
+            cluster_match = target.cluster is None or target.cluster == cluster_id
+
+            if endpoint_match and cluster_match:
+                return True
+
+    return False
+
+
+def _acl_entry_to_dict(entry: ACLEntry) -> dict[str, Any]:
+    """Convert an ACLEntry to dict format for writing to device.
+
+    Args:
+        entry: The ACL entry to convert
+
+    Returns:
+        Dict in Matter ACL write format
+    """
+    targets = None
+    if entry.targets:
+        targets = [
+            {
+                "cluster": t.cluster,
+                "endpoint": t.endpoint,
+                "deviceType": t.device_type,
+            }
+            for t in entry.targets
+        ]
+
+    return {
+        "privilege": entry.privilege,
+        "authMode": entry.auth_mode,
+        "subjects": entry.subjects if entry.subjects else None,
+        "targets": targets,
+        "fabricIndex": 0,  # Device sets this automatically
+    }
+
+
+# Core ACL Operations
+
+
+async def write_acl(
+    hass: HomeAssistant,
+    node_id: int,
+    acl_entries: list[dict[str, Any]],
+) -> ACLProvisioningResult:
+    """Write the complete ACL list to a device.
+
+    ACL is always written to endpoint 0, cluster 0x001F, attribute 0.
+    This REPLACES the entire ACL for the current fabric.
+
+    IMPORTANT: The admin entry must be FIRST in the list to prevent lockout.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Target node ID
+        acl_entries: Complete list of ACL entries to write
+
+    Returns:
+        ACLProvisioningResult indicating success/failure
+    """
+    # SAFETY CHECK: Ensure we have at least one admin entry to prevent lockout
+    has_admin = any(
+        entry.get("privilege") == ACL_PRIVILEGE_ADMINISTER for entry in acl_entries
+    )
+    if not has_admin:
+        _LOGGER.error(
+            "write_acl: SAFETY BLOCK - Refusing to write ACL without admin entry "
+            "to node %s. This would lock out Home Assistant.",
+            node_id,
+        )
+        return ACLProvisioningResult(
+            success=False,
+            message="Safety block: Cannot write ACL without admin entry",
+            error_type=OperationErrorType.INVALID_REQUEST,
+        )
+
+    # SAFETY CHECK: Ensure admin entry is first in the list
+    if acl_entries and acl_entries[0].get("privilege") != ACL_PRIVILEGE_ADMINISTER:
+        _LOGGER.warning(
+            "write_acl: Admin entry is not first in the list for node %s. "
+            "Reordering to prevent lockout.",
+            node_id,
+        )
+        # Move admin entries to the front
+        admin_entries = [
+            e for e in acl_entries if e.get("privilege") == ACL_PRIVILEGE_ADMINISTER
+        ]
+        other_entries = [
+            e for e in acl_entries if e.get("privilege") != ACL_PRIVILEGE_ADMINISTER
+        ]
+        acl_entries = admin_entries + other_entries
+
+    # Handle demo mode
+    if _is_demo_mode(hass):
+        _LOGGER.debug("Demo mode: write_acl for node %s", node_id)
+        # Store in demo ACL entries
+        demo_entries: list[ACLEntry] = []
+        for entry in acl_entries:
+            targets = []
+            if entry.get("targets"):
+                for t in entry["targets"]:
+                    targets.append(
+                        ACLTarget(
+                            cluster=t.get("cluster"),
+                            endpoint=t.get("endpoint"),
+                            device_type=t.get("deviceType"),
+                        )
+                    )
+            demo_entries.append(
+                ACLEntry(
+                    privilege=entry.get("privilege", ACL_PRIVILEGE_OPERATE),
+                    auth_mode=entry.get("authMode", ACL_AUTH_MODE_CASE),
+                    subjects=entry.get("subjects") or [],
+                    targets=targets,
+                    fabric_index=entry.get("fabricIndex", 1),
+                )
+            )
+        _demo_acl_entries[node_id] = demo_entries
+        return ACLProvisioningResult(
+            success=True,
+            message="Demo mode: ACL written",
+            acl_entries_count=len(acl_entries),
+        )
+
+    client = get_matter_client(hass)
+    if not client:
+        return ACLProvisioningResult(
+            success=False,
+            message="Matter client not available",
+            error_type=OperationErrorType.DEVICE_UNAVAILABLE,
+        )
+
+    # Pre-check: Is the device available?
+    is_available, unavail_msg = _check_node_available(client, node_id)
+    if not is_available:
+        return ACLProvisioningResult(
+            success=False,
+            message=_get_user_friendly_error(
+                OperationErrorType.DEVICE_UNAVAILABLE, Exception(unavail_msg or "")
+            ),
+            error_type=OperationErrorType.DEVICE_UNAVAILABLE,
+        )
+
+    try:
+        # ACL is on endpoint 0, cluster 31, attribute 0
+        attribute_path = f"0/{CLUSTER_ACCESS_CONTROL}/{ATTR_ACL}"
+
+        _LOGGER.info(
+            "write_acl: Writing %d ACL entries to node %s",
+            len(acl_entries),
+            node_id,
+        )
+
+        result = await client.write_attribute(
+            node_id=node_id,
+            attribute_path=attribute_path,
+            value=acl_entries,
+        )
+
+        _LOGGER.info("write_acl: write_attribute result: %s", result)
+
+        return ACLProvisioningResult(
+            success=True,
+            message=f"Successfully wrote {len(acl_entries)} ACL entries",
+            acl_entries_count=len(acl_entries),
+        )
+
+    except Exception as err:
+        _LOGGER.error("Error writing ACL to node %s: %s", node_id, err, exc_info=True)
+        error_type = _parse_error_type(err)
+        return ACLProvisioningResult(
+            success=False,
+            message=_get_user_friendly_error(error_type, err),
+            error_type=error_type,
+        )
+
+
+async def add_acl_entry(
+    hass: HomeAssistant,
+    node_id: int,
+    source_node_id: int,
+    target_endpoint_id: int,
+    cluster_id: int,
+) -> ACLProvisioningResult:
+    """Add an ACL entry to allow a source node to access a target endpoint/cluster.
+
+    Reads the current ACL, checks if entry already exists, and appends if needed.
+    Admin entries are kept first to prevent lockout during write.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Target device node ID (receives the ACL entry)
+        source_node_id: Source node ID that needs access
+        target_endpoint_id: Endpoint to grant access to
+        cluster_id: Cluster to grant access to
+
+    Returns:
+        ACLProvisioningResult indicating success/failure
+    """
+    try:
+        # Get current ACL entries
+        current_entries = await get_acl(hass, node_id)
+
+        # Check if entry already exists
+        if _acl_entry_exists(
+            current_entries, source_node_id, target_endpoint_id, cluster_id
+        ):
+            _LOGGER.info(
+                "add_acl_entry: ACL entry already exists for node %s -> "
+                "node %s ep %s cluster 0x%04X",
+                source_node_id,
+                node_id,
+                target_endpoint_id,
+                cluster_id,
+            )
+            return ACLProvisioningResult(
+                success=True,
+                message="ACL entry already exists",
+                acl_entries_count=len(current_entries),
+            )
+
+        # Separate admin entries from others (admin entries must come first)
+        admin_entries = [
+            e for e in current_entries if e.privilege == ACL_PRIVILEGE_ADMINISTER
+        ]
+        other_entries = [
+            e for e in current_entries if e.privilege != ACL_PRIVILEGE_ADMINISTER
+        ]
+
+        # Build the new ACL entry
+        new_entry = _build_acl_entry_for_binding(
+            source_node_id=source_node_id,
+            target_endpoint_id=target_endpoint_id,
+            cluster_id=cluster_id,
+        )
+
+        # Convert existing entries back to dict format for write
+        # Admin entries first, then other existing entries, then new entry
+        acl_list: list[dict[str, Any]] = []
+
+        for entry in admin_entries:
+            acl_list.append(_acl_entry_to_dict(entry))
+
+        for entry in other_entries:
+            acl_list.append(_acl_entry_to_dict(entry))
+
+        # Append new entry
+        acl_list.append(new_entry)
+
+        _LOGGER.info(
+            "add_acl_entry: Adding ACL entry for node %s -> node %s ep %s cluster 0x%04X",
+            source_node_id,
+            node_id,
+            target_endpoint_id,
+            cluster_id,
+        )
+
+        # Write the updated ACL
+        return await write_acl(hass, node_id, acl_list)
+
+    except Exception as err:
+        _LOGGER.error("Error adding ACL entry: %s", err, exc_info=True)
+        error_type = _parse_error_type(err)
+        return ACLProvisioningResult(
+            success=False,
+            message=_get_user_friendly_error(error_type, err),
+            error_type=error_type,
+        )
+
+
+async def remove_acl_entry(
+    hass: HomeAssistant,
+    node_id: int,
+    source_node_id: int,
+    target_endpoint_id: int | None = None,
+    cluster_id: int | None = None,
+) -> ACLProvisioningResult:
+    """Remove an ACL entry from a device.
+
+    Finds and removes ACL entries matching the source node and target criteria.
+    Admin entries are preserved first to prevent lockout.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Target device node ID
+        source_node_id: Source node ID to remove access for
+        target_endpoint_id: Specific endpoint (None = match any)
+        cluster_id: Specific cluster (None = match any)
+
+    Returns:
+        ACLProvisioningResult indicating success/failure
+    """
+    try:
+        # Get current ACL entries
+        current_entries = await get_acl(hass, node_id)
+
+        # Filter out entries that match the criteria
+        admin_entries: list[ACLEntry] = []
+        kept_entries: list[ACLEntry] = []
+        removed_count = 0
+
+        for entry in current_entries:
+            # Always keep admin entries
+            if entry.privilege == ACL_PRIVILEGE_ADMINISTER:
+                admin_entries.append(entry)
+                continue
+
+            should_remove = False
+
+            # Check if this entry grants access to source_node_id
+            subject_match = (
+                source_node_id in entry.subjects if entry.subjects else False
+            )
+
+            if subject_match:
+                # Check targets for match
+                if not entry.targets:
+                    # Wildcard entry - only remove if subjects is exactly [source_node_id]
+                    if entry.subjects == [source_node_id]:
+                        should_remove = True
+                else:
+                    for target in entry.targets:
+                        endpoint_match = (
+                            target_endpoint_id is None
+                            or target.endpoint == target_endpoint_id
+                        )
+                        cluster_match = (
+                            cluster_id is None or target.cluster == cluster_id
+                        )
+
+                        if endpoint_match and cluster_match:
+                            should_remove = True
+                            break
+
+            if should_remove:
+                removed_count += 1
+            else:
+                kept_entries.append(entry)
+
+        if removed_count == 0:
+            return ACLProvisioningResult(
+                success=True,
+                message="No matching ACL entry found to remove",
+                acl_entries_count=len(current_entries),
+            )
+
+        # Build ACL list with admin first, then kept entries
+        acl_list: list[dict[str, Any]] = []
+
+        for entry in admin_entries:
+            acl_list.append(_acl_entry_to_dict(entry))
+
+        for entry in kept_entries:
+            acl_list.append(_acl_entry_to_dict(entry))
+
+        _LOGGER.info(
+            "remove_acl_entry: Removing %d ACL entries from node %s for source %s",
+            removed_count,
+            node_id,
+            source_node_id,
+        )
+
+        # Write the filtered ACL
+        return await write_acl(hass, node_id, acl_list)
+
+    except Exception as err:
+        _LOGGER.error("Error removing ACL entry: %s", err, exc_info=True)
+        error_type = _parse_error_type(err)
+        return ACLProvisioningResult(
+            success=False,
+            message=_get_user_friendly_error(error_type, err),
+            error_type=error_type,
+        )
+
+
+# High-Level ACL Functions
+
+
+async def provision_acl_for_binding(
+    hass: HomeAssistant,
+    source_node_id: int,
+    target_node_id: int,
+    target_endpoint_id: int,
+    cluster_id: int,
+) -> ACLProvisioningResult:
+    """Provision an ACL entry on the target device for a binding.
+
+    This is the main entry point for ACL provisioning when creating bindings.
+    Adds an ACL entry on the target device that allows the source device
+    to operate on the specified endpoint/cluster.
+
+    Args:
+        hass: Home Assistant instance
+        source_node_id: Node that will send commands (binding source)
+        target_node_id: Node that will receive commands (binding target)
+        target_endpoint_id: Endpoint on target node
+        cluster_id: Cluster ID for the binding
+
+    Returns:
+        ACLProvisioningResult
+    """
+    _LOGGER.info(
+        "provision_acl_for_binding: node %s -> node %s ep %s cluster 0x%04X",
+        source_node_id,
+        target_node_id,
+        target_endpoint_id,
+        cluster_id,
+    )
+
+    return await add_acl_entry(
+        hass=hass,
+        node_id=target_node_id,
+        source_node_id=source_node_id,
+        target_endpoint_id=target_endpoint_id,
+        cluster_id=cluster_id,
+    )
+
+
+async def provision_acls_for_existing_bindings(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+) -> list[dict[str, Any]]:
+    """Provision ACLs for all existing bindings on an endpoint.
+
+    Reads current bindings and provisions ACL entries on each target device.
+    Useful for retroactively fixing bindings that were created without
+    ACL provisioning.
+
+    Args:
+        hass: Home Assistant instance
+        node_id: Source node ID
+        endpoint_id: Source endpoint ID
+
+    Returns:
+        List of provisioning results for each binding
+    """
+    results: list[dict[str, Any]] = []
+
+    # Get existing bindings
+    bindings = await get_bindings(hass, node_id, endpoint_id)
+
+    for binding in bindings:
+        # Only process unicast bindings (have target_node_id and target_endpoint_id)
+        if binding.target_node_id is None:
+            _LOGGER.debug(
+                "provision_acls_for_existing_bindings: Skipping group binding"
+            )
+            continue
+
+        if binding.target_endpoint_id is None:
+            _LOGGER.debug(
+                "provision_acls_for_existing_bindings: Skipping binding without endpoint"
+            )
+            continue
+
+        _LOGGER.info(
+            "provision_acls_for_existing_bindings: Processing binding -> "
+            "node %s ep %s cluster 0x%04X",
+            binding.target_node_id,
+            binding.target_endpoint_id,
+            binding.cluster_id,
+        )
+
+        result = await provision_acl_for_binding(
+            hass=hass,
+            source_node_id=node_id,
+            target_node_id=binding.target_node_id,
+            target_endpoint_id=binding.target_endpoint_id,
+            cluster_id=binding.cluster_id,
+        )
+
+        results.append(
+            {
+                "target_node_id": binding.target_node_id,
+                "target_endpoint_id": binding.target_endpoint_id,
+                "cluster_id": binding.cluster_id,
+                **result.to_dict(),
+            }
+        )
+
+    return results
 
 
 async def verify_bindings(
@@ -1977,8 +2589,9 @@ async def create_binding(
     target_endpoint_id: int | None = None,
     target_group_id: int | None = None,
     verify: bool = True,
+    provision_acl: bool = True,
 ) -> BindingVerificationResult:
-    """Create a new binding with optional verification.
+    """Create a new binding with optional verification and ACL provisioning.
 
     Args:
         hass: Home Assistant instance
@@ -1989,6 +2602,7 @@ async def create_binding(
         target_endpoint_id: Target endpoint ID (for unicast binding)
         target_group_id: Target group ID (for group binding)
         verify: If True, verify the binding was created by reading back
+        provision_acl: If True, provision ACL on target device (unicast only)
 
     Returns:
         BindingVerificationResult with success/verification status
@@ -2102,6 +2716,35 @@ async def create_binding(
         )
         _LOGGER.info("create_binding: write_attribute result: %s", result)
 
+        # Provision ACL on target device if requested (for unicast bindings)
+        acl_result = None
+        if (
+            provision_acl
+            and target_node_id is not None
+            and target_endpoint_id is not None
+        ):
+            _LOGGER.info(
+                "create_binding: Provisioning ACL on target node %s for source node %s",
+                target_node_id,
+                source_node_id,
+            )
+            acl_result = await provision_acl_for_binding(
+                hass=hass,
+                source_node_id=source_node_id,
+                target_node_id=target_node_id,
+                target_endpoint_id=target_endpoint_id,
+                cluster_id=cluster_id,
+            )
+
+            if not acl_result.success:
+                _LOGGER.warning(
+                    "create_binding: ACL provisioning failed: %s "
+                    "(binding was still created)",
+                    acl_result.message,
+                )
+            else:
+                _LOGGER.info("create_binding: ACL provisioned successfully")
+
         # Verify the binding was created if requested
         if verify:
             _LOGGER.info("create_binding: Verifying binding was written to device...")
@@ -2181,9 +2824,11 @@ async def delete_binding(
     target_node_id: int | None = None,
     target_endpoint_id: int | None = None,
     target_group_id: int | None = None,
+    cluster_id: int | None = None,
     verify: bool = True,
+    remove_acl: bool = True,
 ) -> BindingVerificationResult:
-    """Delete a binding with optional verification.
+    """Delete a binding with optional verification and ACL cleanup.
 
     Args:
         hass: Home Assistant instance
@@ -2192,7 +2837,9 @@ async def delete_binding(
         target_node_id: Target node ID to delete (for unicast binding)
         target_endpoint_id: Target endpoint ID to delete (for unicast binding)
         target_group_id: Target group ID to delete (for group binding)
+        cluster_id: Cluster ID of binding to delete (optional, for ACL cleanup)
         verify: If True, verify the binding was deleted by reading back
+        remove_acl: If True, remove ACL entry from target device (unicast only)
 
     Returns:
         BindingVerificationResult with success/verification status
@@ -2270,12 +2917,21 @@ async def delete_binding(
         # Get current bindings
         current_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
 
+        # Find the binding(s) being deleted to get cluster_id for ACL cleanup
+        deleted_bindings = [
+            b
+            for b in current_bindings
+            if _binding_matches(
+                b, target_node_id, target_endpoint_id, target_group_id, cluster_id
+            )
+        ]
+
         # Filter out the binding to delete
         filtered_bindings = [
             b
             for b in current_bindings
             if not _binding_matches(
-                b, target_node_id, target_endpoint_id, target_group_id
+                b, target_node_id, target_endpoint_id, target_group_id, cluster_id
             )
         ]
 
@@ -2314,6 +2970,41 @@ async def delete_binding(
         )
         _LOGGER.info("delete_binding: write_attribute result: %s", result)
 
+        # Remove ACL entry from target device if requested (for unicast bindings)
+        if (
+            remove_acl
+            and target_node_id is not None
+            and target_endpoint_id is not None
+            and deleted_bindings
+        ):
+            # Use cluster_id from the deleted binding if not provided
+            acl_cluster_id = cluster_id or (
+                deleted_bindings[0].cluster_id if deleted_bindings else None
+            )
+
+            if acl_cluster_id is not None:
+                _LOGGER.info(
+                    "delete_binding: Removing ACL from target node %s for source node %s",
+                    target_node_id,
+                    source_node_id,
+                )
+                acl_result = await remove_acl_entry(
+                    hass=hass,
+                    node_id=target_node_id,
+                    source_node_id=source_node_id,
+                    target_endpoint_id=target_endpoint_id,
+                    cluster_id=acl_cluster_id,
+                )
+
+                if not acl_result.success:
+                    _LOGGER.warning(
+                        "delete_binding: ACL removal failed: %s "
+                        "(binding was still deleted)",
+                        acl_result.message,
+                    )
+                else:
+                    _LOGGER.info("delete_binding: ACL removed successfully")
+
         # Verify the binding was deleted if requested
         if verify:
             _LOGGER.info("delete_binding: Verifying binding was deleted from device...")
@@ -2339,7 +3030,9 @@ async def delete_binding(
             # Check if the binding is gone
             read_bindings = await get_bindings(hass, source_node_id, source_endpoint_id)
             binding_still_exists = any(
-                _binding_matches(b, target_node_id, target_endpoint_id, target_group_id)
+                _binding_matches(
+                    b, target_node_id, target_endpoint_id, target_group_id, cluster_id
+                )
                 for b in read_bindings
             )
 
