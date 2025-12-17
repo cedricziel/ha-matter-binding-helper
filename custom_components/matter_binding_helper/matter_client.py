@@ -1476,6 +1476,21 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
                                     return val
                     return default
 
+                def _safe_int(val) -> int | None:
+                    """Convert value to int, handling Nullable and other special types."""
+                    if val is None:
+                        return None
+                    # Check for Matter SDK Nullable type (has a Null attribute)
+                    if hasattr(val, "Null"):
+                        return None
+                    # Check for NullValue class name pattern
+                    if type(val).__name__ in ("Nullable", "NullValue"):
+                        return None
+                    try:
+                        return int(val)
+                    except (TypeError, ValueError):
+                        return None
+
                 privilege = _get_value(
                     entry, "1", 1, "privilege", "Privilege", default=0
                 )
@@ -1513,15 +1528,9 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
                         )
                         targets.append(
                             ACLTarget(
-                                cluster=int(cluster_val)
-                                if cluster_val is not None
-                                else None,
-                                endpoint=int(endpoint_val)
-                                if endpoint_val is not None
-                                else None,
-                                device_type=int(device_type_val)
-                                if device_type_val is not None
-                                else None,
+                                cluster=_safe_int(cluster_val),
+                                endpoint=_safe_int(endpoint_val),
+                                device_type=_safe_int(device_type_val),
                             )
                         )
 
