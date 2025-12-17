@@ -264,17 +264,37 @@ describe("ConfirmDialog", () => {
   });
 
   describe("slots", () => {
-    it("renders custom content slot", async () => {
+    it("renders default slot for custom content", async () => {
       element = await fixture<ConfirmDialog>(html`
         <matter-confirm-dialog .open=${true} title="Test">
-          <div slot="content" class="custom-content">Custom Content Here</div>
+          <div class="custom-content">Custom Content Here</div>
         </matter-confirm-dialog>
       `);
 
       await elementUpdated(element);
 
-      const slot = queryShadow(element, 'slot[name="content"]');
+      // Default slot exists
+      const slot = queryShadow(element, "slot:not([name])");
       expect(slot).toBeTruthy();
+    });
+
+    it("slot content replaces default message", async () => {
+      element = await fixture<ConfirmDialog>(html`
+        <matter-confirm-dialog .open=${true} title="Test" message="Default message">
+          <div class="custom-binding-viz">
+            <div class="source">Device A</div>
+            <div class="arrow">→</div>
+            <div class="target">Device B</div>
+          </div>
+        </matter-confirm-dialog>
+      `);
+
+      await elementUpdated(element);
+
+      // The default message should be present in shadow DOM but hidden by slotted content
+      const slot = queryShadow(element, "slot") as HTMLSlotElement;
+      const assignedNodes = slot?.assignedNodes({ flatten: false });
+      expect(assignedNodes?.length).toBeGreaterThan(0);
     });
   });
 });

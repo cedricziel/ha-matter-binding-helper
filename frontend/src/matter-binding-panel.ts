@@ -35,6 +35,7 @@ import "./components/node-list/node-list";
 import "./components/bindings/binding-card";
 import "./components/acl/acl-section";
 import "./components/dialogs/create-binding-dialog";
+import "./components/dialogs/confirm-dialog";
 import "./components/wizard/binding-wizard";
 import "./components/device-panel/endpoint-selector";
 import "./components/overview/recommendation-list";
@@ -2814,9 +2815,9 @@ export class MatterBindingPanel extends LitElement {
           @create-binding=${this._handleCreateDialogCreateBinding}
           @cancel=${this._closeCreateDialog}
         ></matter-create-binding-dialog>
-        ${this._pendingBindingRecommendation ? this._renderBindingConfirmDialog() : nothing}
-        ${this._pendingManualBinding ? this._renderManualBindingConfirmDialog() : nothing}
-        ${this._pendingDeleteBinding ? this._renderDeleteConfirmDialog() : nothing}
+        ${this._renderBindingConfirmDialogComponent()}
+        ${this._renderManualBindingConfirmDialogComponent()}
+        ${this._renderDeleteConfirmDialogComponent()}
         ${this._showVerificationModal ? this._renderVerificationModal() : nothing}
         <matter-binding-wizard
           .open=${this._bindingWizard !== null}
@@ -3725,232 +3726,175 @@ export class MatterBindingPanel extends LitElement {
     `;
   }
 
-  private _renderBindingConfirmDialog() {
+  private _renderBindingConfirmDialogComponent() {
     if (!this._pendingBindingRecommendation || !this._selectedClusterForBinding) return nothing;
 
     const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, compatibleClusters } = this._pendingBindingRecommendation;
     const clusterId = this._selectedClusterForBinding;
     const clusterDesc = getClusterBindingDescription(clusterId);
-    const isLoading = this._actionInProgress !== null;
 
     return html`
-      <div class="dialog-overlay" @click=${this._closeBindingConfirmDialog}>
-        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
-          <div class="dialog-header">
-            <span class="confirm-icon">🔗</span>
-            Create Binding
+      <matter-confirm-dialog
+        .open=${true}
+        title="Create Binding"
+        icon="🔗"
+        confirmLabel="Create Binding"
+        .loading=${this._actionInProgress !== null}
+        @confirm=${this._confirmCreateBinding}
+        @cancel=${this._closeBindingConfirmDialog}
+      >
+        <div class="binding-devices">
+          <div class="binding-device-card source">
+            <div class="binding-device-name">${sourceNode.name}</div>
+            <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
+            ${sourceNode.area_name
+              ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
+              : nothing}
           </div>
-
-          <div class="binding-devices">
-            <div class="binding-device-card source">
-              <div class="binding-device-name">${sourceNode.name}</div>
-              <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
-              ${sourceNode.area_name
-                ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
-                : nothing}
-            </div>
-            <div class="binding-arrow-container">
-              <span class="binding-cluster-label">${getClusterName(clusterId)}</span>
-              <span class="binding-arrow-large">→</span>
-            </div>
-            <div class="binding-device-card target">
-              <div class="binding-device-name">${targetNode.name}</div>
-              <div class="binding-device-endpoint">Endpoint ${targetEndpoint.endpoint_id}</div>
-              ${targetNode.area_name
-                ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
-                : nothing}
-            </div>
+          <div class="binding-arrow-container">
+            <span class="binding-cluster-label">${getClusterName(clusterId)}</span>
+            <span class="binding-arrow-large">→</span>
           </div>
-
-          <div class="binding-explanation">
-            <div class="binding-explanation-header">What this binding does:</div>
-            <div class="binding-explanation-content">
-              <strong>${sourceNode.name}</strong> will ${clusterDesc.action}
-              <strong>${targetNode.name}</strong> using ${clusterDesc.dataType}.
-            </div>
-          </div>
-
-          ${compatibleClusters.length > 1
-            ? html`
-                <div class="cluster-select-group">
-                  <label>Select cluster to bind:</label>
-                  <select
-                    class="form-select"
-                    @change=${this._handleClusterSelectChange}
-                  >
-                    ${compatibleClusters.map(
-                      (c) => html`
-                        <option value=${c} ?selected=${c === clusterId}>
-                          ${getClusterName(c)} - ${getClusterBindingDescription(c).dataType}
-                        </option>
-                      `
-                    )}
-                  </select>
-                </div>
-              `
-            : nothing}
-
-          <div class="dialog-actions">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              @click=${this._closeBindingConfirmDialog}
-              ?disabled=${isLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary ${isLoading ? "btn-loading" : ""}"
-              @click=${this._confirmCreateBinding}
-              ?disabled=${isLoading}
-            >
-              Create Binding
-            </button>
+          <div class="binding-device-card target">
+            <div class="binding-device-name">${targetNode.name}</div>
+            <div class="binding-device-endpoint">Endpoint ${targetEndpoint.endpoint_id}</div>
+            ${targetNode.area_name
+              ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
+              : nothing}
           </div>
         </div>
-      </div>
+
+        <div class="binding-explanation">
+          <div class="binding-explanation-header">What this binding does:</div>
+          <div class="binding-explanation-content">
+            <strong>${sourceNode.name}</strong> will ${clusterDesc.action}
+            <strong>${targetNode.name}</strong> using ${clusterDesc.dataType}.
+          </div>
+        </div>
+
+        ${compatibleClusters.length > 1
+          ? html`
+              <div class="cluster-select-group">
+                <label>Select cluster to bind:</label>
+                <select
+                  class="form-select"
+                  @change=${this._handleClusterSelectChange}
+                >
+                  ${compatibleClusters.map(
+                    (c) => html`
+                      <option value=${c} ?selected=${c === clusterId}>
+                        ${getClusterName(c)} - ${getClusterBindingDescription(c).dataType}
+                      </option>
+                    `
+                  )}
+                </select>
+              </div>
+            `
+          : nothing}
+      </matter-confirm-dialog>
     `;
   }
 
-  private _renderManualBindingConfirmDialog() {
+  private _renderManualBindingConfirmDialogComponent() {
     if (!this._pendingManualBinding) return nothing;
 
     const { sourceNode, sourceEndpoint, targetNode, targetEndpoint, clusterId } = this._pendingManualBinding;
     const clusterDesc = getClusterBindingDescription(clusterId);
-    const isLoading = this._actionInProgress !== null;
 
     return html`
-      <div class="dialog-overlay" @click=${this._closeManualBindingConfirmDialog}>
-        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
-          <div class="dialog-header">
-            <span class="confirm-icon">🔗</span>
-            Create Binding
+      <matter-confirm-dialog
+        .open=${true}
+        title="Create Binding"
+        icon="🔗"
+        confirmLabel="Create Binding"
+        .loading=${this._actionInProgress !== null}
+        @confirm=${this._confirmManualBinding}
+        @cancel=${this._closeManualBindingConfirmDialog}
+      >
+        <div class="binding-devices">
+          <div class="binding-device-card source">
+            <div class="binding-device-name">${sourceNode.name}</div>
+            <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
+            ${sourceNode.area_name
+              ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
+              : nothing}
           </div>
-
-          <div class="binding-devices">
-            <div class="binding-device-card source">
-              <div class="binding-device-name">${sourceNode.name}</div>
-              <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
-              ${sourceNode.area_name
-                ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
-                : nothing}
-            </div>
-            <div class="binding-arrow-container">
-              <span class="binding-cluster-label">${getClusterName(clusterId)}</span>
-              <span class="binding-arrow-large">→</span>
-            </div>
-            <div class="binding-device-card target">
-              <div class="binding-device-name">${targetNode.name}</div>
-              <div class="binding-device-endpoint">Endpoint ${targetEndpoint.endpoint_id}</div>
-              ${targetNode.area_name
-                ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
-                : nothing}
-            </div>
+          <div class="binding-arrow-container">
+            <span class="binding-cluster-label">${getClusterName(clusterId)}</span>
+            <span class="binding-arrow-large">→</span>
           </div>
-
-          <div class="binding-explanation">
-            <div class="binding-explanation-header">What this binding does:</div>
-            <div class="binding-explanation-content">
-              <strong>${sourceNode.name}</strong> will ${clusterDesc.action}
-              <strong>${targetNode.name}</strong> using ${clusterDesc.dataType}.
-            </div>
-          </div>
-
-          <div class="dialog-actions">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              @click=${this._closeManualBindingConfirmDialog}
-              ?disabled=${isLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary ${isLoading ? "btn-loading" : ""}"
-              @click=${this._confirmManualBinding}
-              ?disabled=${isLoading}
-            >
-              Create Binding
-            </button>
+          <div class="binding-device-card target">
+            <div class="binding-device-name">${targetNode.name}</div>
+            <div class="binding-device-endpoint">Endpoint ${targetEndpoint.endpoint_id}</div>
+            ${targetNode.area_name
+              ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
+              : nothing}
           </div>
         </div>
-      </div>
+
+        <div class="binding-explanation">
+          <div class="binding-explanation-header">What this binding does:</div>
+          <div class="binding-explanation-content">
+            <strong>${sourceNode.name}</strong> will ${clusterDesc.action}
+            <strong>${targetNode.name}</strong> using ${clusterDesc.dataType}.
+          </div>
+        </div>
+      </matter-confirm-dialog>
     `;
   }
 
-  private _renderDeleteConfirmDialog() {
+  private _renderDeleteConfirmDialogComponent() {
     if (!this._pendingDeleteBinding) return nothing;
 
     const { binding, sourceNode, sourceEndpoint, targetNode } = this._pendingDeleteBinding;
     const clusterDesc = getClusterBindingDescription(binding.cluster_id);
     const targetName = targetNode?.name || `Node ${binding.target_node_id}`;
-    const isLoading = this._actionInProgress !== null;
     const isGroupBinding = binding.target_group_id !== null;
 
     return html`
-      <div class="dialog-overlay" @click=${this._closeDeleteConfirmDialog}>
-        <div class="dialog confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
-          <div class="dialog-header">
-            <span class="confirm-icon">🗑️</span>
-            Remove Binding
+      <matter-confirm-dialog
+        .open=${true}
+        title="Remove Binding"
+        icon="🗑️"
+        variant="danger"
+        confirmLabel="Remove Binding"
+        .loading=${this._actionInProgress !== null}
+        @confirm=${this._confirmDeleteBinding}
+        @cancel=${this._closeDeleteConfirmDialog}
+      >
+        <div class="binding-devices">
+          <div class="binding-device-card source">
+            <div class="binding-device-name">${sourceNode.name}</div>
+            <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
+            ${sourceNode.area_name
+              ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
+              : nothing}
           </div>
-
-          <div class="binding-devices">
-            <div class="binding-device-card source">
-              <div class="binding-device-name">${sourceNode.name}</div>
-              <div class="binding-device-endpoint">Endpoint ${sourceEndpoint.endpoint_id}</div>
-              ${sourceNode.area_name
-                ? html`<div class="binding-device-area">${sourceNode.area_name}</div>`
-                : nothing}
-            </div>
-            <div class="binding-arrow-container">
-              <span class="binding-cluster-label">${getClusterName(binding.cluster_id)}</span>
-              <span class="binding-arrow-large" style="text-decoration: line-through; color: var(--error-color);">→</span>
-            </div>
-            <div class="binding-device-card target">
-              ${isGroupBinding
-                ? html`<div class="binding-device-name">Group ${binding.target_group_id}</div>`
-                : html`
-                    <div class="binding-device-name">${targetName}</div>
-                    <div class="binding-device-endpoint">Endpoint ${binding.target_endpoint_id}</div>
-                    ${targetNode?.area_name
-                      ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
-                      : nothing}
-                  `}
-            </div>
+          <div class="binding-arrow-container">
+            <span class="binding-cluster-label">${getClusterName(binding.cluster_id)}</span>
+            <span class="binding-arrow-large" style="text-decoration: line-through; color: var(--error-color);">→</span>
           </div>
-
-          <div class="binding-explanation" style="border-left: 3px solid var(--error-color);">
-            <div class="binding-explanation-header">After removing this binding:</div>
-            <div class="binding-explanation-content">
-              <strong>${sourceNode.name}</strong> will stop being able to ${clusterDesc.action}
-              <strong>${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>.
-            </div>
-          </div>
-
-          <div class="dialog-actions">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              @click=${this._closeDeleteConfirmDialog}
-              ?disabled=${isLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary ${isLoading ? "btn-loading" : ""}"
-              style="background: var(--error-color);"
-              @click=${this._confirmDeleteBinding}
-              ?disabled=${isLoading}
-            >
-              Remove Binding
-            </button>
+          <div class="binding-device-card target">
+            ${isGroupBinding
+              ? html`<div class="binding-device-name">Group ${binding.target_group_id}</div>`
+              : html`
+                  <div class="binding-device-name">${targetName}</div>
+                  <div class="binding-device-endpoint">Endpoint ${binding.target_endpoint_id}</div>
+                  ${targetNode?.area_name
+                    ? html`<div class="binding-device-area">${targetNode.area_name}</div>`
+                    : nothing}
+                `}
           </div>
         </div>
-      </div>
+
+        <div class="binding-explanation" style="border-left: 3px solid var(--error-color);">
+          <div class="binding-explanation-header">After removing this binding:</div>
+          <div class="binding-explanation-content">
+            <strong>${sourceNode.name}</strong> will stop being able to ${clusterDesc.action}
+            <strong>${isGroupBinding ? `Group ${binding.target_group_id}` : targetName}</strong>.
+          </div>
+        </div>
+      </matter-confirm-dialog>
     `;
   }
 

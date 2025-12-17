@@ -17,7 +17,7 @@ export type ConfirmDialogVariant = "info" | "warning" | "danger";
  *
  * @fires confirm - When confirm button is clicked
  * @fires cancel - When cancel button or overlay is clicked
- * @slot content - Custom content to display in the dialog body
+ * @slot - Default slot for custom content to display in the dialog body
  */
 @customElement("matter-confirm-dialog")
 export class ConfirmDialog extends LitElement {
@@ -113,7 +113,7 @@ export class ConfirmDialog extends LitElement {
           </div>
 
           <div class="dialog-body">
-            <slot name="content">
+            <slot>
               ${this.message
                 ? html`<div class="default-message">${this.message}</div>`
                 : nothing}
