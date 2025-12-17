@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.2...v0.25.3) (2025-12-17)
+
+
+### Documentation
+
+* add frontend testing commands and ACL documentation ([fc90f0a](https://github.com/cedricziel/ha-matter-binding-helper/commit/fc90f0ae7d139bb386009d2dc0c92626c7cce68f))
+
 ## [0.25.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.1...v0.25.2) (2025-12-17)
 
 
