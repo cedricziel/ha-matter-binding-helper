@@ -224,6 +224,24 @@ export interface BindingWizardState {
   verifyInProgress: boolean;
 }
 
+// Operation progress types for blocking dialogs
+export type OperationStepStatus = "pending" | "in_progress" | "success" | "error" | "skipped";
+
+export interface OperationStep {
+  label: string;
+  status: OperationStepStatus;
+  message?: string;
+}
+
+export interface OperationProgressState {
+  title: string;
+  steps: OperationStep[];
+  currentStepIndex: number;
+  canCancel: boolean;
+  error?: string;
+  completed: boolean;
+}
+
 // Cluster IDs
 export const CLUSTER_IDENTIFY = 0x0003;
 export const CLUSTER_GROUPS = 0x0004;
