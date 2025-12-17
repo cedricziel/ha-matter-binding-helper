@@ -1501,26 +1501,43 @@ async def get_acl(hass: HomeAssistant, node_id: int) -> list[ACLEntry]:
                     for t in raw_targets:
                         # Handle multiple key formats for targets
                         # TLV tags: 0=cluster, 1=endpoint, 2=deviceType
+                        # Convert to native Python int for JSON serialization
+                        cluster_val = _get_value(
+                            t, "0", 0, "cluster", "Cluster", default=None
+                        )
+                        endpoint_val = _get_value(
+                            t, "1", 1, "endpoint", "Endpoint", default=None
+                        )
+                        device_type_val = _get_value(
+                            t, "2", 2, "deviceType", "DeviceType", default=None
+                        )
                         targets.append(
                             ACLTarget(
-                                cluster=_get_value(
-                                    t, "0", 0, "cluster", "Cluster", default=None
-                                ),
-                                endpoint=_get_value(
-                                    t, "1", 1, "endpoint", "Endpoint", default=None
-                                ),
-                                device_type=_get_value(
-                                    t, "2", 2, "deviceType", "DeviceType", default=None
-                                ),
+                                cluster=int(cluster_val)
+                                if cluster_val is not None
+                                else None,
+                                endpoint=int(endpoint_val)
+                                if endpoint_val is not None
+                                else None,
+                                device_type=int(device_type_val)
+                                if device_type_val is not None
+                                else None,
                             )
                         )
 
+                # Convert subjects to native Python ints for JSON serialization
+                # (Matter SDK may return numpy int64 or chip-specific types)
+                subjects_list = []
+                if isinstance(subjects, list):
+                    for s in subjects:
+                        subjects_list.append(int(s) if s is not None else None)
+
                 acl_entry = ACLEntry(
-                    privilege=privilege,
-                    auth_mode=auth_mode,
-                    subjects=subjects if isinstance(subjects, list) else [],
+                    privilege=int(privilege) if privilege is not None else 0,
+                    auth_mode=int(auth_mode) if auth_mode is not None else 0,
+                    subjects=subjects_list,
                     targets=targets,
-                    fabric_index=fabric_index,
+                    fabric_index=int(fabric_index) if fabric_index is not None else 0,
                 )
                 acl_entries.append(acl_entry)
 
