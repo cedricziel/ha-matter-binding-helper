@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.1...v0.24.2) (2025-12-17)
+
+
+### Bug Fixes
+
+* use dedicated SET_ACL_ENTRY API and add read-after-write verification ([#67](https://github.com/cedricziel/ha-matter-binding-helper/issues/67)) ([9d71739](https://github.com/cedricziel/ha-matter-binding-helper/commit/9d7173929afbc7f1b3536ef1d58383adc0272865))
+
 ## [0.24.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.0...v0.24.1) (2025-12-17)
 
 
