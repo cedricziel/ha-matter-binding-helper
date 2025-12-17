@@ -62,14 +62,14 @@ ws_call() {
     return 1
   fi
 
-  # Get the command result - find lines starting with {"id":1 and join if split
+  # Get the command result - extract JSON response with id:1
   local RESULT
-  # Use awk to extract JSON that starts with {"id":1
-  RESULT=$(echo "$OUTPUT" | awk '/^\{"id":1/{found=1} found{printf "%s", $0} /\}$/ && found{exit}')
+  # First try: line starting with {"id":1 (single-line response)
+  RESULT=$(echo "$OUTPUT" | grep -m1 '^{"id":1')
 
   if [[ -z "$RESULT" ]]; then
-    # Fallback: try grep approach
-    RESULT=$(echo "$OUTPUT" | grep '"id":1' | tr -d '\n')
+    # Fallback: any line containing "id":1 (flexible spacing)
+    RESULT=$(echo "$OUTPUT" | grep -m1 '"id":1')
   fi
 
   if [[ -z "$RESULT" ]]; then
