@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.3...v0.24.4) (2025-12-17)
+
+
+### Bug Fixes
+
+* handle Matter SDK Nullable type in ACL target parsing ([#71](https://github.com/cedricziel/ha-matter-binding-helper/issues/71)) ([1f1533e](https://github.com/cedricziel/ha-matter-binding-helper/commit/1f1533e642486af9de108df821a8970a352ab51b))
+
 ## [0.24.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.24.2...v0.24.3) (2025-12-17)
 
 
