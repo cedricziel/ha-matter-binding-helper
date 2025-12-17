@@ -2627,22 +2627,6 @@ export class MatterBindingPanel extends LitElement {
     this._selectedTargetEndpointId = null;
   }
 
-  private _handleTargetNodeChange(e: Event): void {
-    const select = e.target as HTMLSelectElement;
-    this._selectedTargetNodeId = parseInt(select.value, 10);
-    // Reset endpoint selection when node changes
-    const targetNode = this._nodes.find((n) => n.node_id === this._selectedTargetNodeId);
-    if (targetNode) {
-      const firstValidEndpoint = getFirstValidTargetEndpoint(targetNode);
-      this._selectedTargetEndpointId = firstValidEndpoint?.endpoint_id ?? null;
-    }
-  }
-
-  private _handleTargetEndpointChange(e: Event): void {
-    const select = e.target as HTMLSelectElement;
-    this._selectedTargetEndpointId = parseInt(select.value, 10);
-  }
-
   private _handleCreateDialogTargetNodeChange(e: CustomEvent<{ nodeId: number }>) {
     this._selectedTargetNodeId = e.detail.nodeId;
     // Reset endpoint selection when node changes
@@ -2664,72 +2648,6 @@ export class MatterBindingPanel extends LitElement {
 
     const targetNode = this._nodes.find((n) => n.node_id === targetNodeId);
     const targetEndpoint = targetNode?.endpoints.find((ep) => ep.endpoint_id === targetEndpointId);
-
-    if (!targetNode || !targetEndpoint) {
-      this._error = "Invalid target selection";
-      return;
-    }
-
-    // Set pending manual binding for confirmation dialog
-    this._pendingManualBinding = {
-      sourceNode: this._selectedSourceNode,
-      sourceEndpoint: this._selectedSourceEndpoint,
-      targetNode,
-      targetEndpoint,
-      clusterId,
-    };
-
-    // Close create dialog
-    this._showCreateDialog = false;
-  }
-
-  private _getCompatibleClusters(): number[] {
-    if (!this._selectedSourceEndpoint || !this._selectedTargetNodeId || !this._selectedTargetEndpointId) {
-      return [];
-    }
-
-    const targetNode = this._nodes.find((n) => n.node_id === this._selectedTargetNodeId);
-    const targetEndpoint = targetNode?.endpoints.find(
-      (ep) => ep.endpoint_id === this._selectedTargetEndpointId
-    );
-
-    if (!targetEndpoint) return [];
-
-    // Source must have cluster as CLIENT (can send commands)
-    const sourceClientClusters = this._selectedSourceEndpoint.client_clusters || [];
-    // Target must have cluster as SERVER (can receive commands)
-    const targetServerClusters = targetEndpoint.server_clusters || [];
-
-    // Return intersection - clusters where source is client AND target is server
-    return sourceClientClusters.filter((c) => targetServerClusters.includes(c));
-  }
-
-  private _handleReviewBinding(e: Event): void {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-
-    const targetNodeId = parseInt(formData.get("targetNode") as string, 10);
-    const targetEndpointId = parseInt(formData.get("targetEndpoint") as string, 10);
-    const clusterId = parseInt(formData.get("cluster") as string, 10);
-
-    if (!this._selectedSourceNode || !this._selectedSourceEndpoint) return;
-
-    // Validate cluster compatibility
-    const sourceClientClusters = this._selectedSourceEndpoint.client_clusters || [];
-    const targetNode = this._nodes.find((n) => n.node_id === targetNodeId);
-    const targetEndpoint = targetNode?.endpoints.find((ep) => ep.endpoint_id === targetEndpointId);
-    const targetServerClusters = targetEndpoint?.server_clusters || [];
-
-    if (!sourceClientClusters.includes(clusterId)) {
-      this._error = `Source endpoint does not have cluster ${getClusterName(clusterId)} as a client cluster`;
-      return;
-    }
-
-    if (!targetServerClusters.includes(clusterId)) {
-      this._error = `Target endpoint does not have cluster ${getClusterName(clusterId)} as a server cluster`;
-      return;
-    }
 
     if (!targetNode || !targetEndpoint) {
       this._error = "Invalid target selection";
