@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.1...v0.25.2) (2025-12-17)
+
+
+### Bug Fixes
+
+* apply error message extraction to all UI message displays ([872cc91](https://github.com/cedricziel/ha-matter-binding-helper/commit/872cc91aa02c739f75e2bf9124cb8ad64777869e))
+
 ## [0.25.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.0...v0.25.1) (2025-12-17)
 
 
