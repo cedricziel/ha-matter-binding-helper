@@ -2010,7 +2010,7 @@ export class MatterBindingPanel extends LitElement {
       const response = await api.listNodes(this.hass);
       this._nodes = response.nodes;
     } catch (err) {
-      this._error = `Failed to load nodes: ${err}`;
+      this._error = `Failed to load nodes: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       this._loading = false;
     }
@@ -2040,7 +2040,7 @@ export class MatterBindingPanel extends LitElement {
         Array.from(targetNodeIds).map((nodeId) => this._loadACLForNode(nodeId))
       ).catch((err) => console.error("Failed to load some target ACLs:", err));
     } catch (err) {
-      this._error = `Failed to load bindings: ${err}`;
+      this._error = `Failed to load bindings: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       this._loading = false;
     }
@@ -2052,7 +2052,7 @@ export class MatterBindingPanel extends LitElement {
       const response = await api.listGroups(this.hass);
       this._groups = response.groups;
     } catch (err) {
-      this._error = `Failed to load groups: ${err}`;
+      this._error = `Failed to load groups: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       this._loading = false;
     }
@@ -2259,7 +2259,7 @@ export class MatterBindingPanel extends LitElement {
       // Compute automation recommendations
       this._automationRecommendations = this._computeAutomationRecommendations();
     } catch (err) {
-      this._error = `Failed to load overview data: ${err}`;
+      this._error = `Failed to load overview data: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       this._overviewLoading = false;
     }
@@ -2375,7 +2375,7 @@ export class MatterBindingPanel extends LitElement {
       };
       await this._loadBindings();
     } catch (err) {
-      this._error = `Failed to delete binding: ${err}`;
+      this._error = `Failed to delete binding: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       this._actionInProgress = null;
     }
@@ -2405,7 +2405,7 @@ export class MatterBindingPanel extends LitElement {
       this._lastVerificationResult = {
         success: false,
         verified: false,
-        message: `Failed to verify bindings: ${err}`,
+        message: `Failed to verify bindings: ${err instanceof Error ? err.message : String(err)}`,
         error_type: "unknown_error",
       };
     } finally {
@@ -2436,7 +2436,7 @@ export class MatterBindingPanel extends LitElement {
       this._verificationModalResult = {
         success: false,
         verified: false,
-        message: `Failed to verify: ${err}`,
+        message: `Failed to verify: ${err instanceof Error ? err.message : String(err)}`,
         bindingContext: bindingCtx,
       };
     } finally {
@@ -2591,7 +2591,7 @@ export class MatterBindingPanel extends LitElement {
     } catch (err) {
       this._surveyResult = {
         success: false,
-        message: `Failed to submit survey: ${err}`,
+        message: `Failed to submit survey: ${err instanceof Error ? err.message : String(err)}`,
       };
     } finally {
       this._surveySubmitting = false;
@@ -3023,7 +3023,7 @@ export class MatterBindingPanel extends LitElement {
       // Reload overview data
       await this._loadOverviewData();
     } catch (err) {
-      this._error = `Failed to delete binding: ${err}`;
+      this._error = `Failed to delete binding: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       this._actionInProgress = null;
     }
@@ -4314,7 +4314,7 @@ export class MatterBindingPanel extends LitElement {
         bindingResult: {
           success: false,
           verified: false,
-          message: `Failed to create binding: ${err}`,
+          message: `Failed to create binding: ${err instanceof Error ? err.message : String(err)}`,
           bindings_found: 0,
           error_type: "unknown_error",
         },
@@ -4354,7 +4354,7 @@ export class MatterBindingPanel extends LitElement {
         ...this._bindingWizard,
         aclResult: {
           success: false,
-          message: `Failed to provision ACL: ${err}`,
+          message: `Failed to provision ACL: ${err instanceof Error ? err.message : String(err)}`,
           acl_entries_count: 0,
         },
         aclInProgress: false,
@@ -4387,7 +4387,7 @@ export class MatterBindingPanel extends LitElement {
         verifyResult: {
           success: false,
           verified: false,
-          message: `Failed to verify bindings: ${err}`,
+          message: `Failed to verify bindings: ${err instanceof Error ? err.message : String(err)}`,
           bindings_found: 0,
           error_type: "unknown_error",
         },
@@ -4414,13 +4414,18 @@ export class MatterBindingPanel extends LitElement {
     this._aclRepairInProgress.set(key, true);
 
     try {
-      await api.provisionACL(
+      const result = await api.provisionACL(
         this.hass,
         targetNodeId,
         targetEndpointId,
         bindingCtx.sourceNode.node_id,
         bindingCtx.binding.cluster_id
       );
+
+      if (!result.success) {
+        this._error = `Failed to repair ACL: ${result.message}`;
+        return;
+      }
 
       // Invalidate ACL cache for the target node
       this._targetACLCache = new Map(this._targetACLCache);
@@ -4429,7 +4434,8 @@ export class MatterBindingPanel extends LitElement {
       // Reload to refresh the view
       await this._loadOverviewData();
     } catch (err) {
-      this._error = `Failed to repair ACL: ${err}`;
+      const message = err instanceof Error ? err.message : String(err);
+      this._error = `Failed to repair ACL: ${message}`;
     } finally {
       this._aclRepairInProgress = new Map(this._aclRepairInProgress);
       this._aclRepairInProgress.delete(key);
@@ -4466,7 +4472,7 @@ export class MatterBindingPanel extends LitElement {
       }
 
       try {
-        await api.provisionACL(
+        const result = await api.provisionACL(
           this.hass,
           binding.target_node_id,
           binding.target_endpoint_id,
@@ -4477,16 +4483,17 @@ export class MatterBindingPanel extends LitElement {
           target_node_id: binding.target_node_id,
           target_endpoint_id: binding.target_endpoint_id,
           cluster_id: binding.cluster_id,
-          success: true,
-          message: "ACL provisioned successfully",
+          success: result.success,
+          message: result.success ? "ACL provisioned successfully" : result.message,
         });
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         results.push({
           target_node_id: binding.target_node_id,
           target_endpoint_id: binding.target_endpoint_id,
           cluster_id: binding.cluster_id,
           success: false,
-          message: `${err}`,
+          message,
         });
       }
     }
