@@ -3,6 +3,8 @@
   "packages": {
     ".": {
       "release-type": "simple",
+      "prerelease": true,
+      "prerelease-type": "rc",
       "extra-files": [
         {
           "type": "json",
