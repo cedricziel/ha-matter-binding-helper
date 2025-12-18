@@ -142,6 +142,9 @@ export class BindingCard extends LitElement {
   variant: BindingCardVariant = "default";
 
   render() {
+    if (!this.binding) {
+      return nothing;
+    }
     const { binding, sourceNode, sourceEndpoint, targetNode, targetEndpoint } =
       this.binding;
     const isGroupBinding = binding.target_group_id !== null;

@@ -198,7 +198,7 @@ export class AclSection extends LitElement {
 
     // Format targets
     const targetStrings =
-      entry.targets.length > 0
+      entry.targets && entry.targets.length > 0
         ? entry.targets.map((t) => {
             const parts: string[] = [];
             if (t.cluster !== null) {
