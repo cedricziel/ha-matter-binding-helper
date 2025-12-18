@@ -36,9 +36,11 @@ import "./components/bindings/binding-card";
 import "./components/acl/acl-section";
 import "./components/dialogs/create-binding-dialog";
 import "./components/dialogs/confirm-dialog";
+import "./components/dialogs/operation-progress-dialog";
 import "./components/wizard/binding-wizard";
 import "./components/device-panel/endpoint-selector";
 import "./components/overview/recommendation-list";
+import "./components/groups/groups-tab";
 
 // Import extracted styles
 import { panelLayoutStyles } from "./styles/panel-layout-styles";
@@ -688,6 +690,11 @@ export class MatterBindingPanel extends LitElement {
     this._showCreateDialog = false;
   }
 
+  private _handleGroupClick(e: CustomEvent<{ group: MatterGroup }>) {
+    // Placeholder for future group management functionality
+    console.log("Group clicked:", e.detail.group);
+  }
+
   private _confirmManualBinding(): void {
     if (!this._pendingManualBinding) return;
 
@@ -822,7 +829,13 @@ export class MatterBindingPanel extends LitElement {
           ? this._renderOverviewTab()
           : this._activeTab === "bindings"
             ? this._renderBindingsTab()
-            : this._renderGroupsTab()}
+            : html`
+                <matter-groups-tab
+                  .groups=${this._groups}
+                  .loading=${this._loading}
+                  @group-click=${this._handleGroupClick}
+                ></matter-groups-tab>
+              `}
         <matter-create-binding-dialog
           .open=${this._showCreateDialog}
           .sourceNode=${this._selectedSourceNode}
@@ -851,7 +864,12 @@ export class MatterBindingPanel extends LitElement {
           @close=${this._handleWizardClose}
         ></matter-binding-wizard>
         ${this._showBulkRepairModal ? this._renderBulkRepairModal() : nothing}
-        ${this._operationProgress ? this._renderOperationProgressModal() : nothing}
+        <matter-operation-progress-dialog
+          .open=${this._operationProgress !== null}
+          .progress=${this._operationProgress}
+          @close=${this._closeOperationProgress}
+          @cancel=${this._cancelOperation}
+        ></matter-operation-progress-dialog>
         ${this._renderSurveyResultDialog()}
       </div>
     `;
@@ -1714,39 +1732,6 @@ export class MatterBindingPanel extends LitElement {
     window.dispatchEvent(new CustomEvent("location-changed"));
   }
 
-  private _renderGroupsTab() {
-    return html`
-      <div class="card">
-        <div class="card-header">Matter Groups</div>
-        ${this._loading
-          ? html`<div class="loading">Loading...</div>`
-          : this._groups.length > 0
-            ? html`
-                <div class="binding-list">
-                  ${this._groups.map(
-                    (group) => html`
-                      <div class="binding-card">
-                        <div>
-                          <strong>${group.name}</strong>
-                          <div style="font-size: 12px; color: var(--secondary-text-color);">
-                            Group ID: ${group.group_id} |
-                            ${group.members.length} member(s)
-                          </div>
-                        </div>
-                      </div>
-                    `
-                  )}
-                </div>
-              `
-            : html`
-                <div class="empty-state">
-                  No Matter groups configured. Group management is coming soon.
-                </div>
-              `}
-      </div>
-    `;
-  }
-
   private _renderBindingConfirmDialogComponent() {
     if (!this._pendingBindingRecommendation || !this._selectedClusterForBinding) return nothing;
 
@@ -2355,49 +2340,6 @@ export class MatterBindingPanel extends LitElement {
             <button type="button" class="btn btn-primary" @click=${this._closeBulkRepairModal}>
               Close
             </button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // =============================================================================
-  // Operation Progress Modal Render
-  // =============================================================================
-
-  private _renderOperationProgressModal() {
-    if (!this._operationProgress) return nothing;
-
-    const { title, steps, completed, error, canCancel } = this._operationProgress;
-
-    return html`
-      <div class="dialog-overlay blocking">
-        <div class="dialog operation-progress-dialog" @click=${(e: Event) => e.stopPropagation()}>
-          <div class="dialog-header">${title}</div>
-          <div class="dialog-content">
-            <div class="operation-steps">
-              ${steps.map((step) => html`
-                <div class="operation-step ${step.status}">
-                  <span class="step-icon">
-                    ${step.status === "in_progress" ? "⏳" :
-                      step.status === "success" ? "✓" :
-                      step.status === "error" ? "✗" :
-                      step.status === "skipped" ? "–" : "○"}
-                  </span>
-                  <span class="step-label">${step.label}</span>
-                  ${step.message ? html`<span class="step-message">${step.message}</span>` : nothing}
-                </div>
-              `)}
-            </div>
-            ${error ? html`<div class="operation-error">${error}</div>` : nothing}
-            ${!completed ? html`<div class="operation-hint">Communicating with Matter device...</div>` : nothing}
-          </div>
-          <div class="dialog-actions">
-            ${completed
-              ? html`<button class="btn btn-primary" @click=${this._closeOperationProgress}>Done</button>`
-              : canCancel
-                ? html`<button class="btn btn-secondary" @click=${this._cancelOperation}>Cancel</button>`
-                : nothing}
           </div>
         </div>
       </div>
