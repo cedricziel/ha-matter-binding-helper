@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.26.0-rc.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.4...v0.26.0-rc.1) (2025-12-18)
+
+
+### Features
+
+* add hideCard mode to RecommendationList and integrate ([d34605d](https://github.com/cedricziel/ha-matter-binding-helper/commit/d34605da41bc45ce46ecb0320a9d9bc1eb371b8a))
+* **frontend:** add groups-tab component ([7a71865](https://github.com/cedricziel/ha-matter-binding-helper/commit/7a71865aa0e813d87c77761295337c2bfef496ee))
+* **frontend:** extract additional UI components ([ac09c2c](https://github.com/cedricziel/ha-matter-binding-helper/commit/ac09c2c68fe60c13f833d3f147d9c27d4e153364))
+* **frontend:** extract reusable components from matter-binding-panel ([e383c7c](https://github.com/cedricziel/ha-matter-binding-helper/commit/e383c7ce6519b086d569a43c80dea47ab5fd3929))
+
+
+### Code Refactoring
+
+* extract CSS from main panel into style modules ([b3e0a03](https://github.com/cedricziel/ha-matter-binding-helper/commit/b3e0a03c043e4f4f7b9bd237bedfcbf8403ebd39))
+* **frontend:** integrate BindingWizard and CreateBindingDialog components ([c03d610](https://github.com/cedricziel/ha-matter-binding-helper/commit/c03d6105fcb971c0d16b662e5b5d20c69dd6fe5f))
+* **frontend:** integrate extracted components into main panel ([98e53ce](https://github.com/cedricziel/ha-matter-binding-helper/commit/98e53ce88f722fa3a32952dcb5326cea5fd9d92f))
+* **frontend:** integrate extracted components into main panel ([2290c24](https://github.com/cedricziel/ha-matter-binding-helper/commit/2290c24fb79e2a2228f0b6393f207f9c57f47329))
+* integrate ConfirmDialog component for binding confirmations ([649671d](https://github.com/cedricziel/ha-matter-binding-helper/commit/649671d5642c9acd0d7992aef01c2a94d1a980a6))
+* remove unused component imports ([3668697](https://github.com/cedricziel/ha-matter-binding-helper/commit/36686972449bb7adfc3d7c373d06332f93c35162))
+* remove unused helper methods from main panel ([12f48a9](https://github.com/cedricziel/ha-matter-binding-helper/commit/12f48a99cc345ef8d361276c63d6fa44102d71ef))
+* remove unused render methods replaced by components ([afe1ed6](https://github.com/cedricziel/ha-matter-binding-helper/commit/afe1ed6c65543dabf9df1d814940349bb4c8815b))
+
+
+### Miscellaneous
+
+* enable prerelease mode for release-please ([2c4fa6d](https://github.com/cedricziel/ha-matter-binding-helper/commit/2c4fa6d02da09c702a5d486f2ab838da90112991))
+* prepare 0.26.0 pre-release ([5f253ea](https://github.com/cedricziel/ha-matter-binding-helper/commit/5f253ea177f21f7e7eb35749c7ea1dbaeef7c769))
+
 ## [0.25.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.3...v0.25.4) (2025-12-17)
 
 
