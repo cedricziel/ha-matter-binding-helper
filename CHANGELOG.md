@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.27.0...v0.28.0) (2025-12-19)
+
+
+### Features
+
+* add one-click automation creation from UI ([b1e6ae8](https://github.com/cedricziel/ha-matter-binding-helper/commit/b1e6ae86e8e3190a5902a2bc6634854a5708a842))
+* add one-click automation creation from UI ([#85](https://github.com/cedricziel/ha-matter-binding-helper/issues/85)) ([b1e6ae8](https://github.com/cedricziel/ha-matter-binding-helper/commit/b1e6ae86e8e3190a5902a2bc6634854a5708a842))
+
 ## [0.27.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.26.1...v0.27.0) (2025-12-19)
 
 
