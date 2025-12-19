@@ -264,7 +264,10 @@ def _binding_matches_for_delete(
         return False
 
     # Match target_endpoint_id if provided
-    if target_endpoint_id is not None and binding.target_endpoint_id != target_endpoint_id:
+    if (
+        target_endpoint_id is not None
+        and binding.target_endpoint_id != target_endpoint_id
+    ):
         return False
 
     # Always compare target_group_id (None == None matches)
@@ -293,6 +296,34 @@ def add_demo_acl_entry(node_id: int, entry: ACLEntry) -> None:
     if node_id not in _demo_acl_entries:
         _demo_acl_entries[node_id] = _demo_acl_default.copy()
     _demo_acl_entries[node_id].append(entry)
+
+
+def remove_demo_acl_entry(node_id: int, source_node_id: int | None = None) -> bool:
+    """Remove ACL entries matching the source node ID from demo storage.
+
+    Args:
+        node_id: The node whose ACL to modify
+        source_node_id: If provided, remove entries where this node is in subjects
+
+    Returns:
+        True if at least one entry was removed, False otherwise.
+    """
+    if node_id not in _demo_acl_entries:
+        return False
+
+    if source_node_id is None:
+        return False
+
+    original_count = len(_demo_acl_entries[node_id])
+
+    # Filter out entries that have source_node_id in their subjects
+    _demo_acl_entries[node_id] = [
+        entry
+        for entry in _demo_acl_entries[node_id]
+        if source_node_id not in entry.subjects
+    ]
+
+    return len(_demo_acl_entries[node_id]) < original_count
 
 
 def reset_demo_data() -> None:

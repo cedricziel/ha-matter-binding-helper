@@ -274,9 +274,7 @@ def _parse_acl_entry(entry: Any) -> ACLEntry | None:
         targets: list[ACLTarget] = []
         if raw_targets and isinstance(raw_targets, list):
             for t in raw_targets:
-                cluster_val = _get_value(
-                    t, "0", 0, "cluster", "Cluster", default=None
-                )
+                cluster_val = _get_value(t, "0", 0, "cluster", "Cluster", default=None)
                 endpoint_val = _get_value(
                     t, "1", 1, "endpoint", "Endpoint", default=None
                 )

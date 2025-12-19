@@ -421,9 +421,7 @@ async def verify_bindings(
         )
 
     except Exception as err:
-        _LOGGER.error(
-            "verify_bindings: Error reading bindings: %s", err, exc_info=True
-        )
+        _LOGGER.error("verify_bindings: Error reading bindings: %s", err, exc_info=True)
         error_type = parse_error_type(err)
         return BindingVerificationResult(
             success=False,
