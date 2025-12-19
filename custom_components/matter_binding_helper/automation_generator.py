@@ -214,9 +214,7 @@ def resolve_entities_for_device(
     return result
 
 
-def get_preferred_domains_for_template(
-    template_id: str, role: str
-) -> list[str] | None:
+def get_preferred_domains_for_template(template_id: str, role: str) -> list[str] | None:
     """Get preferred entity domains for a template role.
 
     Args:
@@ -388,9 +386,7 @@ async def create_automation(
 
     except ImportError:
         # Fallback: Try writing to automations.yaml
-        _LOGGER.warning(
-            "Could not use config store, attempting YAML fallback"
-        )
+        _LOGGER.warning("Could not use config store, attempting YAML fallback")
         return await _create_automation_yaml_fallback(hass, config)
     except Exception as err:
         _LOGGER.error("Failed to create automation: %s", err)
@@ -489,18 +485,26 @@ async def preview_automation(
     trigger_entities = resolve_entities_for_device(
         hass, target_node_id, trigger_domains
     )
-    action_entities = resolve_entities_for_device(
-        hass, source_node_id, action_domains
-    )
+    action_entities = resolve_entities_for_device(hass, source_node_id, action_domains)
 
     # Format available entities for response
     available_entities = {
         "trigger": [
-            {"entity_id": e.entity_id, "name": e.name, "domain": e.domain, "disabled": e.disabled}
+            {
+                "entity_id": e.entity_id,
+                "name": e.name,
+                "domain": e.domain,
+                "disabled": e.disabled,
+            }
             for e in trigger_entities
         ],
         "action": [
-            {"entity_id": e.entity_id, "name": e.name, "domain": e.domain, "disabled": e.disabled}
+            {
+                "entity_id": e.entity_id,
+                "name": e.name,
+                "domain": e.domain,
+                "disabled": e.disabled,
+            }
             for e in action_entities
         ],
     }

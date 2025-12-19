@@ -53,13 +53,17 @@ class TestDeviceTypeDomainMap:
         """Test that light device types map to light domain."""
         light_types = [256, 257, 258, 268, 269]
         for dt in light_types:
-            assert "light" in DEVICE_TYPE_DOMAIN_MAP.get(dt, []), f"Device type {dt} should map to light"
+            assert "light" in DEVICE_TYPE_DOMAIN_MAP.get(dt, []), (
+                f"Device type {dt} should map to light"
+            )
 
     def test_sensor_device_types_map_to_binary_sensor(self):
         """Test that sensor device types map to binary_sensor."""
         sensor_types = [21, 263]  # Contact Sensor, Occupancy Sensor
         for dt in sensor_types:
-            assert "binary_sensor" in DEVICE_TYPE_DOMAIN_MAP.get(dt, []), f"Device type {dt} should map to binary_sensor"
+            assert "binary_sensor" in DEVICE_TYPE_DOMAIN_MAP.get(dt, []), (
+                f"Device type {dt} should map to binary_sensor"
+            )
 
     def test_thermostat_maps_to_climate(self):
         """Test that thermostat maps to climate domain."""
@@ -79,7 +83,12 @@ class TestTemplateConfigs:
 
     def test_all_templates_have_required_fields(self):
         """Test that all templates have required configuration fields."""
-        required_fields = ["trigger_domain", "action_domain", "action_service", "description"]
+        required_fields = [
+            "trigger_domain",
+            "action_domain",
+            "action_service",
+            "description",
+        ]
         for template_id, config in TEMPLATE_CONFIGS.items():
             for field in required_fields:
                 assert field in config, f"Template {template_id} missing {field}"
@@ -102,11 +111,18 @@ class TestTemplateConfigs:
 
     def test_button_templates_use_event_trigger(self):
         """Test that button templates use event trigger domain."""
-        button_templates = ["button-light-toggle", "button-plug-toggle", "button-scene", "button-thermostat-adjust"]
+        button_templates = [
+            "button-light-toggle",
+            "button-plug-toggle",
+            "button-scene",
+            "button-thermostat-adjust",
+        ]
         for template_id in button_templates:
             config = TEMPLATE_CONFIGS.get(template_id)
             assert config is not None, f"Template {template_id} not found"
-            assert config["trigger_domain"] == "event", f"Template {template_id} should use event trigger"
+            assert config["trigger_domain"] == "event", (
+                f"Template {template_id} should use event trigger"
+            )
 
     def test_nine_templates_exist(self):
         """Test that we have 9 automation templates."""
@@ -176,7 +192,9 @@ class TestGenerateAutomationConfig:
         trigger = EntityInfo("binary_sensor.motion", "Motion Sensor", "binary_sensor")
         action = EntityInfo("light.living_room", "Living Room", "light")
 
-        config = generate_automation_config("light-occupancy", trigger, action, alias="My Custom Automation")
+        config = generate_automation_config(
+            "light-occupancy", trigger, action, alias="My Custom Automation"
+        )
 
         assert config["alias"] == "My Custom Automation"
 
@@ -254,13 +272,30 @@ class TestResolveEntitiesForDevice:
             mock_get_info.return_value = {
                 "ha_device_id": "device123",
                 "entities": [
-                    {"entity_id": "light.test", "domain": "light", "name": "Test Light", "disabled": False},
-                    {"entity_id": "switch.test", "domain": "switch", "name": "Test Switch", "disabled": False},
-                    {"entity_id": "sensor.battery", "domain": "sensor", "name": "Battery", "disabled": False},
+                    {
+                        "entity_id": "light.test",
+                        "domain": "light",
+                        "name": "Test Light",
+                        "disabled": False,
+                    },
+                    {
+                        "entity_id": "switch.test",
+                        "domain": "switch",
+                        "name": "Test Switch",
+                        "disabled": False,
+                    },
+                    {
+                        "entity_id": "sensor.battery",
+                        "domain": "sensor",
+                        "name": "Battery",
+                        "disabled": False,
+                    },
                 ],
             }
 
-            entities = resolve_entities_for_device(mock_hass, node_id=1, preferred_domains=["light"])
+            entities = resolve_entities_for_device(
+                mock_hass, node_id=1, preferred_domains=["light"]
+            )
 
             assert len(entities) == 1
             assert entities[0].entity_id == "light.test"
@@ -275,13 +310,30 @@ class TestResolveEntitiesForDevice:
             mock_get_info.return_value = {
                 "ha_device_id": "device123",
                 "entities": [
-                    {"entity_id": "light.test", "domain": "light", "name": "Test Light", "disabled": False},
-                    {"entity_id": "switch.test", "domain": "switch", "name": "Test Switch", "disabled": False},
-                    {"entity_id": "sensor.battery", "domain": "sensor", "name": "Battery", "disabled": False},
+                    {
+                        "entity_id": "light.test",
+                        "domain": "light",
+                        "name": "Test Light",
+                        "disabled": False,
+                    },
+                    {
+                        "entity_id": "switch.test",
+                        "domain": "switch",
+                        "name": "Test Switch",
+                        "disabled": False,
+                    },
+                    {
+                        "entity_id": "sensor.battery",
+                        "domain": "sensor",
+                        "name": "Battery",
+                        "disabled": False,
+                    },
                 ],
             }
 
-            entities = resolve_entities_for_device(mock_hass, node_id=1, preferred_domains=["light", "switch"])
+            entities = resolve_entities_for_device(
+                mock_hass, node_id=1, preferred_domains=["light", "switch"]
+            )
 
             assert len(entities) == 2
             entity_ids = [e.entity_id for e in entities]
@@ -298,12 +350,24 @@ class TestResolveEntitiesForDevice:
             mock_get_info.return_value = {
                 "ha_device_id": "device123",
                 "entities": [
-                    {"entity_id": "light.disabled", "domain": "light", "name": "Disabled", "disabled": True},
-                    {"entity_id": "light.enabled", "domain": "light", "name": "Enabled", "disabled": False},
+                    {
+                        "entity_id": "light.disabled",
+                        "domain": "light",
+                        "name": "Disabled",
+                        "disabled": True,
+                    },
+                    {
+                        "entity_id": "light.enabled",
+                        "domain": "light",
+                        "name": "Enabled",
+                        "disabled": False,
+                    },
                 ],
             }
 
-            entities = resolve_entities_for_device(mock_hass, node_id=1, preferred_domains=["light"])
+            entities = resolve_entities_for_device(
+                mock_hass, node_id=1, preferred_domains=["light"]
+            )
 
             assert len(entities) == 2
             assert entities[0].entity_id == "light.enabled"  # Non-disabled first
@@ -378,14 +442,24 @@ class TestPreviewAutomation:
                     return {
                         "ha_device_id": "device_source",
                         "entities": [
-                            {"entity_id": "light.test", "domain": "light", "name": "Test Light", "disabled": False},
+                            {
+                                "entity_id": "light.test",
+                                "domain": "light",
+                                "name": "Test Light",
+                                "disabled": False,
+                            },
                         ],
                     }
                 else:
                     return {
                         "ha_device_id": "device_target",
                         "entities": [
-                            {"entity_id": "binary_sensor.motion", "domain": "binary_sensor", "name": "Motion", "disabled": False},
+                            {
+                                "entity_id": "binary_sensor.motion",
+                                "domain": "binary_sensor",
+                                "name": "Motion",
+                                "disabled": False,
+                            },
                         ],
                     }
 
@@ -433,19 +507,30 @@ class TestPreviewAutomation:
         with patch(
             "custom_components.matter_binding_helper.automation_generator.get_ha_device_info"
         ) as mock_get_info:
+
             def get_info_side_effect(hass, node_id):
                 if node_id == 1:
                     return {
                         "ha_device_id": "device_source",
                         "entities": [
-                            {"entity_id": "light.test", "domain": "light", "name": "Test Light", "disabled": False},
+                            {
+                                "entity_id": "light.test",
+                                "domain": "light",
+                                "name": "Test Light",
+                                "disabled": False,
+                            },
                         ],
                     }
                 else:
                     return {
                         "ha_device_id": "device_target",
                         "entities": [
-                            {"entity_id": "binary_sensor.motion", "domain": "binary_sensor", "name": "Motion", "disabled": False},
+                            {
+                                "entity_id": "binary_sensor.motion",
+                                "domain": "binary_sensor",
+                                "name": "Motion",
+                                "disabled": False,
+                            },
                         ],
                     }
 

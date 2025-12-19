@@ -28,12 +28,22 @@ homeassistant_const = _create_mock_module("homeassistant.const")
 homeassistant_config_entries = _create_mock_module("homeassistant.config_entries")
 homeassistant_helpers = _create_mock_module("homeassistant.helpers")
 homeassistant_helpers_event = _create_mock_module("homeassistant.helpers.event")
-homeassistant_helpers_device_registry = _create_mock_module("homeassistant.helpers.device_registry")
-homeassistant_helpers_entity_registry = _create_mock_module("homeassistant.helpers.entity_registry")
-homeassistant_helpers_area_registry = _create_mock_module("homeassistant.helpers.area_registry")
+homeassistant_helpers_device_registry = _create_mock_module(
+    "homeassistant.helpers.device_registry"
+)
+homeassistant_helpers_entity_registry = _create_mock_module(
+    "homeassistant.helpers.entity_registry"
+)
+homeassistant_helpers_area_registry = _create_mock_module(
+    "homeassistant.helpers.area_registry"
+)
 homeassistant_components = _create_mock_module("homeassistant.components")
-homeassistant_components_frontend = _create_mock_module("homeassistant.components.frontend")
-homeassistant_components_panel_custom = _create_mock_module("homeassistant.components.panel_custom")
+homeassistant_components_frontend = _create_mock_module(
+    "homeassistant.components.frontend"
+)
+homeassistant_components_panel_custom = _create_mock_module(
+    "homeassistant.components.panel_custom"
+)
 homeassistant_components_matter = _create_mock_module("homeassistant.components.matter")
 homeassistant_components_http = _create_mock_module("homeassistant.components.http")
 
@@ -108,12 +118,18 @@ sys.modules["homeassistant.const"] = homeassistant_const
 sys.modules["homeassistant.config_entries"] = homeassistant_config_entries
 sys.modules["homeassistant.helpers"] = homeassistant_helpers
 sys.modules["homeassistant.helpers.event"] = homeassistant_helpers_event
-sys.modules["homeassistant.helpers.device_registry"] = homeassistant_helpers_device_registry
-sys.modules["homeassistant.helpers.entity_registry"] = homeassistant_helpers_entity_registry
+sys.modules["homeassistant.helpers.device_registry"] = (
+    homeassistant_helpers_device_registry
+)
+sys.modules["homeassistant.helpers.entity_registry"] = (
+    homeassistant_helpers_entity_registry
+)
 sys.modules["homeassistant.helpers.area_registry"] = homeassistant_helpers_area_registry
 sys.modules["homeassistant.components"] = homeassistant_components
 sys.modules["homeassistant.components.frontend"] = homeassistant_components_frontend
-sys.modules["homeassistant.components.panel_custom"] = homeassistant_components_panel_custom
+sys.modules["homeassistant.components.panel_custom"] = (
+    homeassistant_components_panel_custom
+)
 sys.modules["homeassistant.components.matter"] = homeassistant_components_matter
 sys.modules["homeassistant.components.http"] = homeassistant_components_http
 
@@ -133,10 +149,18 @@ sys.modules["matter_server.common"] = matter_server_common
 sys.modules["matter_server.common.models"] = matter_server_common_models
 
 # Mock additional homeassistant modules needed for automation_generator
-homeassistant_components_websocket_api = _create_mock_module("homeassistant.components.websocket_api")
-homeassistant_components_automation = _create_mock_module("homeassistant.components.automation")
-homeassistant_components_automation_config = _create_mock_module("homeassistant.components.automation.config")
-homeassistant_helpers_aiohttp_client = _create_mock_module("homeassistant.helpers.aiohttp_client")
+homeassistant_components_websocket_api = _create_mock_module(
+    "homeassistant.components.websocket_api"
+)
+homeassistant_components_automation = _create_mock_module(
+    "homeassistant.components.automation"
+)
+homeassistant_components_automation_config = _create_mock_module(
+    "homeassistant.components.automation.config"
+)
+homeassistant_helpers_aiohttp_client = _create_mock_module(
+    "homeassistant.helpers.aiohttp_client"
+)
 homeassistant_loader = _create_mock_module("homeassistant.loader")
 
 # Set up websocket_api decorators
@@ -146,7 +170,9 @@ homeassistant_components_websocket_api.async_register_command = MagicMock()
 
 # Set up automation config store
 mock_config_store = MagicMock()
-homeassistant_components_automation_config.async_get_config_store = MagicMock(return_value=mock_config_store)
+homeassistant_components_automation_config.async_get_config_store = MagicMock(
+    return_value=mock_config_store
+)
 
 homeassistant.components.websocket_api = homeassistant_components_websocket_api
 homeassistant.components.automation = homeassistant_components_automation
@@ -154,10 +180,16 @@ homeassistant.components.automation.config = homeassistant_components_automation
 homeassistant.helpers.aiohttp_client = homeassistant_helpers_aiohttp_client
 homeassistant.loader = homeassistant_loader
 
-sys.modules["homeassistant.components.websocket_api"] = homeassistant_components_websocket_api
+sys.modules["homeassistant.components.websocket_api"] = (
+    homeassistant_components_websocket_api
+)
 sys.modules["homeassistant.components.automation"] = homeassistant_components_automation
-sys.modules["homeassistant.components.automation.config"] = homeassistant_components_automation_config
-sys.modules["homeassistant.helpers.aiohttp_client"] = homeassistant_helpers_aiohttp_client
+sys.modules["homeassistant.components.automation.config"] = (
+    homeassistant_components_automation_config
+)
+sys.modules["homeassistant.helpers.aiohttp_client"] = (
+    homeassistant_helpers_aiohttp_client
+)
 sys.modules["homeassistant.loader"] = homeassistant_loader
 
 # Mock voluptuous (used by api.py)
