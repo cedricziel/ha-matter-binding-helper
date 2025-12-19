@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.27.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.26.1...v0.27.0) (2025-12-19)
+
+
+### Features
+
+* **tests:** add unit tests for matter/ subpackage modules ([9f0df67](https://github.com/cedricziel/ha-matter-binding-helper/commit/9f0df6768f206aef16c1c3317d87a7a0f9aa1e0e))
+
+
+### Code Refactoring
+
+* modularize matter_client.py into matter/ subpackage ([9f0df67](https://github.com/cedricziel/ha-matter-binding-helper/commit/9f0df6768f206aef16c1c3317d87a7a0f9aa1e0e))
+* modularize matter_client.py into matter/ subpackage with unit tests ([#83](https://github.com/cedricziel/ha-matter-binding-helper/issues/83)) ([9f0df67](https://github.com/cedricziel/ha-matter-binding-helper/commit/9f0df6768f206aef16c1c3317d87a7a0f9aa1e0e))
+
+
+### Documentation
+
+* add image ([9f0df67](https://github.com/cedricziel/ha-matter-binding-helper/commit/9f0df6768f206aef16c1c3317d87a7a0f9aa1e0e))
+
 ## [0.26.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.26.0-rc.1...v0.26.1) (2025-12-19)
 
 
