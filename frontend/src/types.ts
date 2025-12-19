@@ -190,6 +190,24 @@ export interface ProvisionACLResponse {
   error_type?: OperationErrorType;
 }
 
+// ACL progress event (fired during polling verification)
+export type ACLProgressStatus = "verifying" | "retrying" | "success" | "failed";
+
+export interface ACLProgressEvent {
+  target_node_id: number;
+  source_node_id: number;
+  status: ACLProgressStatus;
+  attempt: number;
+  max_attempts: number;
+  timeout_seconds?: number;
+  elapsed_seconds?: number;
+  remaining_seconds?: number;
+  message: string;
+}
+
+// Event name constant
+export const EVENT_ACL_PROGRESS = "matter_binding_helper_acl_progress";
+
 export interface ProvisionACLForBindingsResponse {
   success: boolean;
   results: Array<{
@@ -222,6 +240,8 @@ export interface BindingWizardState {
   bindingInProgress: boolean;
   aclInProgress: boolean;
   verifyInProgress: boolean;
+  // ACL progress tracking (updated via events during polling)
+  aclProgress?: ACLProgressEvent;
 }
 
 // Operation progress types for blocking dialogs

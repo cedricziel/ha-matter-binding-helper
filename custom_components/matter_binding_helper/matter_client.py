@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -21,6 +22,8 @@ from .const import (
     ACL_PRIVILEGE_OPERATE,
     ACL_PRIVILEGE_PROXY_VIEW,
     ACL_PRIVILEGE_VIEW,
+    ACL_VERIFY_INTERVAL,
+    ACL_VERIFY_TIMEOUT,
     ATTR_ACL,
     ATTR_ACCEPTED_COMMAND_LIST,
     ATTR_CLIENT_LIST,
@@ -37,6 +40,7 @@ from .const import (
     DEFAULT_CLUSTER_PRIVILEGE,
     DEFAULT_DEMO_MODE,
     DOMAIN,
+    EVENT_ACL_PROGRESS,
 )
 
 if TYPE_CHECKING:
@@ -2329,41 +2333,116 @@ async def add_acl_entry(
         if not write_result.success:
             return write_result
 
-        # Read-after-write verification: confirm the entry was actually persisted
+        # Read-after-write verification with polling: some devices take time to process ACL writes
+        max_attempts = ACL_VERIFY_TIMEOUT // ACL_VERIFY_INTERVAL
+
         _LOGGER.debug(
-            "add_acl_entry: Verifying ACL entry was persisted for node %s", node_id
-        )
-        verified_entries = await get_acl(hass, node_id)
-
-        if not _acl_entry_exists(
-            verified_entries, source_node_id, target_endpoint_id, cluster_id
-        ):
-            _LOGGER.error(
-                "add_acl_entry: VERIFICATION FAILED - ACL entry not found after write! "
-                "source_node=%s, target_node=%s, endpoint=%s, cluster=0x%04X. "
-                "Device may have rejected the entry silently.",
-                source_node_id,
-                node_id,
-                target_endpoint_id,
-                cluster_id,
-            )
-            return ACLProvisioningResult(
-                success=False,
-                message="ACL write appeared to succeed but entry not found on device. "
-                "The device may have rejected the entry.",
-                acl_entries_count=len(verified_entries),
-                error_type=OperationErrorType.DEVICE_REJECTED,
-            )
-
-        _LOGGER.info(
-            "add_acl_entry: Verified ACL entry persisted on node %s (%d total entries)",
+            "add_acl_entry: Verifying ACL entry was persisted for node %s (polling up to %ds)",
             node_id,
-            len(verified_entries),
+            ACL_VERIFY_TIMEOUT,
+        )
+
+        # Fire initial progress event
+        hass.bus.async_fire(
+            EVENT_ACL_PROGRESS,
+            {
+                "target_node_id": node_id,
+                "source_node_id": source_node_id,
+                "status": "verifying",
+                "attempt": 0,
+                "max_attempts": max_attempts,
+                "timeout_seconds": ACL_VERIFY_TIMEOUT,
+                "message": "Verifying ACL was saved to device...",
+            },
+        )
+
+        verified_entries: list[ACLEntry] = []
+        for attempt in range(max_attempts):
+            verified_entries = await get_acl(hass, node_id)
+
+            if _acl_entry_exists(
+                verified_entries, source_node_id, target_endpoint_id, cluster_id
+            ):
+                _LOGGER.info(
+                    "add_acl_entry: Verified ACL entry persisted on node %s (%d total entries) after %d attempt(s)",
+                    node_id,
+                    len(verified_entries),
+                    attempt + 1,
+                )
+                # Fire success event
+                hass.bus.async_fire(
+                    EVENT_ACL_PROGRESS,
+                    {
+                        "target_node_id": node_id,
+                        "source_node_id": source_node_id,
+                        "status": "success",
+                        "attempt": attempt + 1,
+                        "max_attempts": max_attempts,
+                        "message": "ACL verified successfully",
+                    },
+                )
+                return ACLProvisioningResult(
+                    success=True,
+                    message=f"Successfully added ACL entry ({len(verified_entries)} total)",
+                    acl_entries_count=len(verified_entries),
+                )
+
+            # Entry not found yet, wait and retry
+            if attempt < max_attempts - 1:
+                elapsed = (attempt + 1) * ACL_VERIFY_INTERVAL
+                remaining = ACL_VERIFY_TIMEOUT - elapsed
+                _LOGGER.debug(
+                    "add_acl_entry: ACL entry not found on attempt %d/%d for node %s, retrying in %ds...",
+                    attempt + 1,
+                    max_attempts,
+                    node_id,
+                    ACL_VERIFY_INTERVAL,
+                )
+                # Fire retry progress event
+                hass.bus.async_fire(
+                    EVENT_ACL_PROGRESS,
+                    {
+                        "target_node_id": node_id,
+                        "source_node_id": source_node_id,
+                        "status": "retrying",
+                        "attempt": attempt + 1,
+                        "max_attempts": max_attempts,
+                        "elapsed_seconds": elapsed,
+                        "remaining_seconds": remaining,
+                        "message": f"Waiting for device to process ACL... ({remaining}s remaining)",
+                    },
+                )
+                await asyncio.sleep(ACL_VERIFY_INTERVAL)
+
+        # Exhausted all attempts
+        _LOGGER.error(
+            "add_acl_entry: VERIFICATION FAILED - ACL entry not found after %d seconds! "
+            "source_node=%s, target_node=%s, endpoint=%s, cluster=0x%04X. "
+            "Device may have rejected the entry silently.",
+            ACL_VERIFY_TIMEOUT,
+            source_node_id,
+            node_id,
+            target_endpoint_id,
+            cluster_id,
+        )
+        # Fire failure event
+        hass.bus.async_fire(
+            EVENT_ACL_PROGRESS,
+            {
+                "target_node_id": node_id,
+                "source_node_id": source_node_id,
+                "status": "failed",
+                "attempt": max_attempts,
+                "max_attempts": max_attempts,
+                "message": f"ACL verification failed after {ACL_VERIFY_TIMEOUT}s",
+            },
         )
         return ACLProvisioningResult(
-            success=True,
-            message=f"Successfully added ACL entry ({len(verified_entries)} total)",
+            success=False,
+            message=f"ACL write appeared to succeed but entry not found on device after {ACL_VERIFY_TIMEOUT}s. "
+            "The device may have rejected the entry.",
             acl_entries_count=len(verified_entries),
+            error_type=OperationErrorType.DEVICE_REJECTED,
         )
 
     except Exception as err:
@@ -2856,8 +2935,6 @@ async def create_binding(
             _LOGGER.info("create_binding: Verifying binding was written to device...")
 
             # Small delay to allow device to process
-            import asyncio
-
             await asyncio.sleep(0.2)
 
             # Read back bindings directly from device

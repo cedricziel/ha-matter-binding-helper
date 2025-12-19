@@ -558,4 +558,190 @@ describe("BindingWizard", () => {
       expect(cancelBtn?.textContent?.trim()).toBe("Done");
     });
   });
+
+  describe("ACL progress display", () => {
+    it("should show progress container when ACL is in progress", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const progressContainer = queryShadow(element, ".acl-progress-container");
+      expect(progressContainer).toBeTruthy();
+    });
+
+    it("should show default message when no progress events received", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const message = queryShadow(element, ".acl-progress-message");
+      expect(message?.textContent).toContain("Setting permissions on");
+      expect(message?.textContent).toContain("30 seconds");
+    });
+
+    it("should show indeterminate progress bar before first event", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const progressBar = queryShadow(element, ".acl-progress-bar.indeterminate");
+      expect(progressBar).toBeTruthy();
+    });
+
+    it("should show progress message from event", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+            aclProgress: {
+              target_node_id: 2,
+              source_node_id: 1,
+              status: "retrying",
+              attempt: 3,
+              max_attempts: 15,
+              elapsed_seconds: 6,
+              remaining_seconds: 24,
+              message: "Waiting for device to process ACL... (24s remaining)",
+            },
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const message = queryShadow(element, ".acl-progress-message");
+      expect(message?.textContent).toContain("Waiting for device");
+      expect(message?.textContent).toContain("24s remaining");
+    });
+
+    it("should show determinate progress bar with correct width", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+            aclProgress: {
+              target_node_id: 2,
+              source_node_id: 1,
+              status: "retrying",
+              attempt: 5,
+              max_attempts: 10,
+              message: "Waiting...",
+            },
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const progressBar = queryShadow(element, ".acl-progress-bar:not(.indeterminate)") as HTMLElement;
+      expect(progressBar).toBeTruthy();
+      // 5/10 = 50%
+      expect(progressBar?.style.width).toBe("50%");
+    });
+
+    it("should show attempt counter in progress stats", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+            aclProgress: {
+              target_node_id: 2,
+              source_node_id: 1,
+              status: "retrying",
+              attempt: 7,
+              max_attempts: 15,
+              message: "Waiting...",
+            },
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const attemptStat = queryShadow(element, ".acl-progress-attempt");
+      // attempt is 0-indexed in state, displayed as 1-indexed
+      expect(attemptStat?.textContent).toContain("Attempt 8 of 15");
+    });
+
+    it("should show remaining time when available", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: true,
+            aclProgress: {
+              target_node_id: 2,
+              source_node_id: 1,
+              status: "retrying",
+              attempt: 3,
+              max_attempts: 15,
+              remaining_seconds: 20,
+              message: "Waiting...",
+            },
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const stats = queryShadow(element, ".acl-progress-stats");
+      expect(stats?.textContent).toContain("20s remaining");
+    });
+
+    it("should not show progress container after ACL completes", async () => {
+      element = await fixture<BindingWizard>(html`
+        <matter-binding-wizard
+          .open=${true}
+          .wizardState=${createWizardState({
+            currentStep: "acl",
+            aclInProgress: false,
+            aclResult: {
+              success: true,
+              message: "ACL provisioned successfully",
+              acl_entries_count: 2,
+            },
+          })}
+        ></matter-binding-wizard>
+      `);
+
+      await elementUpdated(element);
+
+      const progressContainer = queryShadow(element, ".acl-progress-container");
+      expect(progressContainer).toBeFalsy();
+
+      const result = queryShadow(element, ".wizard-result.success");
+      expect(result).toBeTruthy();
+    });
+  });
 });
