@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.26.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.26.0-rc.1...v0.26.1) (2025-12-19)
+
+
+### Features
+
+* add ACL verification polling with progress feedback ([#82](https://github.com/cedricziel/ha-matter-binding-helper/issues/82)) ([3d8158d](https://github.com/cedricziel/ha-matter-binding-helper/commit/3d8158d59cdd508c9efbb1bc441965efd98ccfc6))
+
+
+### Miscellaneous
+
+* configure release-please for pre-releases ([35b198c](https://github.com/cedricziel/ha-matter-binding-helper/commit/35b198cf775348f4ab21ec9978b340d18f9a1aaa))
+* release 0.26.1 ([9b41181](https://github.com/cedricziel/ha-matter-binding-helper/commit/9b41181445a29e5dd9ea098899c873bfbae2bf3a))
+* revert to normal releases ([ddae5d5](https://github.com/cedricziel/ha-matter-binding-helper/commit/ddae5d5b599a6696c16489397e3c8f51802b294d))
+
 ## [0.26.0-rc.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.25.4...v0.26.0-rc.1) (2025-12-18)
 
 
