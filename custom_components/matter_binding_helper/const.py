@@ -68,6 +68,7 @@ WS_TYPE_LIST_ACL = f"{DOMAIN}/list_acl"
 WS_TYPE_PROVISION_ACL = f"{DOMAIN}/provision_acl"
 WS_TYPE_REMOVE_ACL = f"{DOMAIN}/remove_acl"
 WS_TYPE_PROVISION_ACL_FOR_BINDINGS = f"{DOMAIN}/provision_acl_for_bindings"
+WS_TYPE_CREATE_AUTOMATION = f"{DOMAIN}/create_automation"
 ATTR_ACL = 0  # ACL attribute ID
 
 # ACL privilege levels

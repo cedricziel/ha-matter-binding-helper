@@ -38,6 +38,7 @@ import "./components/acl/acl-section";
 import "./components/dialogs/create-binding-dialog";
 import "./components/dialogs/confirm-dialog";
 import "./components/dialogs/operation-progress-dialog";
+import "./components/dialogs/create-automation-dialog";
 import "./components/wizard/binding-wizard";
 import "./components/device-panel/endpoint-selector";
 import "./components/overview/recommendation-list";
@@ -100,6 +101,10 @@ export class MatterBindingPanel extends LitElement {
 
   // Operation progress state for blocking dialogs
   @state() private _operationProgress: OperationProgressState | null = null;
+
+  // Automation creation dialog state
+  @state() private _showAutomationDialog = false;
+  @state() private _pendingAutomationRecommendation: AutomationRecommendation | null = null;
 
   // Use extracted style modules for maintainability
   static styles = [
@@ -871,6 +876,13 @@ export class MatterBindingPanel extends LitElement {
           @close=${this._closeOperationProgress}
           @cancel=${this._cancelOperation}
         ></matter-operation-progress-dialog>
+        <matter-create-automation-dialog
+          .hass=${this.hass}
+          .open=${this._showAutomationDialog}
+          .recommendation=${this._pendingAutomationRecommendation}
+          @close=${this._closeAutomationDialog}
+          @created=${this._handleAutomationCreated}
+        ></matter-create-automation-dialog>
         ${this._renderSurveyResultDialog()}
       </div>
     `;
@@ -1102,16 +1114,30 @@ export class MatterBindingPanel extends LitElement {
           </div>
           ${sourceNode.area_name ? html`<div class="binding-meta">${sourceNode.area_name}</div>` : nothing}
         </div>
-        <a
-          class="btn btn-small btn-secondary"
-          href="/config/automation/new"
-          target="_blank"
+        <button
+          class="btn btn-small btn-primary"
+          @click=${() => this._openAutomationDialog(recommendation)}
           title="Create this automation in Home Assistant"
         >
-          Create in HA →
-        </a>
+          Create Automation
+        </button>
       </div>
     `;
+  }
+
+  private _openAutomationDialog(recommendation: AutomationRecommendation): void {
+    this._pendingAutomationRecommendation = recommendation;
+    this._showAutomationDialog = true;
+  }
+
+  private _closeAutomationDialog(): void {
+    this._showAutomationDialog = false;
+    this._pendingAutomationRecommendation = null;
+  }
+
+  private _handleAutomationCreated(): void {
+    this._closeAutomationDialog();
+    // Optionally show a success notification
   }
 
   private _toggleAreaFilter(e: Event): void {

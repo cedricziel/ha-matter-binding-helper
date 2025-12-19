@@ -15,6 +15,7 @@ from homeassistant.helpers import device_registry as dr
 from .const import (
     WS_TYPE_ADD_TO_GROUP,
     WS_TYPE_CLEAR_SCHEDULE,
+    WS_TYPE_CREATE_AUTOMATION,
     WS_TYPE_CREATE_BINDING,
     WS_TYPE_CREATE_GROUP,
     WS_TYPE_DELETE_BINDING,
@@ -30,6 +31,10 @@ from .const import (
     WS_TYPE_REMOVE_FROM_GROUP,
     WS_TYPE_SET_SCHEDULE,
     WS_TYPE_VERIFY_BINDINGS,
+)
+from .automation_generator import (
+    create_automation_from_template,
+    preview_automation,
 )
 from . import matter_client
 from .telemetry import collect_survey_data
@@ -74,6 +79,8 @@ async def async_setup(hass: HomeAssistant) -> None:
     # Debug: telemetry preview
     websocket_api.async_register_command(hass, ws_debug_telemetry)
     websocket_api.async_register_command(hass, ws_debug_v3_extraction)
+    # Automation creation
+    websocket_api.async_register_command(hass, ws_create_automation)
 
 
 @websocket_api.websocket_command(
@@ -1680,3 +1687,114 @@ async def ws_debug_v3_extraction(
         return
 
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_CREATE_AUTOMATION,
+        vol.Required("template_id"): str,
+        vol.Required("source_node_id"): vol.Coerce(int),
+        vol.Required("source_endpoint_id"): vol.Coerce(int),
+        vol.Required("target_node_id"): vol.Coerce(int),
+        vol.Required("target_endpoint_id"): vol.Coerce(int),
+        vol.Optional("source_device_types"): [vol.Coerce(int)],
+        vol.Optional("target_device_types"): [vol.Coerce(int)],
+        vol.Optional("trigger_entity_id"): str,
+        vol.Optional("action_entity_id"): str,
+        vol.Optional("alias"): str,
+        vol.Optional("preview_only", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_create_automation(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Create or preview a Home Assistant automation from a template.
+
+    Request:
+        template_id: Automation template ID (e.g., "light-occupancy")
+        source_node_id: Matter node ID of the action target (light/plug/thermostat)
+        source_endpoint_id: Endpoint ID of the action target
+        target_node_id: Matter node ID of the trigger source (sensor/switch)
+        target_endpoint_id: Endpoint ID of the trigger source
+        source_device_types: Optional device types for the source
+        target_device_types: Optional device types for the target
+        trigger_entity_id: Optional specific trigger entity to use
+        action_entity_id: Optional specific action entity to use
+        alias: Optional custom name for the automation
+        preview_only: If true, return config without creating (default: false)
+
+    Response:
+        success: Whether the operation succeeded
+        automation_id: ID of created automation (if created)
+        automation_config: The automation configuration
+        available_entities: Trigger and action entity options for selection
+        message: Status message
+        error_code: Error code if failed
+    """
+    template_id = msg["template_id"]
+    source_node_id = msg["source_node_id"]
+    source_endpoint_id = msg["source_endpoint_id"]
+    target_node_id = msg["target_node_id"]
+    target_endpoint_id = msg["target_endpoint_id"]
+    source_device_types = msg.get("source_device_types", [])
+    target_device_types = msg.get("target_device_types", [])
+    trigger_entity_id = msg.get("trigger_entity_id")
+    action_entity_id = msg.get("action_entity_id")
+    alias = msg.get("alias")
+    preview_only = msg.get("preview_only", False)
+
+    _LOGGER.debug(
+        "Create automation request: template=%s, source=%d/%d, target=%d/%d, preview=%s",
+        template_id,
+        source_node_id,
+        source_endpoint_id,
+        target_node_id,
+        target_endpoint_id,
+        preview_only,
+    )
+
+    if preview_only:
+        result = await preview_automation(
+            hass,
+            template_id=template_id,
+            source_node_id=source_node_id,
+            source_device_types=source_device_types,
+            target_node_id=target_node_id,
+            target_device_types=target_device_types,
+            trigger_entity_id=trigger_entity_id,
+            action_entity_id=action_entity_id,
+            alias=alias,
+        )
+    else:
+        result = await create_automation_from_template(
+            hass,
+            template_id=template_id,
+            source_node_id=source_node_id,
+            source_device_types=source_device_types,
+            target_node_id=target_node_id,
+            target_device_types=target_device_types,
+            trigger_entity_id=trigger_entity_id,
+            action_entity_id=action_entity_id,
+            alias=alias,
+        )
+
+    response = {
+        "success": result.success,
+        "automation_id": result.automation_id,
+        "automation_config": result.automation_config,
+        "available_entities": result.available_entities,
+        "message": result.message,
+        "error_code": result.error_code.value if result.error_code else None,
+    }
+
+    if result.success:
+        connection.send_result(msg["id"], response)
+    else:
+        connection.send_error(
+            msg["id"],
+            result.error_code.value if result.error_code else "unknown_error",
+            result.message,
+        )

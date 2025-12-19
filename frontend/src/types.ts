@@ -546,6 +546,42 @@ export interface AutomationRecommendation {
   targetEndpoint: MatterEndpoint;
 }
 
+// Entity option for automation creation
+export interface EntityOption {
+  entity_id: string;
+  name: string;
+  domain: string;
+  disabled?: boolean;
+}
+
+// Create automation request
+export interface CreateAutomationRequest {
+  template_id: string;
+  source_node_id: number;
+  source_endpoint_id: number;
+  target_node_id: number;
+  target_endpoint_id: number;
+  source_device_types?: number[];
+  target_device_types?: number[];
+  trigger_entity_id?: string;
+  action_entity_id?: string;
+  alias?: string;
+  preview_only?: boolean;
+}
+
+// Create automation response
+export interface CreateAutomationResponse {
+  success: boolean;
+  automation_id?: string;
+  automation_config?: Record<string, unknown>;
+  available_entities?: {
+    trigger: EntityOption[];
+    action: EntityOption[];
+  };
+  message: string;
+  error_code?: string;
+}
+
 // Eve thermostat schedule types
 export interface EveTimeSlot {
   time: string;  // HH:MM format
