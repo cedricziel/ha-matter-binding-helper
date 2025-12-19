@@ -11,15 +11,16 @@ import { buttonStyles, stateStyles, badgeStyles } from "../../styles/shared-styl
 import { baseCardStyles, overviewCardStyles } from "../../styles/card-styles";
 import { filterControlStyles, automationStyles } from "../../styles/misc-styles";
 import type {
+  HomeAssistant,
   BindingWithContext,
   BindingRecommendation,
   AutomationRecommendation,
-  ACLEntry,
 } from "../../types";
 
 // Import sub-components
 import "./established-bindings";
 import "./recommendation-list";
+import "../dialogs/create-automation-dialog";
 
 export interface ACLStatus {
   hasPermission: boolean;
@@ -103,6 +104,10 @@ export class OverviewTab extends LitElement {
     `,
   ];
 
+  /** Home Assistant instance */
+  @property({ attribute: false })
+  hass?: HomeAssistant;
+
   /** Whether data is loading */
   @property({ type: Boolean })
   loading = false;
@@ -147,6 +152,14 @@ export class OverviewTab extends LitElement {
   @property({ type: Boolean })
   verificationInProgress = false;
 
+  /** Whether create automation dialog is open */
+  @state()
+  private _createDialogOpen = false;
+
+  /** Selected automation recommendation for dialog */
+  @state()
+  private _selectedRecommendation?: AutomationRecommendation;
+
   render() {
     return html`
       <div class="overview-content">
@@ -158,6 +171,14 @@ export class OverviewTab extends LitElement {
               ${this._renderAutomationsSection()}
             `}
       </div>
+
+      <matter-create-automation-dialog
+        .hass=${this.hass}
+        .open=${this._createDialogOpen}
+        .recommendation=${this._selectedRecommendation}
+        @close=${this._handleDialogClose}
+        @created=${this._handleAutomationCreated}
+      ></matter-create-automation-dialog>
     `;
   }
 
@@ -276,14 +297,13 @@ export class OverviewTab extends LitElement {
           </div>
           ${sourceNode.area_name ? html`<div class="binding-meta">${sourceNode.area_name}</div>` : nothing}
         </div>
-        <a
-          class="btn btn-small btn-secondary"
-          href="/config/automation/new"
-          target="_blank"
+        <button
+          class="btn btn-small btn-primary"
+          @click=${() => this._handleOpenCreateDialog(recommendation)}
           title="Create this automation in Home Assistant"
         >
-          Create in HA →
-        </a>
+          Create Automation
+        </button>
       </div>
     `;
   }
@@ -355,6 +375,27 @@ export class OverviewTab extends LitElement {
     this.filterSameAreaOnly = input.checked;
     this.dispatchEvent(new CustomEvent("filter-change", {
       detail: { filterSameAreaOnly: input.checked },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  // Automation dialog handlers
+
+  private _handleOpenCreateDialog(recommendation: AutomationRecommendation) {
+    this._selectedRecommendation = recommendation;
+    this._createDialogOpen = true;
+  }
+
+  private _handleDialogClose() {
+    this._createDialogOpen = false;
+    this._selectedRecommendation = undefined;
+  }
+
+  private _handleAutomationCreated(e: CustomEvent) {
+    // Optionally dispatch event to parent for notification
+    this.dispatchEvent(new CustomEvent("automation-created", {
+      detail: e.detail,
       bubbles: true,
       composed: true,
     }));

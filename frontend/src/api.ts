@@ -18,6 +18,8 @@ import type {
   ClearScheduleResponse,
   ScheduleDay,
   ScheduleTransition,
+  CreateAutomationRequest,
+  CreateAutomationResponse,
 } from "./types";
 
 const DOMAIN = "matter_binding_helper";
@@ -335,5 +337,58 @@ export async function clearThermostatSchedule(
     type: `${DOMAIN}/clear_schedule`,
     node_id: nodeId,
     endpoint_id: endpointId,
+  });
+}
+
+// =============================================================================
+// Automation Creation API
+// =============================================================================
+
+/**
+ * Create or preview a Home Assistant automation from a template.
+ *
+ * @param hass - Home Assistant instance
+ * @param request - Automation creation request
+ *
+ * @example
+ * // Preview an automation
+ * const preview = await createAutomation(hass, {
+ *   template_id: "light-occupancy",
+ *   source_node_id: 1,
+ *   source_endpoint_id: 1,
+ *   target_node_id: 2,
+ *   target_endpoint_id: 1,
+ *   preview_only: true,
+ * });
+ *
+ * // Create an automation with user-selected entities
+ * const result = await createAutomation(hass, {
+ *   template_id: "light-occupancy",
+ *   source_node_id: 1,
+ *   source_endpoint_id: 1,
+ *   target_node_id: 2,
+ *   target_endpoint_id: 1,
+ *   trigger_entity_id: "binary_sensor.occupancy_sensor",
+ *   action_entity_id: "light.living_room",
+ *   alias: "Living room motion light",
+ * });
+ */
+export async function createAutomation(
+  hass: HomeAssistant,
+  request: CreateAutomationRequest
+): Promise<CreateAutomationResponse> {
+  return hass.callWS({
+    type: `${DOMAIN}/create_automation`,
+    template_id: request.template_id,
+    source_node_id: request.source_node_id,
+    source_endpoint_id: request.source_endpoint_id,
+    target_node_id: request.target_node_id,
+    target_endpoint_id: request.target_endpoint_id,
+    ...(request.source_device_types && { source_device_types: request.source_device_types }),
+    ...(request.target_device_types && { target_device_types: request.target_device_types }),
+    ...(request.trigger_entity_id && { trigger_entity_id: request.trigger_entity_id }),
+    ...(request.action_entity_id && { action_entity_id: request.action_entity_id }),
+    ...(request.alias && { alias: request.alias }),
+    preview_only: request.preview_only ?? false,
   });
 }
