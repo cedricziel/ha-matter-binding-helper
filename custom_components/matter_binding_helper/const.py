@@ -82,6 +82,11 @@ ACL_AUTH_MODE_PASE = 1  # Commissioning
 ACL_AUTH_MODE_CASE = 2  # Device-to-device (certificate)
 ACL_AUTH_MODE_GROUP = 3  # Group messaging
 
+# ACL provisioning progress events
+EVENT_ACL_PROGRESS = f"{DOMAIN}_acl_progress"
+ACL_VERIFY_TIMEOUT = 30  # seconds
+ACL_VERIFY_INTERVAL = 2  # seconds
+
 # Cluster-to-privilege mapping for bindings
 # Maps cluster IDs to the minimum privilege required to operate on them
 CLUSTER_DOOR_LOCK = 0x0101

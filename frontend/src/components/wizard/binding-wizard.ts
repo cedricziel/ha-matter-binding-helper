@@ -186,6 +186,65 @@ export class BindingWizard extends LitElement {
         color: var(--success-color, #4caf50);
         font-weight: 500;
       }
+
+      /* ACL Progress styles */
+      .acl-progress-container {
+        margin-top: 16px;
+        padding: 16px;
+        background: var(--secondary-background-color);
+        border-radius: 8px;
+      }
+
+      .acl-progress-message {
+        font-size: 14px;
+        color: var(--primary-text-color);
+        margin-bottom: 12px;
+        text-align: center;
+      }
+
+      .acl-progress-bar-container {
+        position: relative;
+        height: 8px;
+        background: var(--divider-color, #e0e0e0);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .acl-progress-bar {
+        height: 100%;
+        background: var(--primary-color);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
+
+      .acl-progress-bar.indeterminate {
+        width: 30%;
+        animation: indeterminate 1.5s infinite ease-in-out;
+      }
+
+      @keyframes indeterminate {
+        0% {
+          transform: translateX(-100%);
+        }
+        50% {
+          transform: translateX(200%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      .acl-progress-stats {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .acl-progress-attempt {
+        font-weight: 500;
+      }
     `,
   ];
 
@@ -384,8 +443,33 @@ export class BindingWizard extends LitElement {
 
       ${wizard.aclInProgress
         ? html`
-            <div class="wizard-progress-note">
-              Provisioning ACL on ${wizard.targetNode.name}... This may take a few seconds.
+            <div class="acl-progress-container">
+              <div class="acl-progress-message">
+                ${wizard.aclProgress?.message ||
+                  `Setting permissions on ${wizard.targetNode.name}... This may take up to 30 seconds.`}
+              </div>
+              <div class="acl-progress-bar-container">
+                ${wizard.aclProgress && wizard.aclProgress.max_attempts > 0
+                  ? html`
+                      <div
+                        class="acl-progress-bar"
+                        style="width: ${Math.round((wizard.aclProgress.attempt / wizard.aclProgress.max_attempts) * 100)}%"
+                      ></div>
+                    `
+                  : html`<div class="acl-progress-bar indeterminate"></div>`}
+              </div>
+              ${wizard.aclProgress
+                ? html`
+                    <div class="acl-progress-stats">
+                      <span class="acl-progress-attempt">
+                        Attempt ${wizard.aclProgress.attempt + 1} of ${wizard.aclProgress.max_attempts}
+                      </span>
+                      ${wizard.aclProgress.remaining_seconds !== undefined
+                        ? html`<span>${wizard.aclProgress.remaining_seconds}s remaining</span>`
+                        : nothing}
+                    </div>
+                  `
+                : nothing}
             </div>
           `
         : nothing}

@@ -21,8 +21,9 @@ import type {
   ProvisionACLForBindingsResponse,
   OperationProgressState,
   OperationStep,
+  ACLProgressEvent,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule, EVENT_ACL_PROGRESS } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
 import "./thermostat-schedule-editor";
 import { computeBindingRecommendations } from "./recommendation-logic";
@@ -2075,7 +2076,29 @@ export class MatterBindingPanel extends LitElement {
 
     const { sourceNode, targetNode, targetEndpoint, clusterId } = this._bindingWizard;
 
-    this._bindingWizard = { ...this._bindingWizard, aclInProgress: true };
+    this._bindingWizard = { ...this._bindingWizard, aclInProgress: true, aclProgress: undefined };
+
+    // Subscribe to ACL progress events to show real-time feedback
+    let unsubscribe: (() => void) | null = null;
+    try {
+      unsubscribe = await this.hass.connection.subscribeEvents(
+        (event: unknown) => {
+          const data = (event as { data: ACLProgressEvent }).data;
+          // Only handle events for our current operation
+          if (data.target_node_id === targetNode.node_id &&
+              data.source_node_id === sourceNode.node_id) {
+            this._bindingWizard = {
+              ...this._bindingWizard!,
+              aclProgress: data,
+            };
+          }
+        },
+        EVENT_ACL_PROGRESS
+      );
+    } catch (err) {
+      // Event subscription failed, but we can still proceed without real-time updates
+      console.warn("Failed to subscribe to ACL progress events:", err);
+    }
 
     try {
       const result = await api.provisionACL(
@@ -2090,6 +2113,7 @@ export class MatterBindingPanel extends LitElement {
         ...this._bindingWizard,
         aclResult: result,
         aclInProgress: false,
+        aclProgress: undefined,
       };
 
       // Auto-advance to verify step if ACL succeeded
@@ -2105,7 +2129,13 @@ export class MatterBindingPanel extends LitElement {
           acl_entries_count: 0,
         },
         aclInProgress: false,
+        aclProgress: undefined,
       };
+    } finally {
+      // Clean up event subscription
+      if (unsubscribe) {
+        unsubscribe();
+      }
     }
   }
 
