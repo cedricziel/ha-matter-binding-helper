@@ -2,6 +2,8 @@
 
 A Home Assistant custom integration that provides a user interface for managing Matter device bindings through the official Matter server.
 
+![The overview screen](docs/img/overview.png)
+
 ## Features
 
 - **View Bindings**: List all existing Matter bindings between devices with cluster details
