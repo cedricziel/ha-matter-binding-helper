@@ -120,8 +120,49 @@ sys.modules["homeassistant.components.http"] = homeassistant_components_http
 # Mock matter_server
 matter_server = _create_mock_module("matter_server")
 matter_server_client = _create_mock_module("matter_server.client")
+matter_server_common = _create_mock_module("matter_server.common")
+matter_server_common_models = _create_mock_module("matter_server.common.models")
 matter_server.client = matter_server_client
+matter_server.common = matter_server_common
+matter_server.common.models = matter_server_common_models
 matter_server_client.MatterClient = MagicMock
 
 sys.modules["matter_server"] = matter_server
 sys.modules["matter_server.client"] = matter_server_client
+sys.modules["matter_server.common"] = matter_server_common
+sys.modules["matter_server.common.models"] = matter_server_common_models
+
+# Mock additional homeassistant modules needed for automation_generator
+homeassistant_components_websocket_api = _create_mock_module("homeassistant.components.websocket_api")
+homeassistant_components_automation = _create_mock_module("homeassistant.components.automation")
+homeassistant_components_automation_config = _create_mock_module("homeassistant.components.automation.config")
+homeassistant_helpers_aiohttp_client = _create_mock_module("homeassistant.helpers.aiohttp_client")
+homeassistant_loader = _create_mock_module("homeassistant.loader")
+
+# Set up websocket_api decorators
+homeassistant_components_websocket_api.websocket_command = lambda x: lambda f: f
+homeassistant_components_websocket_api.async_response = lambda f: f
+homeassistant_components_websocket_api.async_register_command = MagicMock()
+
+# Set up automation config store
+mock_config_store = MagicMock()
+homeassistant_components_automation_config.async_get_config_store = MagicMock(return_value=mock_config_store)
+
+homeassistant.components.websocket_api = homeassistant_components_websocket_api
+homeassistant.components.automation = homeassistant_components_automation
+homeassistant.components.automation.config = homeassistant_components_automation_config
+homeassistant.helpers.aiohttp_client = homeassistant_helpers_aiohttp_client
+homeassistant.loader = homeassistant_loader
+
+sys.modules["homeassistant.components.websocket_api"] = homeassistant_components_websocket_api
+sys.modules["homeassistant.components.automation"] = homeassistant_components_automation
+sys.modules["homeassistant.components.automation.config"] = homeassistant_components_automation_config
+sys.modules["homeassistant.helpers.aiohttp_client"] = homeassistant_helpers_aiohttp_client
+sys.modules["homeassistant.loader"] = homeassistant_loader
+
+# Mock voluptuous (used by api.py)
+voluptuous = _create_mock_module("voluptuous")
+voluptuous.Required = lambda x: x
+voluptuous.Optional = lambda x, default=None: x
+voluptuous.Coerce = lambda x: x
+sys.modules["voluptuous"] = voluptuous
