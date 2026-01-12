@@ -39,7 +39,7 @@ socket2 = "0.6"
 nix = { version = "0.30", features = ["net"] }
 
 # Utilities
-static_cell = "1"
+static_cell = "2"
 async-signal = "0.2"
 
 # Logging
