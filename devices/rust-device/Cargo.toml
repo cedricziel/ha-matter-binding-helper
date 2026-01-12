@@ -35,7 +35,7 @@ embassy-time-queue-utils = { version = "0.3", features = ["generic-queue-64"] }
 # Networking
 async-io = "2"
 futures-lite = "2"
-socket2 = "0.5"
+socket2 = "0.6"
 nix = { version = "0.27", features = ["net"] }
 
 # Utilities
