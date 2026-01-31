@@ -952,6 +952,17 @@ async def provision_acls_for_existing_bindings(
             )
             continue
 
+        if binding.cluster_id is None:
+            # Wildcard bindings (cluster_id=None means "any cluster" per Matter spec)
+            # are intentionally skipped because the ACL provisioning functions
+            # (add_acl_entry, provision_acl_for_binding) don't support wildcard clusters.
+            # TODO: Consider adding wildcard cluster ACL support in the future.
+            _LOGGER.debug(
+                "provision_acls_for_existing_bindings: Skipping wildcard binding "
+                "(cluster_id=None means 'any cluster')"
+            )
+            continue
+
         cluster_label = (
             f"0x{binding.cluster_id:04X}"
             if binding.cluster_id is not None
