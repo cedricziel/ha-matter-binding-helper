@@ -102,6 +102,33 @@ class TestBindingEntry:
         assert result["target_group_id"] == 50
         assert result["target_node_id"] is None
 
+    def test_create_binding_with_none_cluster_id(self):
+        """Test creating a binding with cluster_id=None (any cluster).
+
+        Per Matter spec, bindings may omit cluster_id to indicate
+        the binding applies to all applicable clusters.
+        """
+        binding = BindingEntry(
+            node_id=1,
+            endpoint_id=1,
+            target_node_id=2,
+            target_endpoint_id=1,
+        )
+        assert binding.cluster_id is None
+        assert binding.target_node_id == 2
+
+    def test_to_dict_with_none_cluster_id(self):
+        """Test to_dict correctly includes None cluster_id."""
+        binding = BindingEntry(
+            node_id=1,
+            endpoint_id=1,
+            target_node_id=2,
+            target_endpoint_id=1,
+        )
+        result = binding.to_dict()
+        assert result["cluster_id"] is None
+        assert result["target_node_id"] == 2
+
 
 class TestScheduleTransition:
     """Tests for ScheduleTransition dataclass."""

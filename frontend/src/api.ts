@@ -134,14 +134,14 @@ export async function provisionACL(
   targetNodeId: number,
   targetEndpointId: number,
   sourceNodeId: number,
-  clusterId: number
+  clusterId: number | null  // null means "any cluster" per Matter spec
 ): Promise<ProvisionACLResponse> {
   return hass.callWS({
     type: `${DOMAIN}/provision_acl`,
     target_node_id: targetNodeId,
     target_endpoint_id: targetEndpointId,
     source_node_id: sourceNodeId,
-    cluster_id: clusterId,
+    ...(clusterId !== null && { cluster_id: clusterId }),
   });
 }
 
@@ -158,15 +158,15 @@ export async function removeACL(
   hass: HomeAssistant,
   targetNodeId: number,
   sourceNodeId: number,
-  targetEndpointId?: number,
-  clusterId?: number
+  targetEndpointId?: number | null,
+  clusterId?: number | null  // null/undefined means "any cluster"
 ): Promise<ProvisionACLResponse> {
   return hass.callWS({
     type: `${DOMAIN}/remove_acl`,
     target_node_id: targetNodeId,
     source_node_id: sourceNodeId,
-    ...(targetEndpointId !== undefined && { target_endpoint_id: targetEndpointId }),
-    ...(clusterId !== undefined && { cluster_id: clusterId }),
+    ...(targetEndpointId != null && { target_endpoint_id: targetEndpointId }),
+    ...(clusterId != null && { cluster_id: clusterId }),
   });
 }
 
