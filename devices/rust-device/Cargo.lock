@@ -1986,7 +1986,7 @@ dependencies = [
 [[package]]
 name = "rs-matter"
 version = "0.1.1"
-source = "git+https://github.com/project-chip/rs-matter#968f504e910f0e91f87f0901a47590ca68872d01"
+source = "git+https://github.com/project-chip/rs-matter#9917d2c7346a0ef52ab16d7f4ac5bc62ae4ac51c"
 dependencies = [
  "aes",
  "async-io",
@@ -2037,7 +2037,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-macros"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#968f504e910f0e91f87f0901a47590ca68872d01"
+source = "git+https://github.com/project-chip/rs-matter#9917d2c7346a0ef52ab16d7f4ac5bc62ae4ac51c"
 dependencies = [
  "convert_case",
  "miette",
