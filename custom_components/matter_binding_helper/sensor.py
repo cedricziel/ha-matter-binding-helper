@@ -325,8 +325,10 @@ class MatterBindingSensor(CoordinatorEntity[MatterBindingCoordinator], SensorEnt
 
         return f"Node {node_id}"
 
-    def _get_cluster_name(self, cluster_id: int) -> str:
+    def _get_cluster_name(self, cluster_id: int | None) -> str:
         """Get a human-readable cluster name."""
+        if cluster_id is None:
+            return "Any Cluster"
         # Common Matter cluster names
         cluster_names = {
             0x0003: "Identify",

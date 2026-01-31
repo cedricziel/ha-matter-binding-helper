@@ -725,7 +725,10 @@ export class MatterBindingPanel extends LitElement {
     return node?.ha_device_id;
   }
 
-  private _getClusterName(clusterId: number): string {
+  private _getClusterName(clusterId: number | null): string {
+    if (clusterId === null) {
+      return "Any Cluster";
+    }
     return CLUSTER_NAMES[clusterId] || `Cluster 0x${clusterId.toString(16)}`;
   }
 
@@ -1572,9 +1575,10 @@ export class MatterBindingPanel extends LitElement {
 
     // Determine required privilege based on cluster type
     // Control clusters need Operate (3), sensor clusters need View (1)
+    // "Any cluster" bindings (cluster_id=null) require Operate since they could control anything
     const clusterId = binding.cluster_id;
     const controlClusters = [0x0006, 0x0008, 0x0300, 0x0201, 0x0202]; // On/Off, Level, Color, Thermostat, Fan
-    const requiredPrivilege = controlClusters.includes(clusterId) ? 3 : 1;
+    const requiredPrivilege = clusterId === null || controlClusters.includes(clusterId) ? 3 : 1;
     const requiredPrivilegeName = requiredPrivilege === 3 ? "Operate" : "View";
 
     // Find a matching ACL entry

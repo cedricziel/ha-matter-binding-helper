@@ -76,7 +76,7 @@ export interface DeviceType {
 export interface Binding {
   node_id: number;
   endpoint_id: number;
-  cluster_id: number;
+  cluster_id: number | null;  // Can be null for "any cluster" bindings (per Matter spec)
   target_node_id: number | null;
   target_endpoint_id: number | null;
   target_group_id: number | null;
@@ -420,7 +420,11 @@ import { getEnhancedClusterName, getClusterInfo, isProprietaryCluster } from "./
 export { getEnhancedClusterName, getClusterInfo, isProprietaryCluster };
 
 // Helper functions
-export function getClusterName(clusterId: number): string {
+export function getClusterName(clusterId: number | null): string {
+  // Handle null cluster_id (means "any cluster" per Matter spec)
+  if (clusterId === null) {
+    return "Any Cluster";
+  }
   // First check standard cluster names
   if (CLUSTER_NAMES[clusterId]) {
     return CLUSTER_NAMES[clusterId];
@@ -433,7 +437,14 @@ export function getDeviceTypeName(deviceTypeId: number): string {
   return DEVICE_TYPE_NAMES[deviceTypeId] || `Type ${deviceTypeId}`;
 }
 
-export function getClusterBindingDescription(clusterId: number): { action: string; dataType: string } {
+export function getClusterBindingDescription(clusterId: number | null): { action: string; dataType: string } {
+  // Handle null cluster_id (means "any cluster" per Matter spec)
+  if (clusterId === null) {
+    return {
+      action: "send all commands to",
+      dataType: "all supported commands",
+    };
+  }
   return CLUSTER_BINDING_DESCRIPTIONS[clusterId] || {
     action: "communicate with",
     dataType: `${getClusterName(clusterId)} data`,
