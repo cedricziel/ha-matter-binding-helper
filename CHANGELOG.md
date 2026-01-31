@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.28.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.0...v0.28.1) (2026-01-31)
+
+
+### Bug Fixes
+
+* handle None cluster_id in bindings (fixes [#110](https://github.com/cedricziel/ha-matter-binding-helper/issues/110)) ([#116](https://github.com/cedricziel/ha-matter-binding-helper/issues/116)) ([1ae5e0b](https://github.com/cedricziel/ha-matter-binding-helper/commit/1ae5e0bb8ff9134892c8e37653414b46b081b747))
+
+
+### Performance Improvements
+
+* defer binding fetches during startup to background ([#115](https://github.com/cedricziel/ha-matter-binding-helper/issues/115)) ([2ed5339](https://github.com/cedricziel/ha-matter-binding-helper/commit/2ed5339cffc28f0404e6a7d6c69424787f4228fd))
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#107](https://github.com/cedricziel/ha-matter-binding-helper/issues/107)) ([499f914](https://github.com/cedricziel/ha-matter-binding-helper/commit/499f9144a4dbae3787c59d99d96344d104136256))
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#105](https://github.com/cedricziel/ha-matter-binding-helper/issues/105)) ([7c3048b](https://github.com/cedricziel/ha-matter-binding-helper/commit/7c3048b50759ced96b9cf529ce800dfdca268230))
+* **deps-dev:** bump @vitest/ui from 4.0.15 to 4.0.16 in /frontend ([#94](https://github.com/cedricziel/ha-matter-binding-helper/issues/94)) ([8bbfd96](https://github.com/cedricziel/ha-matter-binding-helper/commit/8bbfd96f9d703352bc0e32925a745c7c7f310a50))
+* **deps-dev:** bump @vitest/ui from 4.0.16 to 4.0.17 in /frontend ([#108](https://github.com/cedricziel/ha-matter-binding-helper/issues/108)) ([c1b391e](https://github.com/cedricziel/ha-matter-binding-helper/commit/c1b391e7aa2096474aa9365c66255790990b5c9b))
+* **deps-dev:** bump happy-dom from 20.0.11 to 20.1.0 in /frontend ([#104](https://github.com/cedricziel/ha-matter-binding-helper/issues/104)) ([d222c9b](https://github.com/cedricziel/ha-matter-binding-helper/commit/d222c9b274b90e9ba96774851c14851b114b146e))
+* **deps-dev:** bump rollup from 4.53.4 to 4.55.1 in /frontend ([#100](https://github.com/cedricziel/ha-matter-binding-helper/issues/100)) ([d4d2aa8](https://github.com/cedricziel/ha-matter-binding-helper/commit/d4d2aa870bd784a465504fd55872fababedc4c17))
+* **deps-dev:** bump vitest from 4.0.16 to 4.0.17 in /frontend ([#109](https://github.com/cedricziel/ha-matter-binding-helper/issues/109)) ([d68dd10](https://github.com/cedricziel/ha-matter-binding-helper/commit/d68dd10a1442fa4bc549941143cce3e24e024286))
+* **deps:** bump clap from 4.5.53 to 4.5.54 in /devices/rust-device ([#99](https://github.com/cedricziel/ha-matter-binding-helper/issues/99)) ([0281f57](https://github.com/cedricziel/ha-matter-binding-helper/commit/0281f57488eb65d8f6803d524cd309c5298b6489))
+* **deps:** bump lit from 3.3.1 to 3.3.2 in /frontend ([#98](https://github.com/cedricziel/ha-matter-binding-helper/issues/98)) ([e495952](https://github.com/cedricziel/ha-matter-binding-helper/commit/e4959526f12d26c08d66c72960936fb81e82e5fc))
+* **deps:** bump nix from 0.27.1 to 0.30.1 in /devices/rust-device ([#91](https://github.com/cedricziel/ha-matter-binding-helper/issues/91)) ([d4081ed](https://github.com/cedricziel/ha-matter-binding-helper/commit/d4081ed805970998d293e11b63a5083437f7c82b))
+* **deps:** bump nix from 0.30.1 to 0.31.1 in /devices/rust-device ([#114](https://github.com/cedricziel/ha-matter-binding-helper/issues/114)) ([87672ad](https://github.com/cedricziel/ha-matter-binding-helper/commit/87672ad0dce616c67c299c6967984143eb7b6869))
+* **deps:** bump rs-matter in /devices/rust-device ([#101](https://github.com/cedricziel/ha-matter-binding-helper/issues/101)) ([d464db0](https://github.com/cedricziel/ha-matter-binding-helper/commit/d464db0b86b429b8ffd8d3b9682f95d35dec033b))
+* **deps:** bump rs-matter in /devices/rust-device ([#113](https://github.com/cedricziel/ha-matter-binding-helper/issues/113)) ([f75859f](https://github.com/cedricziel/ha-matter-binding-helper/commit/f75859f20d2ea377f3db87e5f7ea968d8a0cc7a6))
+* **deps:** bump socket2 from 0.5.10 to 0.6.1 in /devices/rust-device ([#87](https://github.com/cedricziel/ha-matter-binding-helper/issues/87)) ([7dd3b6d](https://github.com/cedricziel/ha-matter-binding-helper/commit/7dd3b6d71eef81896ef2a9be6c0fabba0acecbe2))
+* **deps:** bump socket2 from 0.6.1 to 0.6.2 in /devices/rust-device ([#112](https://github.com/cedricziel/ha-matter-binding-helper/issues/112)) ([758a8a7](https://github.com/cedricziel/ha-matter-binding-helper/commit/758a8a7fe3f5f6d1bfec240427af9604ef1768a1))
+* **deps:** bump static_cell in /devices/rust-device ([#90](https://github.com/cedricziel/ha-matter-binding-helper/issues/90)) ([d1bae6a](https://github.com/cedricziel/ha-matter-binding-helper/commit/d1bae6af62ada1cac4aa9ee13f972dae79048e79))
+
 ## [0.28.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.27.0...v0.28.0) (2025-12-19)
 
 
