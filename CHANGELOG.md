@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.1...v0.28.2) (2026-01-31)
+
+
+### Bug Fixes
+
+* handle None cluster_id in provision_acls_for_existing_bindings ([#117](https://github.com/cedricziel/ha-matter-binding-helper/issues/117)) ([1c5f526](https://github.com/cedricziel/ha-matter-binding-helper/commit/1c5f5266829a04061a0bb9373b69e7e42551a46f))
+
 ## [0.28.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.0...v0.28.1) (2026-01-31)
 
 
