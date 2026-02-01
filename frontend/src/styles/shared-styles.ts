@@ -346,6 +346,35 @@ export const layoutStyles = css`
 `;
 
 /**
+ * Link styles
+ */
+export const linkStyles = css`
+  .link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 13px;
+    transition: opacity 0.2s;
+  }
+
+  .link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+  }
+
+  .link-subtle {
+    color: var(--secondary-text-color);
+    text-decoration: none;
+    font-size: 12px;
+    transition: color 0.2s;
+  }
+
+  .link-subtle:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+  }
+`;
+
+/**
  * All shared styles combined
  */
 export const sharedStyles = [
@@ -354,4 +383,5 @@ export const sharedStyles = [
   formStyles,
   badgeStyles,
   layoutStyles,
+  linkStyles,
 ];

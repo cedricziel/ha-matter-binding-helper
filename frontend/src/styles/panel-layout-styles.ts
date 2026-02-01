@@ -105,6 +105,61 @@ export const overviewLayoutStyles = css`
 `;
 
 /**
+ * Footer styles
+ */
+export const footerStyles = css`
+  .footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .footer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 800px;
+  }
+
+  .footer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .footer-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    margin-bottom: 4px;
+  }
+
+  .footer-description {
+    font-size: 12px;
+    color: var(--secondary-text-color);
+    line-height: 1.5;
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 12px;
+  }
+
+  .footer-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .footer-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+  }
+`;
+
+/**
  * All panel layout styles combined
  */
 export const panelLayoutStyles = [
@@ -113,4 +168,5 @@ export const panelLayoutStyles = [
   tabStyles,
   contentGridStyles,
   overviewLayoutStyles,
+  footerStyles,
 ];
