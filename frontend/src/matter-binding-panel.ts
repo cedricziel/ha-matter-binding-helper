@@ -781,6 +781,50 @@ export class MatterBindingPanel extends LitElement {
     `;
   }
 
+  private _renderFooter() {
+    return html`
+      <div class="footer">
+        <div class="footer-content">
+          <div class="footer-section">
+            <div class="footer-title">Learn More About Matter</div>
+            <div class="footer-description">
+              Explore community resources and contribute to the growing ecosystem of Matter-enabled smart home devices.
+            </div>
+          </div>
+          <div class="footer-links">
+            <a
+              href="https://matter-survey.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer-link"
+              title="Browse 3,970+ cataloged Matter devices with ratings and compatibility information"
+            >
+              Matter Survey Database →
+            </a>
+            <a
+              href="https://csa-iot.org/all-solutions/matter/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer-link"
+              title="Official Matter specification and documentation"
+            >
+              Matter Specification →
+            </a>
+            <a
+              href="https://github.com/cedricziel/ha-matter-binding-helper"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer-link"
+              title="View source code and contribute to this integration"
+            >
+              GitHub Repository →
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   protected render() {
     return html`
       <div class="${this.narrow ? "narrow" : ""}">
@@ -887,6 +931,7 @@ export class MatterBindingPanel extends LitElement {
           @created=${this._handleAutomationCreated}
         ></matter-create-automation-dialog>
         ${this._renderSurveyResultDialog()}
+        ${this._renderFooter()}
       </div>
     `;
   }
