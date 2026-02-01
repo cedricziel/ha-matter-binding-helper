@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.2...v0.28.3) (2026-02-01)
+
+
+### Bug Fixes
+
+* defer sensor entity setup to background task ([#121](https://github.com/cedricziel/ha-matter-binding-helper/issues/121)) ([f84fd09](https://github.com/cedricziel/ha-matter-binding-helper/commit/f84fd09091ed0c72415419b8f4da8941dc062348)), closes [#119](https://github.com/cedricziel/ha-matter-binding-helper/issues/119)
+
 ## [0.28.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.1...v0.28.2) (2026-01-31)
 
 
