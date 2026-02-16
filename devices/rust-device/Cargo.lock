@@ -1986,7 +1986,7 @@ dependencies = [
 [[package]]
 name = "rs-matter"
 version = "0.1.1"
-source = "git+https://github.com/project-chip/rs-matter#9917d2c7346a0ef52ab16d7f4ac5bc62ae4ac51c"
+source = "git+https://github.com/project-chip/rs-matter#bb6782acc9ddf9907fb0b03c52bdd5aaa907a8ad"
 dependencies = [
  "aes",
  "async-io",
@@ -1994,10 +1994,13 @@ dependencies = [
  "bluer",
  "ccm",
  "cfg-if",
+ "cipher",
  "critical-section",
  "crypto-bigint 0.6.1",
  "defmt 0.3.100",
+ "digest",
  "domain",
+ "ecdsa",
  "either",
  "elliptic-curve",
  "embassy-futures",
@@ -2016,6 +2019,7 @@ dependencies = [
  "p256",
  "pbkdf2",
  "pinned-init",
+ "primeorder",
  "qrcodegen-no-heap",
  "rand",
  "rand_core",
@@ -2023,6 +2027,7 @@ dependencies = [
  "scopeguard",
  "sec1",
  "sha2",
+ "signature",
  "strum",
  "subtle",
  "time",
@@ -2037,7 +2042,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-macros"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#9917d2c7346a0ef52ab16d7f4ac5bc62ae4ac51c"
+source = "git+https://github.com/project-chip/rs-matter#bb6782acc9ddf9907fb0b03c52bdd5aaa907a8ad"
 dependencies = [
  "convert_case",
  "miette",
