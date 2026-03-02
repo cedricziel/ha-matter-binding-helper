@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.29.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.3...v0.29.0) (2026-03-02)
+
+
+### Features
+
+* add Matter resources footer with survey database link ([#123](https://github.com/cedricziel/ha-matter-binding-helper/issues/123)) ([a19e1b4](https://github.com/cedricziel/ha-matter-binding-helper/commit/a19e1b4c2c03cae027c31536c7153d335ef0b606)), closes [#120](https://github.com/cedricziel/ha-matter-binding-helper/issues/120)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#131](https://github.com/cedricziel/ha-matter-binding-helper/issues/131)) ([af93903](https://github.com/cedricziel/ha-matter-binding-helper/commit/af93903fde46915df6154d608f8f3ec4a86d92a0))
+* **deps-dev:** bump happy-dom from 20.1.0 to 20.5.4 in /frontend ([#134](https://github.com/cedricziel/ha-matter-binding-helper/issues/134)) ([20a7af4](https://github.com/cedricziel/ha-matter-binding-helper/commit/20a7af47096e8b5b24276b72166634574a6bf13c))
+* **deps-dev:** bump prettier from 3.7.4 to 3.8.1 in /frontend ([#129](https://github.com/cedricziel/ha-matter-binding-helper/issues/129)) ([1c78c2e](https://github.com/cedricziel/ha-matter-binding-helper/commit/1c78c2e6c06da24a2a3d7b5b20108ed9e1d4a5cb))
+* **deps-dev:** bump rollup from 4.55.1 to 4.57.1 in /frontend ([#130](https://github.com/cedricziel/ha-matter-binding-helper/issues/130)) ([2c14f98](https://github.com/cedricziel/ha-matter-binding-helper/commit/2c14f98d7db4176784cf0886bef6b92b43a63be4))
+* **deps:** bump clap from 4.5.54 to 4.5.60 in /devices/rust-device ([#140](https://github.com/cedricziel/ha-matter-binding-helper/issues/140)) ([649ffcb](https://github.com/cedricziel/ha-matter-binding-helper/commit/649ffcb93c487635446c8a16a2768019e1b6b724))
+* **deps:** bump env_logger in /devices/rust-device ([#137](https://github.com/cedricziel/ha-matter-binding-helper/issues/137)) ([e2fa183](https://github.com/cedricziel/ha-matter-binding-helper/commit/e2fa1834b63af9da555eb101b7790820632ca8cf))
+
 ## [0.28.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.2...v0.28.3) (2026-02-01)
 
 
