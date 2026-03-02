@@ -21,7 +21,7 @@
     "@vitest/ui": "^4.0.18",
     "eslint": "^9.39.2",
     "happy-dom": "^20.5.4",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.1",
     "rollup": "^4.57.1",
     "tslib": "^2.6.2",
     "typescript": "^5.4.2",
