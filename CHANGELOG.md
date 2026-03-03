@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.29.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.0...v0.29.1) (2026-03-03)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#146](https://github.com/cedricziel/ha-matter-binding-helper/issues/146)) ([c9c8949](https://github.com/cedricziel/ha-matter-binding-helper/commit/c9c894985dcb11ffde962a259dadaf600754c900))
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#147](https://github.com/cedricziel/ha-matter-binding-helper/issues/147)) ([cdf7f18](https://github.com/cedricziel/ha-matter-binding-helper/commit/cdf7f18c1c2ea185bf112ba128f053c1ee3a5564))
+* **deps-dev:** bump happy-dom from 20.5.4 to 20.7.0 in /frontend ([#145](https://github.com/cedricziel/ha-matter-binding-helper/issues/145)) ([4658777](https://github.com/cedricziel/ha-matter-binding-helper/commit/46587778cc31bbb7c14c2ab72e49c6176531da43))
+* **deps-dev:** bump rollup from 4.57.1 to 4.59.0 in /frontend ([#142](https://github.com/cedricziel/ha-matter-binding-helper/issues/142)) ([25686e4](https://github.com/cedricziel/ha-matter-binding-helper/commit/25686e4e8e662826c2fe061befda2f248e7d497d))
+
 ## [0.29.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.28.3...v0.29.0) (2026-03-02)
 
 
