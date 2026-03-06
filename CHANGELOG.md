@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.1...v0.29.2) (2026-03-06)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump eslint from 9.39.2 to 10.0.2 in /frontend ([#144](https://github.com/cedricziel/ha-matter-binding-helper/issues/144)) ([27ee59e](https://github.com/cedricziel/ha-matter-binding-helper/commit/27ee59e70be12e72bbb0bdb9f3b668091e20def9))
+* **deps:** bump nix from 0.31.1 to 0.31.2 in /devices/rust-device ([#143](https://github.com/cedricziel/ha-matter-binding-helper/issues/143)) ([ea0c672](https://github.com/cedricziel/ha-matter-binding-helper/commit/ea0c6722b28a9f1da6902f220853cfc6666f4a5b))
+
 ## [0.29.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.0...v0.29.1) (2026-03-03)
 
 
