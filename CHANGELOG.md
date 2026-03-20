@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.29.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.3...v0.29.4) (2026-03-20)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @rollup/plugin-terser in /frontend ([#153](https://github.com/cedricziel/ha-matter-binding-helper/issues/153)) ([42295b6](https://github.com/cedricziel/ha-matter-binding-helper/commit/42295b617b842d7cb0ca76874e1471f3939f8d7e))
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#163](https://github.com/cedricziel/ha-matter-binding-helper/issues/163)) ([2f01169](https://github.com/cedricziel/ha-matter-binding-helper/commit/2f01169bb5b139ea257c1ecb42a4880cdc3366bf))
+* **deps-dev:** bump @vitest/ui from 4.0.18 to 4.1.0 in /frontend ([#159](https://github.com/cedricziel/ha-matter-binding-helper/issues/159)) ([c3dcb6d](https://github.com/cedricziel/ha-matter-binding-helper/commit/c3dcb6de176f3e6fb7ab10ab898e719b914fdeb3))
+* **deps-dev:** bump vitest from 4.0.18 to 4.1.0 in /frontend ([#161](https://github.com/cedricziel/ha-matter-binding-helper/issues/161)) ([b846dc2](https://github.com/cedricziel/ha-matter-binding-helper/commit/b846dc27286ead3c739e40ab0273156477c2920d))
+* **deps:** bump clap from 4.5.60 to 4.6.0 in /devices/rust-device ([#160](https://github.com/cedricziel/ha-matter-binding-helper/issues/160)) ([2f3ec92](https://github.com/cedricziel/ha-matter-binding-helper/commit/2f3ec9203776dd528780efea6a603cc8901c08a4))
+
 ## [0.29.3](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.2...v0.29.3) (2026-03-14)
 
 
