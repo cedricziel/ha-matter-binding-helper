@@ -1487,18 +1487,6 @@ checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 
 [[package]]
 name = "nix"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
-dependencies = [
- "bitflags 2.10.0",
- "cfg-if",
- "libc",
- "memoffset",
-]
-
-[[package]]
-name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
@@ -1664,6 +1652,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "num_enum"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d0bca838442ec211fa11de3a8b0e0e8f3a4522575b5c4c06ed722e005036f26"
+dependencies = [
+ "num_enum_derive",
+ "rustversion",
+]
+
+[[package]]
+name = "num_enum_derive"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2010,7 +2019,7 @@ dependencies = [
 [[package]]
 name = "rs-matter"
 version = "0.1.1"
-source = "git+https://github.com/project-chip/rs-matter#9917d2c7346a0ef52ab16d7f4ac5bc62ae4ac51c"
+source = "git+https://github.com/project-chip/rs-matter#d50bdba6cb42a7aa7d501e63413d936c33bc1037"
 dependencies = [
  "aes",
  "async-io",
@@ -2018,10 +2027,14 @@ dependencies = [
  "bluer",
  "ccm",
  "cfg-if",
+ "cipher",
  "critical-section",
  "crypto-bigint 0.6.1",
  "defmt 0.3.100",
+ "der",
+ "digest",
  "domain",
+ "ecdsa",
  "either",
  "elliptic-curve",
  "embassy-futures",
@@ -2033,13 +2046,15 @@ dependencies = [
  "hmac",
  "libc",
  "log",
- "nix 0.27.1",
+ "nix 0.30.1",
  "num",
  "num-derive",
  "num-traits",
+ "num_enum",
  "p256",
  "pbkdf2",
  "pinned-init",
+ "primeorder",
  "qrcodegen-no-heap",
  "rand",
  "rand_core",
@@ -2047,6 +2062,7 @@ dependencies = [
  "scopeguard",
  "sec1",
  "sha2",
+ "signature",
  "strum",
  "subtle",
  "time",
@@ -2061,7 +2077,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-macros"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#9917d2c7346a0ef52ab16d7f4ac5bc62ae4ac51c"
+source = "git+https://github.com/project-chip/rs-matter#d50bdba6cb42a7aa7d501e63413d936c33bc1037"
 dependencies = [
  "convert_case",
  "miette",
