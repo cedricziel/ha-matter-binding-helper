@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.7](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.6...v0.29.7) (2026-04-18)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump prettier from 3.8.1 to 3.8.2 in /frontend ([#187](https://github.com/cedricziel/ha-matter-binding-helper/issues/187)) ([1b68e32](https://github.com/cedricziel/ha-matter-binding-helper/commit/1b68e32c30f20b201950691f63c8ed5814bb0fe7))
+* **deps-dev:** bump vitest from 4.1.2 to 4.1.4 in /frontend ([#188](https://github.com/cedricziel/ha-matter-binding-helper/issues/188)) ([d2bca98](https://github.com/cedricziel/ha-matter-binding-helper/commit/d2bca982b62f6b80e51dde7ba8b7563f50e6d98d))
+
 ## [0.29.6](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.5...v0.29.6) (2026-04-13)
 
 
