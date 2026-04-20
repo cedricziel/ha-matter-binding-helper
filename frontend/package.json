@@ -17,7 +17,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.56.1",
+    "@typescript-eslint/parser": "^8.59.0",
     "@vitest/ui": "^4.1.2",
     "eslint": "^10.1.0",
     "happy-dom": "^20.8.9",
