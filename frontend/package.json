@@ -24,7 +24,7 @@
     "prettier": "^3.8.2",
     "rollup": "^4.60.2",
     "tslib": "^2.6.2",
-    "typescript": "^5.4.2",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.4"
   },
   "dependencies": {
