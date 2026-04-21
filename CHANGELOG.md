@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.29.8](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.7...v0.29.8) (2026-04-21)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#196](https://github.com/cedricziel/ha-matter-binding-helper/issues/196)) ([77c49d7](https://github.com/cedricziel/ha-matter-binding-helper/commit/77c49d74cf3c5d43d38a89eaf39083d04482031c))
+* **deps-dev:** bump eslint from 10.1.0 to 10.2.1 in /frontend ([#197](https://github.com/cedricziel/ha-matter-binding-helper/issues/197)) ([dfcc905](https://github.com/cedricziel/ha-matter-binding-helper/commit/dfcc905c26fb0080545c9c0550ddfdd27416b911))
+* **deps-dev:** bump rollup from 4.60.1 to 4.60.2 in /frontend ([#199](https://github.com/cedricziel/ha-matter-binding-helper/issues/199)) ([93395f0](https://github.com/cedricziel/ha-matter-binding-helper/commit/93395f034e0bf139c2654f2ccc504de2bcbc97c8))
+* **deps-dev:** bump typescript from 5.9.3 to 6.0.3 in /frontend ([#198](https://github.com/cedricziel/ha-matter-binding-helper/issues/198)) ([b905c14](https://github.com/cedricziel/ha-matter-binding-helper/commit/b905c148a67a3faa3f22d540c88fafc56380a08e))
+* **deps:** bump clap from 4.6.0 to 4.6.1 in /devices/rust-device ([#193](https://github.com/cedricziel/ha-matter-binding-helper/issues/193)) ([5b7e7eb](https://github.com/cedricziel/ha-matter-binding-helper/commit/5b7e7eb026151de78e11e4601f87ebaeb5f8e889))
+* **deps:** bump embassy-time-queue-utils in /devices/rust-device ([#192](https://github.com/cedricziel/ha-matter-binding-helper/issues/192)) ([f518017](https://github.com/cedricziel/ha-matter-binding-helper/commit/f518017fc7e4f559db120a86435d37596080c140))
+
 ## [0.29.7](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.6...v0.29.7) (2026-04-18)
 
 
