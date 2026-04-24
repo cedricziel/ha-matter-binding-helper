@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.9](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.8...v0.29.9) (2026-04-24)
+
+
+### Miscellaneous
+
+* **deps:** bump async-signal in /devices/rust-device ([#185](https://github.com/cedricziel/ha-matter-binding-helper/issues/185)) ([bf459c1](https://github.com/cedricziel/ha-matter-binding-helper/commit/bf459c1c252b1708006a891d595afda6030f826b))
+
 ## [0.29.8](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.7...v0.29.8) (2026-04-21)
 
 
