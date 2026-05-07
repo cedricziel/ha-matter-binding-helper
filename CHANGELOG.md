@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.29.10](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.9...v0.29.10) (2026-05-06)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#203](https://github.com/cedricziel/ha-matter-binding-helper/issues/203)) ([96dd6a5](https://github.com/cedricziel/ha-matter-binding-helper/commit/96dd6a5744913f0f5c06d2aae3ad727110447556))
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#205](https://github.com/cedricziel/ha-matter-binding-helper/issues/205)) ([736f1a8](https://github.com/cedricziel/ha-matter-binding-helper/commit/736f1a85acd502d97808335432d95a4ad8505b9d))
+* **deps-dev:** bump @vitest/ui from 4.1.4 to 4.1.5 in /frontend ([#209](https://github.com/cedricziel/ha-matter-binding-helper/issues/209)) ([55ae4f0](https://github.com/cedricziel/ha-matter-binding-helper/commit/55ae4f0c4e8f139054cd3d7bcda1bcf4ac9811ca))
+* **deps-dev:** bump happy-dom from 20.8.9 to 20.9.0 in /frontend ([#206](https://github.com/cedricziel/ha-matter-binding-helper/issues/206)) ([bbab4bc](https://github.com/cedricziel/ha-matter-binding-helper/commit/bbab4bc7d426c4f66af73fdecbf28dece39d1047))
+* **deps-dev:** bump prettier from 3.8.2 to 3.8.3 in /frontend ([#208](https://github.com/cedricziel/ha-matter-binding-helper/issues/208)) ([c7a414b](https://github.com/cedricziel/ha-matter-binding-helper/commit/c7a414b72ad4374d1948ac0b76671a1bd2b34218))
+* **deps:** bump embassy-time-queue-utils in /devices/rust-device ([#207](https://github.com/cedricziel/ha-matter-binding-helper/issues/207)) ([5a19c8f](https://github.com/cedricziel/ha-matter-binding-helper/commit/5a19c8ffcc3b52b9e6f327f7cabf3eb307b2947a))
+* **deps:** bump googleapis/release-please-action from 4 to 5 ([#202](https://github.com/cedricziel/ha-matter-binding-helper/issues/202)) ([e422231](https://github.com/cedricziel/ha-matter-binding-helper/commit/e422231322e75e8c1574ddb7bf82091b23c31434))
+
 ## [0.29.9](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.8...v0.29.9) (2026-04-24)
 
 
