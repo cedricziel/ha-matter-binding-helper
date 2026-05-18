@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.29.11](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.10...v0.29.11) (2026-05-18)
+
+
+### Bug Fixes
+
+* use config_entries API instead of hass.data to detect Matter integration ([#213](https://github.com/cedricziel/ha-matter-binding-helper/issues/213)) ([99f684d](https://github.com/cedricziel/ha-matter-binding-helper/commit/99f684d8439134ab4ac1179ac11032c1a4c964bf))
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#214](https://github.com/cedricziel/ha-matter-binding-helper/issues/214)) ([52c77d7](https://github.com/cedricziel/ha-matter-binding-helper/commit/52c77d7198be12a5c15197b118904111b217b654))
+* **deps-dev:** bump vitest from 4.1.5 to 4.1.6 in /frontend ([#218](https://github.com/cedricziel/ha-matter-binding-helper/issues/218)) ([1f637aa](https://github.com/cedricziel/ha-matter-binding-helper/commit/1f637aa19bbe99d6134bd9b6b9c9a79d90cd3150))
+* **deps:** bump nix from 0.31.2 to 0.31.3 in /devices/rust-device ([#217](https://github.com/cedricziel/ha-matter-binding-helper/issues/217)) ([1bdde79](https://github.com/cedricziel/ha-matter-binding-helper/commit/1bdde79fb59e03fb569e4fa12bd7ca00aef3e2b3))
+
 ## [0.29.10](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.9...v0.29.10) (2026-05-06)
 
 
