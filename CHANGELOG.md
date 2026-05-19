@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.29.12](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.11...v0.29.12) (2026-05-19)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#220](https://github.com/cedricziel/ha-matter-binding-helper/issues/220)) ([b69cb44](https://github.com/cedricziel/ha-matter-binding-helper/commit/b69cb4454b5dc86d4df5fb0bcbe5b9c503661d7d))
+* **deps-dev:** bump eslint from 10.2.1 to 10.4.0 in /frontend ([#226](https://github.com/cedricziel/ha-matter-binding-helper/issues/226)) ([3d77e63](https://github.com/cedricziel/ha-matter-binding-helper/commit/3d77e635cba245310559859ae63ac7ac179f266d))
+* **deps-dev:** bump rollup from 4.60.2 to 4.60.4 in /frontend ([#225](https://github.com/cedricziel/ha-matter-binding-helper/issues/225)) ([60b7b89](https://github.com/cedricziel/ha-matter-binding-helper/commit/60b7b891e8b491a88af5f14260e4c8003c431a2b))
+* **deps:** bump lit from 3.3.2 to 3.3.3 in /frontend ([#223](https://github.com/cedricziel/ha-matter-binding-helper/issues/223)) ([2191adb](https://github.com/cedricziel/ha-matter-binding-helper/commit/2191adb4132b93b8f8161d2ea040cb05eb612d4b))
+
 ## [0.29.11](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.10...v0.29.11) (2026-05-18)
 
 
