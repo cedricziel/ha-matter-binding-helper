@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.29.13](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.12...v0.29.13) (2026-05-27)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#231](https://github.com/cedricziel/ha-matter-binding-helper/issues/231)) ([b0bd7ae](https://github.com/cedricziel/ha-matter-binding-helper/commit/b0bd7aea4d01fd0871b058a5adb34f2e062c00f9))
+* **deps-dev:** bump vitest from 4.1.6 to 4.1.7 in /frontend ([#232](https://github.com/cedricziel/ha-matter-binding-helper/issues/232)) ([1063f8d](https://github.com/cedricziel/ha-matter-binding-helper/commit/1063f8d1519c350da959058932541eea6a54284b))
+* **deps:** bump log from 0.4.29 to 0.4.30 in /devices/rust-device ([#227](https://github.com/cedricziel/ha-matter-binding-helper/issues/227)) ([fbc85a0](https://github.com/cedricziel/ha-matter-binding-helper/commit/fbc85a03aee63af1befcd90045ec28c8c6c11df4))
+
 ## [0.29.12](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.11...v0.29.12) (2026-05-19)
 
 
