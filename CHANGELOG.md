@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.16](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.15...v0.29.16) (2026-06-06)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @vitest/ui from 4.1.7 to 4.1.8 in /frontend ([#242](https://github.com/cedricziel/ha-matter-binding-helper/issues/242)) ([ccb14e4](https://github.com/cedricziel/ha-matter-binding-helper/commit/ccb14e489c88d7023a7db943dd87352bdd7e58b3))
+
 ## [0.29.15](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.14...v0.29.15) (2026-06-04)
 
 
