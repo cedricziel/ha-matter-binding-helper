@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.17](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.16...v0.29.17) (2026-06-08)
+
+
+### Miscellaneous
+
+* **deps:** bump socket2 from 0.6.3 to 0.6.4 in /devices/rust-device ([#237](https://github.com/cedricziel/ha-matter-binding-helper/issues/237)) ([9d8c545](https://github.com/cedricziel/ha-matter-binding-helper/commit/9d8c545ed70dfc9a4863a75672d0cc897ddfb4de))
+
 ## [0.29.16](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.15...v0.29.16) (2026-06-06)
 
 
