@@ -1144,6 +1144,7 @@ dependencies = [
  "futures-lite",
  "log",
  "nix 0.31.3",
+ "rand",
  "rs-matter",
  "socket2",
  "static_cell",

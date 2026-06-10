@@ -8,6 +8,7 @@ use std::net::UdpSocket;
 use log::info;
 use socket2::{Domain, Protocol, Socket, Type};
 
+use rs_matter::crypto::Crypto;
 use rs_matter::error::Error;
 use rs_matter::transport::network::mdns::builtin::{BuiltinMdnsResponder, Host};
 use rs_matter::transport::network::mdns::{
@@ -17,9 +18,9 @@ use rs_matter::transport::network::{Ipv4Addr, Ipv6Addr};
 use rs_matter::Matter;
 
 /// Run the mDNS responder for device discovery.
-pub async fn run_mdns(matter: &Matter<'_>) -> Result<(), Error> {
+pub async fn run_mdns<C: Crypto>(matter: &Matter<'_>, crypto: C) -> Result<(), Error> {
     // Use builtin mDNS responder (works without external dependencies)
-    run_builtin_mdns(matter).await
+    run_builtin_mdns(matter, crypto).await
 }
 
 /// Initialize network and get local IP addresses.
@@ -60,13 +61,16 @@ fn initialize_network() -> Result<(Ipv4Addr, Ipv6Addr, u32), Error> {
             ErrorCode::StdIoError
         })?;
 
-    info!("Using network interface {} with {}/{} for mDNS", iname, ip, ipv6);
+    info!(
+        "Using network interface {} with {}/{} for mDNS",
+        iname, ip, ipv6
+    );
 
     Ok((ip.octets().into(), ipv6.octets().into(), 0))
 }
 
 /// Run the builtin mDNS responder.
-async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
+async fn run_builtin_mdns<C: Crypto>(matter: &Matter<'_>, crypto: C) -> Result<(), Error> {
     let (ipv4_addr, ipv6_addr, interface) = initialize_network()?;
 
     // Create and configure the mDNS socket
@@ -87,18 +91,19 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     // Generate a unique hostname from device info
     let hostname = "matter-test-device";
 
-    BuiltinMdnsResponder::new(matter)
+    BuiltinMdnsResponder::new()
         .run(
             &socket,
             &socket,
             &Host {
-                id: 0,
                 hostname,
                 ip: ipv4_addr,
                 ipv6: ipv6_addr,
             },
             Some(ipv4_addr),
             Some(interface),
+            matter,
+            crypto,
         )
         .await
 }
