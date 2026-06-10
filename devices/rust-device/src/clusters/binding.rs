@@ -18,10 +18,11 @@ use rs_matter::error::{Error, ErrorCode};
 use rs_matter::tlv::{TLVArray, TLVBuilderParent};
 use rs_matter::with;
 
-// Import Binding cluster types from Matter IDL
-rs_matter::import!(Binding);
-
-pub use binding::*;
+// Binding cluster types are now pre-generated in rs-matter (the old
+// `rs_matter::import!` macro was removed). Re-export the generated
+// declarations (TargetStruct, AttributeId, ClusterHandler, HandlerAdaptor,
+// FULL_CLUSTER, ...) from the IDL-derived module.
+pub use rs_matter::dm::clusters::decl::binding::*;
 
 /// Maximum bindings per endpoint
 pub const MAX_BINDINGS_PER_ENDPOINT: usize = 10;
@@ -79,7 +80,7 @@ impl BindingHandler {
     /// Read bindings, optionally filtered by fabric.
     fn read_bindings<P: TLVBuilderParent>(
         &self,
-        attr: &AttrDetails<'_>,
+        attr: &AttrDetails,
         builder: ArrayAttributeRead<TargetStructArrayBuilder<P>, TargetStructBuilder<P>>,
     ) -> Result<P, Error> {
         let bindings = self.bindings.borrow();

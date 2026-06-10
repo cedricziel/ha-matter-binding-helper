@@ -8,6 +8,7 @@ use core::net::Ipv4Addr;
 
 use rs_matter::dm::clusters::gen_diag::{InterfaceTypeEnum, NetifDiag, NetifInfo};
 use rs_matter::error::Error;
+use rs_matter::utils::sync::DynBase;
 
 /// Minimal network interface diagnostics that reports a single hardcoded interface.
 ///
@@ -22,6 +23,8 @@ impl FilteredNetifs {
         Self
     }
 }
+
+impl DynBase for FilteredNetifs {}
 
 impl NetifDiag for FilteredNetifs {
     fn netifs(&self, f: &mut dyn FnMut(&NetifInfo) -> Result<(), Error>) -> Result<(), Error> {
