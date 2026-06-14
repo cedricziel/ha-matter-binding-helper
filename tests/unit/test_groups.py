@@ -25,6 +25,11 @@ from custom_components.matter_binding_helper.matter.groups import (
     provision_group_for_binding,
     remove_from_group,
 )
+from custom_components.matter_binding_helper.matter.models import GroupOperationResult
+from custom_components.matter_binding_helper.matter.group_store import (
+    _GROUP_STORE_KEY,
+    GroupStore,
+)
 
 
 def test_device_group_name_clamps_to_16_chars():
@@ -34,11 +39,6 @@ def test_device_group_name_clamps_to_16_chars():
     # Short names pass through unchanged.
     assert device_group_name("Kitchen") == "Kitchen"
     assert device_group_name("") == ""
-from custom_components.matter_binding_helper.matter.models import GroupOperationResult
-from custom_components.matter_binding_helper.matter.group_store import (
-    _GROUP_STORE_KEY,
-    GroupStore,
-)
 
 
 class FakeStore:
