@@ -10,6 +10,7 @@ on" can't be driven here; but provisioning is exactly what the integration is
 responsible for.
 """
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -17,6 +18,27 @@ import pytest
 CLUSTER_ON_OFF = 6
 CLUSTER_GROUP_KEY_MANAGEMENT = 63  # 0x003F
 AUTH_MODE_GROUP = 3
+
+
+async def _wait_group_key_map(ws_client, node: int, group_id: int) -> str:
+    """Poll a node's GroupKeyMap until it maps the group (or give up).
+
+    matter-server serves attributes from its subscription cache; a freshly written
+    fabric-scoped GroupKeyMap can lag until the device reports it, so retry.
+    """
+    last = ""
+    for _ in range(12):
+        dump = await ws_client.call(
+            "matter_binding_helper/debug_cluster_attributes",
+            node_id=node,
+            endpoint_id=0,
+            cluster_id=CLUSTER_GROUP_KEY_MANAGEMENT,
+        )
+        last = _group_key_map(dump)
+        if last and str(group_id) in last:
+            return last
+        await asyncio.sleep(3)
+    return last
 
 
 def _group_key_map(dump: dict[str, Any]) -> str:
@@ -94,14 +116,8 @@ async def test_groupcast_binding_provisions_real_devices(ws_client, device_nodes
     # GroupKeyMap attribute (not the whole cluster dump) is non-empty and maps the
     # group id.
     for node in (light, switch):
-        dump = await ws_client.call(
-            "matter_binding_helper/debug_cluster_attributes",
-            node_id=node,
-            endpoint_id=0,
-            cluster_id=CLUSTER_GROUP_KEY_MANAGEMENT,
-        )
-        gkm = _group_key_map(dump)
-        assert gkm, f"GroupKeyMap is empty on node {node}: {dump}"
+        gkm = await _wait_group_key_map(ws_client, node, group_id)
+        assert gkm, f"GroupKeyMap stayed empty on node {node}"
         assert str(group_id) in gkm, (
             f"group {group_id} not mapped in GroupKeyMap on node {node}: {gkm}"
         )
