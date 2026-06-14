@@ -22,7 +22,7 @@ services:
     container_name: matter-server
     # Pinned so Dependabot (docker ecosystem) bumps it; the test fixtures read
     # this exact tag out of this file, so there is one source of truth.
-    image: ghcr.io/home-assistant-libs/python-matter-server:8.1.2
+    image: ghcr.io/home-assistant-libs/python-matter-server:8.1.0
     volumes:
       - matter-server-data:/data
       - ./scripts:/scripts:ro
