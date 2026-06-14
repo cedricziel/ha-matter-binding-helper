@@ -52,11 +52,23 @@ def _client_unavailable() -> GroupOperationResult:
     )
 
 
+# Matter limits group names to 16 characters; a longer name makes a device reject
+# AddGroup with CONSTRAINT_ERROR (0x87). The full name is kept in our registry.
+MAX_GROUP_NAME_LEN = 16
+
+
+def device_group_name(name: str) -> str:
+    """Clamp a group name to the Matter 16-char limit for on-device storage."""
+    return name[:MAX_GROUP_NAME_LEN]
+
+
 def _add_group_command(group_id: int, name: str) -> Any:
     """Build the chip Groups.AddGroup command (chip imported lazily)."""
     from chip.clusters import Objects as clusters
 
-    return clusters.Groups.Commands.AddGroup(groupID=group_id, groupName=name)
+    return clusters.Groups.Commands.AddGroup(
+        groupID=group_id, groupName=device_group_name(name)
+    )
 
 
 def _remove_group_command(group_id: int) -> Any:
