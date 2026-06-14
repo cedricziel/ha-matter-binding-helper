@@ -356,4 +356,62 @@ describe("CreateBindingDialog", () => {
       expect(text).toMatch(/can't control|no client/i);
     });
   });
+
+  describe("group target", () => {
+    const groups = [
+      { group_id: 5, name: "Living Room Lights", members: [] },
+      { group_id: 6, name: "Kitchen", members: [] },
+    ];
+
+    it("does not show the target-type toggle when no groups are available", async () => {
+      element = await fixture<CreateBindingDialog>(html`
+        <matter-create-binding-dialog
+          .open=${true}
+          .sourceNode=${sourceNode}
+          .sourceEndpoint=${sourceEndpoint}
+          .availableNodes=${targetNodes}
+        ></matter-create-binding-dialog>
+      `);
+      expect(queryShadow(element, "#targetType")).toBeNull();
+    });
+
+    it("shows the toggle and emits a group binding when group target is chosen", async () => {
+      element = await fixture<CreateBindingDialog>(html`
+        <matter-create-binding-dialog
+          .open=${true}
+          .sourceNode=${sourceNode}
+          .sourceEndpoint=${sourceEndpoint}
+          .availableNodes=${targetNodes}
+          .availableGroups=${groups}
+        ></matter-create-binding-dialog>
+      `);
+
+      const typeSelect = queryShadow<HTMLSelectElement>(element, "#targetType");
+      expect(typeSelect).not.toBeNull();
+      typeSelect!.value = "group";
+      typeSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      const groupSelect = queryShadow<HTMLSelectElement>(element, "#targetGroup");
+      expect(groupSelect).not.toBeNull();
+      groupSelect!.value = "6";
+      groupSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      const { events } = captureEvents<{
+        targetGroupId: number;
+        clusterId: number;
+      }>(element, "create-binding");
+
+      const submit = queryShadowAll<HTMLButtonElement>(element, "button").find(
+        (b) => b.textContent?.includes("Create Binding")
+      );
+      submit!.click();
+
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.targetGroupId).toBe(6);
+      // Cluster defaults to the first source client cluster (On/Off).
+      expect(events[0].detail.clusterId).toBe(TEST_CLUSTERS.ON_OFF);
+    });
+  });
 });

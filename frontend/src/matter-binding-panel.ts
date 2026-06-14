@@ -672,10 +672,17 @@ export class MatterBindingPanel extends LitElement {
     this._selectedTargetEndpointId = e.detail.endpointId;
   }
 
-  private _handleCreateDialogCreateBinding(e: CustomEvent<{ targetNodeId: number; targetEndpointId: number; clusterId: number }>) {
-    const { targetNodeId, targetEndpointId, clusterId } = e.detail;
+  private _handleCreateDialogCreateBinding(e: CustomEvent<{ targetNodeId?: number; targetEndpointId?: number; targetGroupId?: number; clusterId: number }>) {
+    const { targetNodeId, targetEndpointId, targetGroupId, clusterId } = e.detail;
 
     if (!this._selectedSourceNode || !this._selectedSourceEndpoint) return;
+
+    // Group (groupcast) binding: no target node/endpoint — create directly.
+    if (targetGroupId !== undefined) {
+      this._showCreateDialog = false;
+      void this._createGroupBinding(targetGroupId, clusterId);
+      return;
+    }
 
     const targetNode = this._nodes.find((n) => n.node_id === targetNodeId);
     const targetEndpoint = targetNode?.endpoints.find((ep) => ep.endpoint_id === targetEndpointId);
@@ -696,6 +703,27 @@ export class MatterBindingPanel extends LitElement {
 
     // Close create dialog
     this._showCreateDialog = false;
+  }
+
+  private async _createGroupBinding(targetGroupId: number, clusterId: number): Promise<void> {
+    if (!this._selectedSourceNode || !this._selectedSourceEndpoint) return;
+    this._actionInProgress = "create-group-binding";
+    try {
+      await api.createBinding(
+        this.hass,
+        this._selectedSourceNode.node_id,
+        this._selectedSourceEndpoint.endpoint_id,
+        clusterId,
+        undefined,
+        undefined,
+        targetGroupId
+      );
+      await this._loadBindings();
+    } catch (err) {
+      this._error = `Failed to create group binding: ${this._extractErrorMessage(err)}`;
+    } finally {
+      this._actionInProgress = null;
+    }
   }
 
   private _handleGroupClick(e: CustomEvent<{ group: MatterGroup }>) {
@@ -943,6 +971,7 @@ export class MatterBindingPanel extends LitElement {
           .sourceNode=${this._selectedSourceNode}
           .sourceEndpoint=${this._selectedSourceEndpoint}
           .availableNodes=${this._nodes.filter((n) => n.node_id !== this._selectedSourceNode?.node_id)}
+          .availableGroups=${this._groups}
           .selectedTargetNodeId=${this._selectedTargetNodeId}
           .selectedTargetEndpointId=${this._selectedTargetEndpointId}
           .loading=${this._actionInProgress !== null}

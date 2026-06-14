@@ -9,7 +9,7 @@ import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { buttonStyles, stateStyles, formStyles } from "../../styles/shared-styles";
 import { dialogBaseStyles } from "../../styles/dialog-styles";
-import type { MatterNode, MatterEndpoint } from "../../types";
+import type { MatterNode, MatterEndpoint, MatterGroup } from "../../types";
 import { getClusterName } from "../../types";
 
 /**
@@ -133,9 +133,21 @@ export class CreateBindingDialog extends LitElement {
   @property({ type: Boolean })
   loading = false;
 
+  /** Available Matter groups (enables the group-target option when non-empty) */
+  @property({ attribute: false })
+  availableGroups: MatterGroup[] = [];
+
   /** Internal state for selected cluster */
   @state()
   private _selectedClusterId: number | null = null;
+
+  /** Whether the binding targets a device or a group */
+  @state()
+  private _targetType: "device" | "group" = "device";
+
+  /** Selected group id (group target mode) */
+  @state()
+  private _selectedGroupId: number | null = null;
 
   render() {
     if (!this.open) {
@@ -174,12 +186,89 @@ export class CreateBindingDialog extends LitElement {
     return html`
       <div class="dialog-body">
         ${hasNoClientClusters ? this._renderNoClientClustersWarning() : nothing}
-        ${this._renderTargetNodeSelect()}
-        ${this.selectedTargetNodeId ? this._renderTargetEndpointSelect() : nothing}
-        ${this.selectedTargetNodeId && this.selectedTargetEndpointId
-          ? this._renderClusterSelect()
-          : nothing}
+        ${this.availableGroups.length > 0 ? this._renderTargetTypeToggle() : nothing}
+        ${this._targetType === "group"
+          ? this._renderGroupTarget()
+          : html`
+              ${this._renderTargetNodeSelect()}
+              ${this.selectedTargetNodeId
+                ? this._renderTargetEndpointSelect()
+                : nothing}
+              ${this.selectedTargetNodeId && this.selectedTargetEndpointId
+                ? this._renderClusterSelect()
+                : nothing}
+            `}
       </div>
+    `;
+  }
+
+  private _renderTargetTypeToggle() {
+    return html`
+      <div class="form-group">
+        <label for="targetType">Target Type</label>
+        <select
+          id="targetType"
+          name="targetType"
+          @change=${this._handleTargetTypeChange}
+          .value=${this._targetType}
+        >
+          <option value="device">Device (unicast)</option>
+          <option value="group">Group (groupcast)</option>
+        </select>
+      </div>
+    `;
+  }
+
+  private _renderGroupTarget() {
+    const sourceClientClusters = this.sourceEndpoint?.client_clusters ?? [];
+    if (this._selectedClusterId === null && sourceClientClusters.length > 0) {
+      this._selectedClusterId = sourceClientClusters[0];
+    }
+    return html`
+      <div class="form-group">
+        <label for="targetGroup">Target Group</label>
+        <select
+          id="targetGroup"
+          name="targetGroup"
+          required
+          @change=${this._handleTargetGroupChange}
+          .value=${this._selectedGroupId?.toString() ?? ""}
+        >
+          <option value="" disabled selected>Select a group...</option>
+          ${this.availableGroups.map(
+            (group) => html`
+              <option value=${group.group_id}>
+                ${group.name} (ID ${group.group_id})
+              </option>
+            `
+          )}
+        </select>
+      </div>
+      ${sourceClientClusters.length > 0
+        ? html`
+            <div class="form-group">
+              <label for="groupCluster">Cluster</label>
+              <select
+                id="groupCluster"
+                name="groupCluster"
+                required
+                @change=${this._handleClusterChange}
+                .value=${this._selectedClusterId?.toString() ?? ""}
+              >
+                ${sourceClientClusters.map(
+                  (clusterId) => html`
+                    <option value=${clusterId}>
+                      ${getClusterName(clusterId)}
+                    </option>
+                  `
+                )}
+              </select>
+              <div class="cluster-info">
+                The source will multicast this cluster's commands to the group.
+              </div>
+            </div>
+          `
+        : nothing}
     `;
   }
 
@@ -285,12 +374,14 @@ export class CreateBindingDialog extends LitElement {
   }
 
   private _renderActions() {
-    const compatibleClusters = this._getCompatibleClusters();
-    const canSubmit =
-      this.selectedTargetNodeId !== null &&
-      this.selectedTargetEndpointId !== null &&
-      compatibleClusters.length > 0 &&
-      !this.loading;
+    const canSubmit = this._targetType === "group"
+      ? this._selectedGroupId !== null &&
+        (this.sourceEndpoint?.client_clusters ?? []).length > 0 &&
+        !this.loading
+      : this.selectedTargetNodeId !== null &&
+        this.selectedTargetEndpointId !== null &&
+        this._getCompatibleClusters().length > 0 &&
+        !this.loading;
 
     return html`
       <div class="dialog-actions">
@@ -405,6 +496,21 @@ export class CreateBindingDialog extends LitElement {
   private _handleSubmit(e: Event) {
     e.preventDefault();
 
+    if (this._targetType === "group") {
+      const sourceClientClusters = this.sourceEndpoint?.client_clusters ?? [];
+      const clusterId = this._selectedClusterId ?? sourceClientClusters[0];
+      if (this._selectedGroupId !== null && clusterId !== undefined) {
+        this.dispatchEvent(
+          new CustomEvent("create-binding", {
+            detail: { targetGroupId: this._selectedGroupId, clusterId },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      }
+      return;
+    }
+
     const compatibleClusters = this._getCompatibleClusters();
     const clusterId = this._selectedClusterId ?? compatibleClusters[0];
 
@@ -424,6 +530,18 @@ export class CreateBindingDialog extends LitElement {
           composed: true,
         })
       );
+    }
+  }
+
+  private _handleTargetTypeChange(e: Event) {
+    this._targetType = (e.target as HTMLSelectElement).value as "device" | "group";
+    this._selectedClusterId = null;
+  }
+
+  private _handleTargetGroupChange(e: Event) {
+    const groupId = parseInt((e.target as HTMLSelectElement).value, 10);
+    if (!isNaN(groupId)) {
+      this._selectedGroupId = groupId;
     }
   }
 
