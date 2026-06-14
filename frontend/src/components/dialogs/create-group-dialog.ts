@@ -1,7 +1,9 @@
 /**
  * CreateGroupDialog component
  *
- * Dialog for creating a new Matter group (group id + name).
+ * Dialog for creating a new Matter group. Name-only by default (the group id is
+ * auto-allocated by the backend); an "Advanced" toggle reveals an optional
+ * manual group id field.
  */
 
 import { LitElement, html, css, nothing } from "lit";
@@ -12,7 +14,7 @@ import { dialogBaseStyles } from "../../styles/dialog-styles";
 /**
  * Dialog to create a Matter group.
  *
- * @fires create-group - { groupId: number, name: string }
+ * @fires create-group - { name: string, groupId?: number } (groupId only when set via Advanced)
  * @fires cancel - When cancelled
  */
 @customElement("matter-create-group-dialog")
