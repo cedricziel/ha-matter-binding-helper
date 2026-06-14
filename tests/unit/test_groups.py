@@ -20,6 +20,7 @@ from custom_components.matter_binding_helper.matter.groups import (
     add_to_group,
     create_group,
     delete_group,
+    device_group_name,
     get_groups,
     provision_group_for_binding,
     remove_from_group,
@@ -29,6 +30,15 @@ from custom_components.matter_binding_helper.matter.group_store import (
     _GROUP_STORE_KEY,
     GroupStore,
 )
+
+
+def test_device_group_name_clamps_to_16_chars():
+    # Matter rejects AddGroup with names > 16 chars (CONSTRAINT_ERROR).
+    assert device_group_name("Ambientebeleuchtung") == "Ambientebeleucht"
+    assert len(device_group_name("Ambientebeleuchtung")) == 16
+    # Short names pass through unchanged.
+    assert device_group_name("Kitchen") == "Kitchen"
+    assert device_group_name("") == ""
 
 
 class FakeStore:
