@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.32.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.31.0...v0.32.0) (2026-06-14)
+
+
+### Features
+
+* **groups:** manage group members from the UI ([#287](https://github.com/cedricziel/ha-matter-binding-helper/issues/287)) ([1de7522](https://github.com/cedricziel/ha-matter-binding-helper/commit/1de75221b3da3beaf626469fe42cffdf5159d870))
+
+
+### Miscellaneous
+
+* **deps-dev:** bump eslint from 10.4.1 to 10.5.0 in /frontend ([#279](https://github.com/cedricziel/ha-matter-binding-helper/issues/279)) ([49b4943](https://github.com/cedricziel/ha-matter-binding-helper/commit/49b49432935800b4403990233bd9741588687558))
+* **deps-dev:** bump happy-dom from 20.10.2 to 20.10.3 in /frontend ([#281](https://github.com/cedricziel/ha-matter-binding-helper/issues/281)) ([0666799](https://github.com/cedricziel/ha-matter-binding-helper/commit/0666799e2413e6980516fe6a42234a94899b22f0))
+* **deps-dev:** bump prettier from 3.8.3 to 3.8.4 in /frontend ([#280](https://github.com/cedricziel/ha-matter-binding-helper/issues/280)) ([c220795](https://github.com/cedricziel/ha-matter-binding-helper/commit/c22079599a3053b3b165f20d0686e24e4e4436cf))
+* **deps-dev:** bump rollup from 4.61.1 to 4.62.0 in /frontend ([#282](https://github.com/cedricziel/ha-matter-binding-helper/issues/282)) ([9be5f60](https://github.com/cedricziel/ha-matter-binding-helper/commit/9be5f60e3981f1e1de3bacd864dd509a67490b56))
+* **deps-dev:** update pytest-homeassistant-custom-component requirement ([#274](https://github.com/cedricziel/ha-matter-binding-helper/issues/274)) ([cf217d1](https://github.com/cedricziel/ha-matter-binding-helper/commit/cf217d1638bffe8d21573321d68c17cc61d70b80))
+* **deps:** bump log from 0.4.31 to 0.4.32 in /devices/rust-device ([#275](https://github.com/cedricziel/ha-matter-binding-helper/issues/275)) ([5f86786](https://github.com/cedricziel/ha-matter-binding-helper/commit/5f86786162c2cfb366be4c83d86f05ca519a45f8))
+* **deps:** bump rs-matter to d54b4c1 ([#286](https://github.com/cedricziel/ha-matter-binding-helper/issues/286)) ([16ee98e](https://github.com/cedricziel/ha-matter-binding-helper/commit/16ee98e7971baa9ecfdf99f92fb331e04f53da22))
+* **deps:** update homeassistant requirement ([#273](https://github.com/cedricziel/ha-matter-binding-helper/issues/273)) ([b465c9d](https://github.com/cedricziel/ha-matter-binding-helper/commit/b465c9d14d5400581811b0fe32bfa4f985874818))
+* **deps:** update pytest-asyncio requirement from &gt;=0.21 to &gt;=1.4.0 ([#277](https://github.com/cedricziel/ha-matter-binding-helper/issues/277)) ([1a9cf89](https://github.com/cedricziel/ha-matter-binding-helper/commit/1a9cf895e0c8e7b9c255dc900f40ac8bd40a8bd8))
+* **deps:** update python-matter-server requirement ([#278](https://github.com/cedricziel/ha-matter-binding-helper/issues/278)) ([8e04200](https://github.com/cedricziel/ha-matter-binding-helper/commit/8e042007fb0a2b9a967bcd68314d023dc0b61081))
+* **deps:** update websockets requirement from &gt;=12.0 to &gt;=16.0 ([#276](https://github.com/cedricziel/ha-matter-binding-helper/issues/276)) ([ff1b834](https://github.com/cedricziel/ha-matter-binding-helper/commit/ff1b83493e189153848a71a208bd05145108e035))
+* sync hacs.json Home Assistant floor ([#285](https://github.com/cedricziel/ha-matter-binding-helper/issues/285)) ([277c3e0](https://github.com/cedricziel/ha-matter-binding-helper/commit/277c3e09012a357ed80f1eb3961c5fb48979fd96))
+
 ## [0.31.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.30.0...v0.31.0) (2026-06-14)
 
 
