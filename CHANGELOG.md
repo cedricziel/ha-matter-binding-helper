@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.33.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.32.0...v0.33.0) (2026-06-14)
+
+
+### Features
+
+* **groups:** confirm before deleting a group ([#294](https://github.com/cedricziel/ha-matter-binding-helper/issues/294)) ([2a547d4](https://github.com/cedricziel/ha-matter-binding-helper/commit/2a547d4bbbf07be07581a34b8db69656d4523580))
+* **groups:** show device type in the manage-group endpoint selector ([#290](https://github.com/cedricziel/ha-matter-binding-helper/issues/290)) ([4912985](https://github.com/cedricziel/ha-matter-binding-helper/commit/491298586d0e7b036ba68542d818323f73147350))
+* **groups:** show progress while a groupcast binding provisions ([#289](https://github.com/cedricziel/ha-matter-binding-helper/issues/289)) ([a95be20](https://github.com/cedricziel/ha-matter-binding-helper/commit/a95be20585eca11dc5fa799d07e6fec3bd64c578))
+* **matter.sh:** group management + key inspection subcommands ([#292](https://github.com/cedricziel/ha-matter-binding-helper/issues/292)) ([54c3175](https://github.com/cedricziel/ha-matter-binding-helper/commit/54c31754f651c61df8ca9beb2506c5f7d702d73f))
+
+
+### Bug Fixes
+
+* **groups:** clamp group name to 16 chars for AddGroup (status 135) ([#293](https://github.com/cedricziel/ha-matter-binding-helper/issues/293)) ([3832683](https://github.com/cedricziel/ha-matter-binding-helper/commit/3832683ffd8ebadea3f876ec0c250056c0e593d9))
+
 ## [0.32.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.31.0...v0.32.0) (2026-06-14)
 
 
