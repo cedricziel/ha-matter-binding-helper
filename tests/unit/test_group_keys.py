@@ -1,0 +1,55 @@
+"""Unit tests for matter/group_keys.py.
+
+Covers the pure read-modify-write GroupKeyMap merge logic. The device I/O
+(KeySetWrite via chip.clusters, attribute writes) is covered by the integration
+tests, since chip.clusters is only available in the real runtime.
+"""
+
+from custom_components.matter_binding_helper.matter.group_keys import (
+    merge_group_key_map,
+)
+
+
+def test_merge_into_empty_map():
+    result = merge_group_key_map(None, group_id=5, key_set_id=0x100)
+    assert result == [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 0}]
+
+
+def test_merge_appends_new_group():
+    existing = [{"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 1}]
+    result = merge_group_key_map(existing, group_id=2, key_set_id=0x101)
+    assert {"groupId": 2, "groupKeySetID": 0x101, "fabricIndex": 0} in result
+    assert any(e["groupId"] == 1 for e in result)
+    assert len(result) == 2
+
+
+def test_merge_is_idempotent_for_same_group():
+    existing = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
+    result = merge_group_key_map(existing, group_id=5, key_set_id=0x100)
+    assert result == [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 0}]
+
+
+def test_merge_updates_key_set_for_existing_group():
+    existing = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
+    result = merge_group_key_map(existing, group_id=5, key_set_id=0x200)
+    assert result == [{"groupId": 5, "groupKeySetID": 0x200, "fabricIndex": 0}]
+
+
+def test_merge_reads_chip_style_struct_entries():
+    """Existing entries may be chip structs with attribute access."""
+
+    class FakeEntry:
+        def __init__(self, group_id, key_set_id):
+            self.groupId = group_id
+            self.groupKeySetID = key_set_id
+
+    existing = [FakeEntry(1, 0x100)]
+    result = merge_group_key_map(existing, group_id=2, key_set_id=0x101)
+    assert {"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 0} in result
+    assert {"groupId": 2, "groupKeySetID": 0x101, "fabricIndex": 0} in result
+
+
+def test_merge_skips_malformed_entries():
+    existing = [{"groupId": None, "groupKeySetID": 5}, {"foo": "bar"}]
+    result = merge_group_key_map(existing, group_id=9, key_set_id=0x100)
+    assert result == [{"groupId": 9, "groupKeySetID": 0x100, "fabricIndex": 0}]

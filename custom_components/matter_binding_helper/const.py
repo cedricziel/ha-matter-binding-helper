@@ -95,6 +95,11 @@ ACL_VERIFY_INTERVAL = 2  # seconds
 # group key sets are allocated from this base upward.
 GROUP_KEY_SET_BASE = 0x0100
 GROUP_KEY_SECURITY_POLICY_TRUST_FIRST = 0  # GroupKeySecurityPolicyEnum.kTrustFirst
+# GroupKeyManagement attribute IDs
+ATTR_GROUP_KEY_MAP = 0  # GroupKeyMap (list of GroupId -> GroupKeySetID)
+# epochStartTime0 must be non-zero per spec (and rs-matter rejects 0). The exact
+# value only matters for key rotation, which we don't do — a fixed sentinel is fine.
+GROUP_EPOCH_START_TIME = 1
 
 # Group provisioning progress events (mirrors ACL provisioning)
 EVENT_GROUP_PROGRESS = f"{DOMAIN}_group_progress"
