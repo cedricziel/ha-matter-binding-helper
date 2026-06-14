@@ -40,6 +40,8 @@ CLUSTER_SCENES = 0x0005
 CLUSTER_DESCRIPTOR = 0x001D  # Descriptor cluster
 CLUSTER_THERMOSTAT = 0x0201  # Thermostat cluster
 CLUSTER_ACCESS_CONTROL = 0x001F  # Access Control cluster
+CLUSTER_GROUPS = 0x0004  # Groups cluster (per-endpoint group membership)
+CLUSTER_GROUP_KEY_MANAGEMENT = 0x003F  # Group Key Management cluster (root endpoint)
 
 # WebSocket commands for thermostat schedules
 WS_TYPE_GET_SCHEDULE = f"{DOMAIN}/get_schedule"
@@ -87,6 +89,17 @@ ACL_AUTH_MODE_GROUP = 3  # Group messaging
 EVENT_ACL_PROGRESS = f"{DOMAIN}_acl_progress"
 ACL_VERIFY_TIMEOUT = 30  # seconds
 ACL_VERIFY_INTERVAL = 2  # seconds
+
+# Group Key Management
+# Group key set 0 is the reserved Identity Protection Key (IPK); application
+# group key sets are allocated from this base upward.
+GROUP_KEY_SET_BASE = 0x0100
+GROUP_KEY_SECURITY_POLICY_TRUST_FIRST = 0  # GroupKeySecurityPolicyEnum.kTrustFirst
+
+# Group provisioning progress events (mirrors ACL provisioning)
+EVENT_GROUP_PROGRESS = f"{DOMAIN}_group_progress"
+GROUP_VERIFY_TIMEOUT = 30  # seconds
+GROUP_VERIFY_INTERVAL = 2  # seconds
 
 # Cluster-to-privilege mapping for bindings
 # Maps cluster IDs to the minimum privilege required to operate on them
