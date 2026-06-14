@@ -8,7 +8,8 @@ import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { buttonStyles, stateStyles } from "../../styles/shared-styles";
 import { dialogBaseStyles } from "../../styles/dialog-styles";
-import type { MatterGroup, MatterNode } from "../../types";
+import type { MatterEndpoint, MatterGroup, MatterNode } from "../../types";
+import { getDeviceTypeName } from "../../types";
 
 /**
  * Dialog to manage a Matter group's members.
@@ -134,12 +135,24 @@ export class ManageGroupDialog extends LitElement {
     `;
   }
 
+  /** A label describing what an endpoint is, e.g. "EP 1 — Dimmable Light". */
+  private _endpointLabel(endpoint: MatterEndpoint): string {
+    const deviceTypeId = endpoint.device_types?.[0]?.id;
+    const typeName =
+      deviceTypeId !== undefined ? getDeviceTypeName(deviceTypeId) : null;
+    return typeName
+      ? `EP ${endpoint.endpoint_id} — ${typeName}`
+      : `EP ${endpoint.endpoint_id}`;
+  }
+
   private _renderMember(nodeId: number, endpointId: number) {
     const node = this.availableNodes.find((n) => n.node_id === nodeId);
     const name = node?.name ?? `Node ${nodeId}`;
+    const endpoint = node?.endpoints.find((e) => e.endpoint_id === endpointId);
+    const label = endpoint ? this._endpointLabel(endpoint) : `EP ${endpointId}`;
     return html`
       <div class="member-row">
-        <span class="member-label">${name} — EP ${endpointId}</span>
+        <span class="member-label">${name} — ${label}</span>
         <button
           type="button"
           class="btn btn-secondary"
@@ -196,7 +209,7 @@ export class ManageGroupDialog extends LitElement {
                   value=${e.endpoint_id}
                   ?selected=${e.endpoint_id === this._selectedEndpointId}
                 >
-                  EP ${e.endpoint_id}
+                  ${this._endpointLabel(e)}
                 </option>
               `
             )}

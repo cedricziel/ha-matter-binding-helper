@@ -59,6 +59,29 @@ describe("ManageGroupDialog", () => {
     const text = element.shadowRoot?.textContent ?? "";
     expect(text).toContain("Ceiling Light");
     expect(text).toContain("EP 1");
+    // Member label is enriched with the endpoint's device type.
+    expect(text).toContain("On/Off Light");
+  });
+
+  it("shows the device type in the endpoint selector", async () => {
+    const emptyGroup: MatterGroup = { group_id: 2, name: "Empty", members: [] };
+    element = await fixture(html`
+      <matter-manage-group-dialog
+        .open=${true}
+        .group=${emptyGroup}
+        .availableNodes=${nodes}
+      ></matter-manage-group-dialog>
+    `);
+    const nodeSelect = queryShadow<HTMLSelectElement>(element, "#add-node");
+    nodeSelect!.value = "3";
+    nodeSelect!.dispatchEvent(new Event("change"));
+    await elementUpdated(element);
+
+    const epOption = queryShadow<HTMLOptionElement>(
+      element,
+      '#add-endpoint option[value="1"]'
+    );
+    expect(epOption?.textContent).toContain("On/Off Light");
   });
 
   it("emits remove-member when Remove is clicked", async () => {
