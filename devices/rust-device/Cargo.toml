@@ -24,7 +24,15 @@ avahi = ["rs-matter/zbus"]
 
 [dependencies]
 # Matter protocol
-rs-matter = { git = "https://github.com/project-chip/rs-matter", features = ["async-io"] }
+# Group capacity features are required for groupcast: without
+# max-group-keys-per-fabric-* the device holds zero application group keys
+# (MAX_GROUP_KEYS_PER_FABRIC defaults to 0) and rejects KeySetWrite with
+# ResourceExhausted.
+rs-matter = { git = "https://github.com/project-chip/rs-matter", features = [
+    "async-io",
+    "max-group-keys-per-fabric-4",
+    "max-groups-per-fabric-8",
+] }
 
 # Async runtime
 embassy-futures = "0.1"
