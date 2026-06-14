@@ -34,6 +34,7 @@ A Matter dimmable light (device type 0x0101) with:
 | On/Off | 0x0006 | On/off control |
 | Level Control | 0x0008 | Brightness dimming |
 | Binding | 0x001E | Device-to-device bindings |
+| Groups | 0x0004 | Group membership (groupcast target) |
 | Descriptor | 0x001D | Device description |
 
 **Configuration (via environment variables):**
@@ -54,6 +55,7 @@ A Matter on/off light switch (device type 0x0103) that controls other devices vi
 | Cluster | ID | Description |
 |---------|------|-------------|
 | Binding | 0x001E | Device-to-device bindings (targets for control) |
+| Groups | 0x0004 | Group membership (groupcast target) |
 | Descriptor | 0x001D | Device description |
 
 **Configuration (via environment variables):**
