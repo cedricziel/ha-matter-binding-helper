@@ -1,3 +1,3 @@
 # Core dependencies (for development/testing)
-homeassistant>=2024.1.0
+homeassistant>=2026.6.3
 python-matter-server>=8.1.2
