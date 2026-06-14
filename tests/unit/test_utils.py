@@ -1,6 +1,5 @@
 """Unit tests for matter/utils.py."""
 
-import pytest
 from unittest.mock import MagicMock
 
 from custom_components.matter_binding_helper.matter.models import (

@@ -740,12 +740,12 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private async _handleCreateGroup(
-    e: CustomEvent<{ groupId: number; name: string }>
+    e: CustomEvent<{ name: string; groupId?: number }>
   ): Promise<void> {
-    const { groupId, name } = e.detail;
+    const { name, groupId } = e.detail;
     this._actionInProgress = "create-group";
     try {
-      await api.createGroup(this.hass, groupId, name);
+      await api.createGroup(this.hass, name, groupId);
       this._showCreateGroupDialog = false;
       await this._loadGroups();
     } catch (err) {

@@ -1252,7 +1252,7 @@ async def ws_list_groups(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): WS_TYPE_CREATE_GROUP,
-        vol.Required("group_id"): vol.Coerce(int),
+        vol.Optional("group_id"): vol.Coerce(int),
         vol.Required("name"): str,
     }
 )
@@ -1262,10 +1262,12 @@ async def ws_create_group(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Create a new Matter group."""
-    result = await matter_client.create_group(hass, msg["group_id"], msg["name"])
+    """Create a new Matter group. group_id is optional (auto-allocated if absent)."""
+    result = await matter_client.create_group(hass, msg.get("group_id"), msg["name"])
     if result.success:
-        connection.send_result(msg["id"], {"success": True})
+        connection.send_result(
+            msg["id"], {"success": True, "group_id": result.group_id}
+        )
     else:
         connection.send_error(
             msg["id"], result.error_code or "create_failed", result.message

@@ -85,6 +85,17 @@ async def test_real_create_and_list(hass):
 
 
 @pytest.mark.asyncio
+async def test_real_create_auto_allocates_id(hass):
+    """Creating a group without an id auto-allocates and returns it."""
+    result = await create_group(hass, None, "Ambient")
+    assert result.success is True
+    assert result.group_id == 1
+
+    second = await create_group(hass, None, "Kitchen")
+    assert second.group_id == 2
+
+
+@pytest.mark.asyncio
 async def test_real_create_duplicate(hass):
     await create_group(hass, 10, "Hallway")
     dup = await create_group(hass, 10, "Hallway")
@@ -232,6 +243,14 @@ async def test_demo_create_and_list(demo_hass):
 
 
 @pytest.mark.asyncio
+async def test_demo_create_auto_allocates_id(demo_hass):
+    """Demo create without an id allocates the next free id (seed group is 1)."""
+    result = await create_group(demo_hass, None, "Hallway")
+    assert result.success is True
+    assert result.group_id == 2  # seed group occupies id 1
+
+
+@pytest.mark.asyncio
 async def test_demo_create_duplicate_reports_exists(demo_hass):
     result = await create_group(demo_hass, 1, "Dup")
     assert result.success is False
@@ -271,4 +290,5 @@ async def test_result_to_dict_is_serializable(demo_hass):
         "success": True,
         "message": result.message,
         "error_code": None,
+        "group_id": 5,
     }

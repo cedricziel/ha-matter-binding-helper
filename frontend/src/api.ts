@@ -198,13 +198,13 @@ export async function listGroups(hass: HomeAssistant): Promise<ListGroupsRespons
 
 export async function createGroup(
   hass: HomeAssistant,
-  groupId: number,
-  name: string
+  name: string,
+  groupId?: number
 ): Promise<SuccessResponse> {
   return hass.callWS({
     type: `${DOMAIN}/create_group`,
-    group_id: groupId,
     name,
+    ...(groupId !== undefined ? { group_id: groupId } : {}),
   });
 }
 

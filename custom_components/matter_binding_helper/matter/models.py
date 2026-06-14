@@ -153,6 +153,7 @@ class GroupOperationResult:
     success: bool
     message: str
     error_code: str | None = None
+    group_id: int | None = None  # the (possibly auto-allocated) group id
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -160,6 +161,7 @@ class GroupOperationResult:
             "success": self.success,
             "message": self.message,
             "error_code": self.error_code,
+            "group_id": self.group_id,
         }
 
 

@@ -83,6 +83,43 @@ async def test_key_set_ids_are_sequential_and_unique():
 
 
 @pytest.mark.asyncio
+async def test_auto_allocates_group_id_when_none():
+    store = make_store()
+    await store.async_load()
+
+    a = await store.async_create_group(None, "A")
+    b = await store.async_create_group(None, "B")
+
+    assert a.group_id == 1
+    assert b.group_id == 2
+
+
+@pytest.mark.asyncio
+async def test_auto_allocation_skips_existing_ids():
+    store = make_store()
+    await store.async_load()
+    await store.async_create_group(1, "Explicit")  # takes id 1
+
+    auto = await store.async_create_group(None, "Auto")
+    assert auto.group_id == 2  # skipped the taken id 1
+
+
+@pytest.mark.asyncio
+async def test_next_group_id_survives_reload():
+    backing = FakeStore()
+    s1 = GroupStore(MagicMock(), store=backing, key_factory=_counter_keys())
+    await s1.async_load()
+    await s1.async_create_group(None, "A")  # id 1
+
+    s2 = GroupStore(
+        MagicMock(), store=FakeStore(backing.saved), key_factory=_counter_keys()
+    )
+    await s2.async_load()
+    rec = await s2.async_create_group(None, "B")
+    assert rec.group_id == 2
+
+
+@pytest.mark.asyncio
 async def test_create_duplicate_group_raises():
     store = make_store()
     await store.async_load()

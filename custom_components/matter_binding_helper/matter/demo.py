@@ -346,12 +346,18 @@ def get_demo_groups() -> list[GroupEntry]:
     return [_demo_groups[gid] for gid in sorted(_demo_groups)]
 
 
-def create_demo_group(group_id: int, name: str) -> bool:
-    """Create a demo group. Returns False if it already exists."""
-    if group_id in _demo_groups:
-        return False
+def create_demo_group(group_id: int | None, name: str) -> int | None:
+    """Create a demo group.
+
+    If ``group_id`` is None, allocate the next free id. Returns the created group
+    id, or None if an explicitly-requested id already exists.
+    """
+    if group_id is None:
+        group_id = (max(_demo_groups) + 1) if _demo_groups else 1
+    elif group_id in _demo_groups:
+        return None
     _demo_groups[group_id] = GroupEntry(group_id=group_id, name=name, members=[])
-    return True
+    return group_id
 
 
 def delete_demo_group(group_id: int) -> bool:
