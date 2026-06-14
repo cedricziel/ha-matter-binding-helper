@@ -36,6 +36,7 @@ import "./components/node-list/node-list";
 import "./components/bindings/binding-card";
 import "./components/acl/acl-section";
 import "./components/dialogs/create-binding-dialog";
+import "./components/dialogs/create-group-dialog";
 import "./components/dialogs/confirm-dialog";
 import "./components/dialogs/operation-progress-dialog";
 import "./components/dialogs/create-automation-dialog";
@@ -67,6 +68,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _error: string | null = null;
   @state() private _activeTab: "overview" | "bindings" | "groups" = "overview";
   @state() private _showCreateDialog = false;
+  @state() private _showCreateGroupDialog = false;
   @state() private _allBindings: BindingWithContext[] = [];
   @state() private _recommendations: BindingRecommendation[] = [];
   @state() private _overviewLoading = false;
@@ -701,6 +703,45 @@ export class MatterBindingPanel extends LitElement {
     console.log("Group clicked:", e.detail.group);
   }
 
+  private _openCreateGroupDialog(): void {
+    this._showCreateGroupDialog = true;
+  }
+
+  private _closeCreateGroupDialog(): void {
+    this._showCreateGroupDialog = false;
+  }
+
+  private async _handleCreateGroup(
+    e: CustomEvent<{ groupId: number; name: string }>
+  ): Promise<void> {
+    const { groupId, name } = e.detail;
+    this._actionInProgress = "create-group";
+    try {
+      await api.createGroup(this.hass, groupId, name);
+      this._showCreateGroupDialog = false;
+      await this._loadGroups();
+    } catch (err) {
+      this._error = `Failed to create group: ${this._extractErrorMessage(err)}`;
+    } finally {
+      this._actionInProgress = null;
+    }
+  }
+
+  private async _handleDeleteGroup(
+    e: CustomEvent<{ group: MatterGroup }>
+  ): Promise<void> {
+    const { group } = e.detail;
+    this._actionInProgress = "delete-group";
+    try {
+      await api.deleteGroup(this.hass, group.group_id);
+      await this._loadGroups();
+    } catch (err) {
+      this._error = `Failed to delete group: ${this._extractErrorMessage(err)}`;
+    } finally {
+      this._actionInProgress = null;
+    }
+  }
+
   private _confirmManualBinding(): void {
     if (!this._pendingManualBinding) return;
 
@@ -887,8 +928,16 @@ export class MatterBindingPanel extends LitElement {
                   .groups=${this._groups}
                   .loading=${this._loading}
                   @group-click=${this._handleGroupClick}
+                  @create-group-click=${this._openCreateGroupDialog}
+                  @delete-group=${this._handleDeleteGroup}
                 ></matter-groups-tab>
               `}
+        <matter-create-group-dialog
+          .open=${this._showCreateGroupDialog}
+          .loading=${this._actionInProgress !== null}
+          @create-group=${this._handleCreateGroup}
+          @cancel=${this._closeCreateGroupDialog}
+        ></matter-create-group-dialog>
         <matter-create-binding-dialog
           .open=${this._showCreateDialog}
           .sourceNode=${this._selectedSourceNode}
