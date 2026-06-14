@@ -6,7 +6,7 @@
 
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { stateStyles } from "../../styles/shared-styles";
+import { stateStyles, buttonStyles } from "../../styles/shared-styles";
 import { baseCardStyles } from "../../styles/card-styles";
 import type { MatterGroup } from "../../types";
 
@@ -19,10 +19,33 @@ import type { MatterGroup } from "../../types";
 export class GroupsTab extends LitElement {
   static styles = [
     stateStyles,
+    buttonStyles,
     baseCardStyles,
     css`
       :host {
         display: block;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .group-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .group-card-header .group-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .btn-delete-group {
+        flex-shrink: 0;
       }
 
       .binding-list {
@@ -84,14 +107,23 @@ export class GroupsTab extends LitElement {
   render() {
     return html`
       <div class="card">
-        <div class="card-header">Matter Groups</div>
+        <div class="card-header">
+          <span>Matter Groups</span>
+          <button
+            type="button"
+            class="btn btn-primary"
+            @click=${this._handleCreateClick}
+          >
+            Create Group
+          </button>
+        </div>
         ${this.loading
           ? html`<div class="loading">Loading...</div>`
           : this.groups.length > 0
             ? this._renderGroupList()
             : html`
                 <div class="empty-state">
-                  No Matter groups configured. Group management is coming soon.
+                  No Matter groups configured. Create one to get started.
                 </div>
               `}
       </div>
@@ -109,9 +141,20 @@ export class GroupsTab extends LitElement {
   private _renderGroup(group: MatterGroup) {
     return html`
       <div class="group-card" @click=${() => this._handleGroupClick(group)}>
-        <div class="group-name">${group.name}</div>
-        <div class="group-meta">
-          Group ID: ${group.group_id} | ${group.members.length} member(s)
+        <div class="group-card-header">
+          <div class="group-info">
+            <div class="group-name">${group.name}</div>
+            <div class="group-meta">
+              Group ID: ${group.group_id} | ${group.members.length} member(s)
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary btn-delete-group"
+            @click=${(e: Event) => this._handleDeleteClick(e, group)}
+          >
+            Delete
+          </button>
         </div>
         ${group.members.length > 0
           ? html`
@@ -132,6 +175,22 @@ export class GroupsTab extends LitElement {
 
   private _handleGroupClick(group: MatterGroup) {
     this.dispatchEvent(new CustomEvent("group-click", {
+      detail: { group },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private _handleCreateClick() {
+    this.dispatchEvent(new CustomEvent("create-group-click", {
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private _handleDeleteClick(e: Event, group: MatterGroup) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent("delete-group", {
       detail: { group },
       bubbles: true,
       composed: true,

@@ -187,4 +187,36 @@ describe("GroupsTab", () => {
       expect(memberList).toBeFalsy();
     });
   });
+
+  describe("management actions", () => {
+    it("emits create-group-click when the Create Group button is clicked", async () => {
+      element = await fixture<GroupsTab>(html`
+        <matter-groups-tab .groups=${[]}></matter-groups-tab>
+      `);
+      const { events } = captureEvents(element, "create-group-click");
+
+      const buttons = queryShadowAll<HTMLButtonElement>(element, "button");
+      buttons.find((b) => b.textContent?.includes("Create Group"))!.click();
+
+      expect(events).toHaveLength(1);
+    });
+
+    it("emits delete-group (and not group-click) when Delete is clicked", async () => {
+      element = await fixture<GroupsTab>(html`
+        <matter-groups-tab .groups=${mockGroups}></matter-groups-tab>
+      `);
+      const del = captureEvents(element, "delete-group");
+      const click = captureEvents(element, "group-click");
+
+      const deleteBtn = queryShadowAll<HTMLButtonElement>(element, "button").find(
+        (b) => b.textContent?.includes("Delete")
+      );
+      deleteBtn!.click();
+
+      expect(del.events).toHaveLength(1);
+      expect((del.events[0] as CustomEvent).detail.group.group_id).toBe(1);
+      // stopPropagation prevents the card's group-click from firing.
+      expect(click.events).toHaveLength(0);
+    });
+  });
 });
