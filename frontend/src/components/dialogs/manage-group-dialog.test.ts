@@ -156,6 +156,84 @@ describe("ManageGroupDialog", () => {
     expect(addBtn!.disabled).toBe(true);
   });
 
+  describe("type-aware member filtering", () => {
+    // A node with a light endpoint (On/Off + Level) and a cover endpoint.
+    const mixedNode: MatterNode = createNode({
+      nodeId: 5,
+      name: "Mixed Device",
+      endpoints: [
+        createEndpoint({ id: 0, serverClusters: [] }),
+        createEndpoint({ id: 1, serverClusters: [0x0006, 0x0008] }),
+        createEndpoint({ id: 2, serverClusters: [0x0102] }),
+      ],
+    });
+    const lightsGroup: MatterGroup = {
+      group_id: 9,
+      name: "Lights",
+      members: [],
+      clusters: [0x0006, 0x0008, 0x0300],
+    };
+
+    it("offers only endpoints compatible with the group's clusters", async () => {
+      element = await fixture(html`
+        <matter-manage-group-dialog
+          .open=${true}
+          .group=${lightsGroup}
+          .availableNodes=${[mixedNode]}
+        ></matter-manage-group-dialog>
+      `);
+      const nodeSelect = queryShadow<HTMLSelectElement>(element, "#add-node");
+      nodeSelect!.value = "5";
+      nodeSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      // The light endpoint (1) is offered; the cover endpoint (2) is hidden.
+      expect(
+        queryShadow(element, '#add-endpoint option[value="1"]')
+      ).not.toBeNull();
+      expect(
+        queryShadow(element, '#add-endpoint option[value="2"]')
+      ).toBeNull();
+      // And the user is told why something is missing.
+      expect(element.shadowRoot?.textContent).toContain("hidden");
+    });
+
+    it("offers every endpoint for an untyped (legacy) group", async () => {
+      const untyped: MatterGroup = { group_id: 8, name: "Legacy", members: [] };
+      element = await fixture(html`
+        <matter-manage-group-dialog
+          .open=${true}
+          .group=${untyped}
+          .availableNodes=${[mixedNode]}
+        ></matter-manage-group-dialog>
+      `);
+      const nodeSelect = queryShadow<HTMLSelectElement>(element, "#add-node");
+      nodeSelect!.value = "5";
+      nodeSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      expect(
+        queryShadow(element, '#add-endpoint option[value="1"]')
+      ).not.toBeNull();
+      expect(
+        queryShadow(element, '#add-endpoint option[value="2"]')
+      ).not.toBeNull();
+    });
+
+    it("shows the group's type in the header", async () => {
+      element = await fixture(html`
+        <matter-manage-group-dialog
+          .open=${true}
+          .group=${lightsGroup}
+          .availableNodes=${[mixedNode]}
+        ></matter-manage-group-dialog>
+      `);
+      expect(queryShadow(element, ".dialog-header")?.textContent).toContain(
+        "Lights"
+      );
+    });
+  });
+
   it("emits close when Close is clicked", async () => {
     element = await fixture(html`
       <matter-manage-group-dialog

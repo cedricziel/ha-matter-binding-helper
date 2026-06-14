@@ -203,6 +203,40 @@ async def test_persistence_round_trip_preserves_epoch_key():
 
 
 @pytest.mark.asyncio
+async def test_clusters_default_empty_and_round_trip():
+    """The cluster set (group's type) persists and reloads exactly.
+
+    Matter groups are untyped on the wire, so the store is the only type
+    authority — it must round-trip the cluster list verbatim.
+    """
+    backing = FakeStore()
+    store1 = GroupStore(MagicMock(), store=backing, key_factory=_counter_keys())
+    await store1.async_load()
+
+    untyped = await store1.async_create_group(1, "Legacy")
+    assert untyped.clusters == []
+
+    typed = await store1.async_create_group(2, "Lights", clusters=[0x0006, 0x0008])
+    assert typed.clusters == [0x0006, 0x0008]
+
+    store2 = GroupStore(
+        MagicMock(), store=FakeStore(backing.saved), key_factory=_counter_keys()
+    )
+    await store2.async_load()
+    assert store2.get_group(1).clusters == []
+    assert store2.get_group(2).clusters == [0x0006, 0x0008]
+
+
+@pytest.mark.asyncio
+async def test_clusters_coerced_to_ints():
+    """Cluster ids arriving as strings (JSON) are normalized to ints."""
+    store = make_store()
+    await store.async_load()
+    rec = await store.async_create_group(1, "X", clusters=["6", "8"])
+    assert rec.clusters == [6, 8]
+
+
+@pytest.mark.asyncio
 async def test_next_key_set_id_survives_reload():
     """Key-set-id allocation must not collide after a reload."""
     backing = FakeStore()

@@ -212,12 +212,14 @@ export async function listGroups(hass: HomeAssistant): Promise<ListGroupsRespons
 export async function createGroup(
   hass: HomeAssistant,
   name: string,
-  groupId?: number
+  groupId?: number,
+  clusters?: number[]
 ): Promise<SuccessResponse> {
   return hass.callWS({
     type: `${DOMAIN}/create_group`,
     name,
     ...(groupId !== undefined ? { group_id: groupId } : {}),
+    ...(clusters && clusters.length > 0 ? { clusters } : {}),
   });
 }
 

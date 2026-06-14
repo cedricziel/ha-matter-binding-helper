@@ -296,13 +296,20 @@ class TestGroupEntry:
             group_id=5,
             name="Test Group",
             members=[{"node_id": 3, "endpoint_id": 2}],
+            clusters=[0x0006, 0x0008],
         )
         result = group.to_dict()
         assert result == {
             "group_id": 5,
             "name": "Test Group",
             "members": [{"node_id": 3, "endpoint_id": 2}],
+            "clusters": [0x0006, 0x0008],
         }
+
+    def test_to_dict_defaults_to_untyped(self):
+        """A group created without clusters serializes an empty cluster list."""
+        group = GroupEntry(group_id=5, name="Untyped", members=[])
+        assert group.to_dict()["clusters"] == []
 
 
 class TestACLTarget:

@@ -104,6 +104,13 @@ export interface MatterGroup {
   group_id: number;
   name: string;
   members: GroupMember[];
+  /**
+   * Clusters this group is meant to control. Matter groups are untyped multicast
+   * addresses on the wire, so the integration's registry is the only type
+   * authority — this drives member-endpoint filtering and groupcast-binding
+   * cluster defaults. Empty/undefined means an untyped (legacy) group.
+   */
+  clusters?: number[];
 }
 
 export interface GroupMember {
@@ -285,6 +292,7 @@ export const CLUSTER_ACCESS_CONTROL = 0x001f;
 export const CLUSTER_BASIC_INFO = 0x0028;
 export const CLUSTER_POWER_SOURCE = 0x002f;
 export const CLUSTER_COLOR_CONTROL = 0x0300;
+export const CLUSTER_WINDOW_COVERING = 0x0102;
 export const CLUSTER_THERMOSTAT = 0x0201;
 export const CLUSTER_THERMOSTAT_UI = 0x0204;
 export const CLUSTER_TEMPERATURE_MEASUREMENT = 0x0402;
@@ -317,6 +325,7 @@ export const CLUSTER_NAMES: Record<number, string> = {
   63: "Group Key Management",
   70: "Time Sync",
   [CLUSTER_COLOR_CONTROL]: "Color Control",
+  [CLUSTER_WINDOW_COVERING]: "Window Covering",
   [CLUSTER_THERMOSTAT]: "Thermostat",
   [CLUSTER_THERMOSTAT_UI]: "Thermostat UI",
   514: "Fan Control",

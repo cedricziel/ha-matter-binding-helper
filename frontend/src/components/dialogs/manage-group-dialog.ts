@@ -10,6 +10,11 @@ import { buttonStyles, stateStyles } from "../../styles/shared-styles";
 import { dialogBaseStyles } from "../../styles/dialog-styles";
 import type { MatterEndpoint, MatterGroup, MatterNode } from "../../types";
 import { getDeviceTypeName } from "../../types";
+import {
+  endpointMatchesGroup,
+  groupControlClusters,
+  groupTypeLabel,
+} from "../../group-type-logic";
 
 /**
  * Dialog to manage a Matter group's members.
@@ -109,7 +114,11 @@ export class ManageGroupDialog extends LitElement {
       <div class="dialog-overlay" @click=${this._handleClose}>
         <div class="dialog" @click=${this._stop}>
           <div class="dialog-header">
-            ${group.name} <span class="source-info">Group ${group.group_id}</span>
+            ${group.name}
+            <span class="source-info">
+              Group ${group.group_id} ·
+              ${groupTypeLabel(groupControlClusters(group))}
+            </span>
           </div>
           <div class="dialog-body">
             <div class="section-title">Members</div>
@@ -169,8 +178,14 @@ export class ManageGroupDialog extends LitElement {
     const node = this.availableNodes.find(
       (n) => n.node_id === this._selectedNodeId
     );
-    // Endpoints excluding the root (0), which can't be a group member.
-    const endpoints = (node?.endpoints ?? []).filter((e) => e.endpoint_id !== 0);
+    // Endpoints excluding the root (0), which can't be a group member, and —
+    // for a typed group — only those that can actually speak one of the group's
+    // clusters. Matter groups are untyped on the wire, so this compatibility
+    // filter is the integration's job, not the device's.
+    const clusters = this.group ? groupControlClusters(this.group) : [];
+    const nonRoot = (node?.endpoints ?? []).filter((e) => e.endpoint_id !== 0);
+    const endpoints = nonRoot.filter((e) => endpointMatchesGroup(e, clusters));
+    const hiddenCount = nonRoot.length - endpoints.length;
 
     return html`
       <div class="add-row">
@@ -227,6 +242,12 @@ export class ManageGroupDialog extends LitElement {
           Add
         </button>
       </div>
+      ${this._selectedNodeId !== null && hiddenCount > 0
+        ? html`<div class="empty">
+            ${hiddenCount} endpoint(s) hidden — they don't support this group's
+            clusters (${groupTypeLabel(clusters)}).
+          </div>`
+        : nothing}
     `;
   }
 
