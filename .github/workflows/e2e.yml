@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # This job only reads the repo and runs tests; it never pushes.
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5

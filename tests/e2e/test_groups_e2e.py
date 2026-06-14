@@ -10,13 +10,41 @@ on" can't be driven here; but provisioning is exactly what the integration is
 responsible for.
 """
 
-import json
+from typing import Any
 
 import pytest
 
 CLUSTER_ON_OFF = 6
 CLUSTER_GROUP_KEY_MANAGEMENT = 63  # 0x003F
 AUTH_MODE_GROUP = 3
+
+
+def _group_key_map(dump: dict[str, Any]) -> str:
+    """Return a string view of just the GroupKeyMap attribute (id 0) from a
+    cluster-attributes dump.
+
+    Scoped to the GroupKeyMap so the group-id check can't false-positive on
+    unrelated numeric fields elsewhere in the cluster dump (cluster revision,
+    other attribute ids, etc.).
+    """
+    candidates = []
+    raw = dump.get("raw_attributes_from_node_data") or {}
+    candidates.append(raw.get("0"))
+    candidates.append(raw.get(0))
+    attrs = dump.get("attributes") or {}
+    candidates.append(attrs.get("groupKeyMap"))
+
+    for entry in candidates:
+        if isinstance(entry, dict):
+            # Empty list attributes report length 0 / value "[]".
+            if entry.get("length") == 0:
+                continue
+            value = str(entry.get("value", "")).strip()
+            if value and value != "[]":
+                return value
+        elif isinstance(entry, list) and entry:
+            return str(entry)
+    return ""
 
 
 async def _create_group(ws_client, name: str) -> int:
@@ -63,7 +91,8 @@ async def test_groupcast_binding_provisions_real_devices(ws_client, device_nodes
     ), f"group binding not on switch: {bindings}"
 
     # 3b. The group key (GroupKeyMap) was written to source and member: the
-    # group id appears in the Group Key Management cluster dump on both nodes.
+    # GroupKeyMap attribute (not the whole cluster dump) is non-empty and maps the
+    # group id.
     for node in (light, switch):
         dump = await ws_client.call(
             "matter_binding_helper/debug_cluster_attributes",
@@ -71,8 +100,10 @@ async def test_groupcast_binding_provisions_real_devices(ws_client, device_nodes
             endpoint_id=0,
             cluster_id=CLUSTER_GROUP_KEY_MANAGEMENT,
         )
-        assert str(group_id) in json.dumps(dump), (
-            f"group {group_id} not in GroupKeyManagement on node {node}: {dump}"
+        gkm = _group_key_map(dump)
+        assert gkm, f"GroupKeyMap is empty on node {node}: {dump}"
+        assert str(group_id) in gkm, (
+            f"group {group_id} not mapped in GroupKeyMap on node {node}: {gkm}"
         )
 
     # 3c. The member has a group-auth ACL entry for the group.
@@ -84,13 +115,14 @@ async def test_groupcast_binding_provisions_real_devices(ws_client, device_nodes
     ), f"no group-auth ACL for group {group_id} on light: {entries}"
 
     # 4. Teardown: deleting the binding removes the group-auth ACL.
-    await ws_client.call(
+    deleted = await ws_client.call(
         "matter_binding_helper/delete_binding",
         source_node_id=switch,
         source_endpoint_id=1,
         cluster_id=CLUSTER_ON_OFF,
         target_group_id=group_id,
     )
+    assert deleted.get("success"), f"delete_binding failed: {deleted}"
     acl_after = await ws_client.call("matter_binding_helper/list_acl", node_id=light)
     assert not any(
         e.get("auth_mode") == AUTH_MODE_GROUP and group_id in (e.get("subjects") or [])
