@@ -126,6 +126,61 @@ list_groups() {
   ws_call "matter_binding_helper/list_groups"
 }
 
+create_group() {
+  local NAME="$1"
+  local GID="${2:-}"
+  if [[ -z "$NAME" ]]; then
+    echo "Usage: $0 group-create <name> [group_id]"
+    exit 1
+  fi
+  if [[ -n "$GID" ]]; then
+    ws_call "matter_binding_helper/create_group" "{\"name\": \"$NAME\", \"group_id\": $GID}"
+  else
+    ws_call "matter_binding_helper/create_group" "{\"name\": \"$NAME\"}"
+  fi
+}
+
+delete_group() {
+  local GID="$1"
+  if [[ -z "$GID" ]]; then
+    echo "Usage: $0 group-delete <group_id>"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/delete_group" "{\"group_id\": $GID}"
+}
+
+group_add() {
+  local GID="$1" NODE="$2" EP="${3:-1}"
+  if [[ -z "$GID" || -z "$NODE" ]]; then
+    echo "Usage: $0 group-add <group_id> <node_id> [endpoint_id]"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/add_to_group" \
+    "{\"group_id\": $GID, \"node_id\": $NODE, \"endpoint_id\": $EP}"
+}
+
+group_remove() {
+  local GID="$1" NODE="$2" EP="${3:-1}"
+  if [[ -z "$GID" || -z "$NODE" ]]; then
+    echo "Usage: $0 group-remove <group_id> <node_id> [endpoint_id]"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/remove_from_group" \
+    "{\"group_id\": $GID, \"node_id\": $NODE, \"endpoint_id\": $EP}"
+}
+
+# Inspect a node's Group Key Management cluster (GroupKeyMap + GroupTable).
+# Handy for debugging groupcast provisioning ("did the key/map actually land?").
+group_keys() {
+  local NODE="$1"
+  if [[ -z "$NODE" ]]; then
+    echo "Usage: $0 groupkeys <node_id>"
+    exit 1
+  fi
+  ws_call "matter_binding_helper/debug_cluster_attributes" \
+    "{\"node_id\": $NODE, \"endpoint_id\": 0, \"cluster_id\": 63}"
+}
+
 debug_devices() {
   ws_call "matter_binding_helper/debug_devices"
 }
@@ -228,6 +283,11 @@ show_help() {
   echo "  debug-bindings <node_id> <ep_id>   Debug: Dump raw binding cluster data"
   echo "  debug-client                       Debug: Show Matter client API methods"
   echo "  groups                             List all Matter groups"
+  echo "  group-create <name> [gid]          Create a group (id auto-allocated)"
+  echo "  group-delete <gid>                 Delete a group"
+  echo "  group-add <gid> <node> [ep]        Add a node endpoint to a group"
+  echo "  group-remove <gid> <node> [ep]     Remove a node endpoint from a group"
+  echo "  groupkeys <node>                   Dump a node's GroupKeyMap + GroupTable"
   echo "  devices                            Debug: List HA devices with Matter identifiers"
   echo "  match <node_id>                    Debug: Test device matching for a node"
   echo "  eve-schedule <node_id> [ep_id]     Get parsed Eve thermostat schedule"
@@ -264,6 +324,21 @@ case "${1:-}" in
     ;;
   groups)
     list_groups
+    ;;
+  group-create)
+    create_group "${2:-}" "${3:-}"
+    ;;
+  group-delete)
+    delete_group "${2:-}"
+    ;;
+  group-add)
+    group_add "${2:-}" "${3:-}" "${4:-}"
+    ;;
+  group-remove)
+    group_remove "${2:-}" "${3:-}" "${4:-}"
+    ;;
+  groupkeys)
+    group_keys "${2:-}"
     ;;
   devices)
     debug_devices
