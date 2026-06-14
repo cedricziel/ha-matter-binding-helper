@@ -22,11 +22,13 @@ import type {
   OperationProgressState,
   OperationStep,
   ACLProgressEvent,
+  GroupProgressEvent,
 } from "./types";
-import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule, EVENT_ACL_PROGRESS } from "./types";
+import { CLUSTER_NAMES, CLUSTER_ON_OFF, getClusterName, getDeviceTypeName, getClusterBindingDescription, AUTOMATION_TEMPLATES, EVE_CLUSTER_ID, isProprietaryCluster, getClusterInfo, hasThermostatSchedule, EVENT_ACL_PROGRESS, EVENT_GROUP_PROGRESS } from "./types";
 import { findMatchingDevice, type DeviceDefinition } from "./device-registry";
 import "./thermostat-schedule-editor";
 import { computeBindingRecommendations } from "./recommendation-logic";
+import { groupProgressStepStatus, isRelevantGroupProgress } from "./group-progress-logic";
 import { filterValidTargetEndpoints, getFirstValidTargetEndpoint, countCompatibleClusters, filterControlClusters } from "./binding-ui-logic";
 import { getRecommendedPrivilege, PRIVILEGE_OPTIONS } from "./acl-logic";
 import * as api from "./api";
@@ -707,21 +709,66 @@ export class MatterBindingPanel extends LitElement {
 
   private async _createGroupBinding(targetGroupId: number, clusterId: number): Promise<void> {
     if (!this._selectedSourceNode || !this._selectedSourceEndpoint) return;
+    const sourceNode = this._selectedSourceNode;
+    const sourceEndpoint = this._selectedSourceEndpoint;
+
+    // Provisioning a groupcast binding writes a group key + ACL to the source
+    // and every member, which takes several seconds — show live progress.
+    this._operationProgress = {
+      title: "Creating groupcast binding",
+      steps: [
+        { label: "Write binding to source", status: "in_progress" },
+        { label: "Provision group key & access on members", status: "pending" },
+      ],
+      currentStepIndex: 0,
+      canCancel: false,
+      completed: false,
+    };
+
     this._actionInProgress = "create-group-binding";
+    let unsubscribe: (() => void) | null = null;
     try {
-      await api.createBinding(
+      unsubscribe = await this.hass.connection.subscribeEvents((event: unknown) => {
+        const data = (event as { data: GroupProgressEvent }).data;
+        if (!isRelevantGroupProgress(data, sourceNode.node_id, targetGroupId)) {
+          return;
+        }
+        this._updateStepStatus(1, groupProgressStepStatus(data.status), data.message);
+      }, EVENT_GROUP_PROGRESS);
+
+      const result = await api.createBinding(
         this.hass,
-        this._selectedSourceNode.node_id,
-        this._selectedSourceEndpoint.endpoint_id,
+        sourceNode.node_id,
+        sourceEndpoint.endpoint_id,
         clusterId,
         undefined,
         undefined,
         targetGroupId
       );
-      await this._loadBindings();
+
+      this._updateStepStatus(0, "success");
+      if (!result.success) {
+        this._operationProgress = this._operationProgress
+          ? { ...this._operationProgress, completed: true, error: result.message }
+          : null;
+      } else {
+        // The provisioning step may not have emitted a terminal event; finalize it.
+        const steps = this._operationProgress?.steps ?? [];
+        if (steps[1] && steps[1].status === "in_progress") {
+          this._updateStepStatus(1, "success");
+        }
+        this._operationProgress = this._operationProgress
+          ? { ...this._operationProgress, completed: true }
+          : null;
+      }
     } catch (err) {
-      this._error = `Failed to create group binding: ${this._extractErrorMessage(err)}`;
+      const message = `Failed to create group binding: ${this._extractErrorMessage(err)}`;
+      this._operationProgress = this._operationProgress
+        ? { ...this._operationProgress, completed: true, error: message }
+        : null;
+      this._error = message;
     } finally {
+      if (unsubscribe) unsubscribe();
       this._actionInProgress = null;
     }
   }

@@ -205,6 +205,16 @@ export interface ACLProgressEvent {
   message: string;
 }
 
+export type GroupProgressStatus = "provisioning" | "success" | "failed";
+
+export interface GroupProgressEvent {
+  group_id: number;
+  source_node_id: number;
+  cluster_id: number;
+  status: GroupProgressStatus;
+  message: string;
+}
+
 // Event name constant
 export const EVENT_ACL_PROGRESS = "matter_binding_helper_acl_progress";
 export const EVENT_GROUP_PROGRESS = "matter_binding_helper_group_progress";
