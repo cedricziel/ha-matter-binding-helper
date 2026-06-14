@@ -511,15 +511,6 @@ dependencies = [
 
 [[package]]
 name = "defmt"
-version = "0.3.100"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0963443817029b2024136fc4dd07a5107eb8f977eaf18fcd1fdeb11306b64ad"
-dependencies = [
- "defmt 1.0.1",
-]
-
-[[package]]
-name = "defmt"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "548d977b6da32fa1d1fda2876453da1e7df63ad0304c8b3dae4dbe7b96f39b78"
@@ -606,13 +597,25 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "0.10.4"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c84070523f8ba0f9127ff156920f27eb27b302b425efe60bf5f41ec244d1c60"
+checksum = "8c469892dddfeff64ecfdbc64cf059c77fb0decaeccd4d5d484394bdd6312bac"
 dependencies = [
- "heapless 0.8.0",
+ "domain-macros",
+ "heapless 0.9.2",
+ "jiff",
  "octseq",
- "time",
+]
+
+[[package]]
+name = "domain-macros"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fef7ef74e413e36d5364db163ca577ccb56f2f74377705d5f920ee3e1544127"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -673,10 +676,24 @@ checksum = "73974a3edbd0bd286759b3d483540f0ebef705919a5f56f4fc7709066f71689b"
 dependencies = [
  "cfg-if",
  "critical-section",
- "embedded-io-async",
+ "embedded-io-async 0.6.1",
  "futures-core",
  "futures-sink",
  "heapless 0.8.0",
+]
+
+[[package]]
+name = "embassy-sync"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bbd85cf5a5ae56bdf26f618364af642d1d0a4e245cdd75cd9aabda382f65a81"
+dependencies = [
+ "cfg-if",
+ "critical-section",
+ "embedded-io-async 0.7.0",
+ "futures-core",
+ "futures-sink",
+ "heapless 0.9.2",
 ]
 
 [[package]]
@@ -748,12 +765,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
+name = "embedded-io"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
+
+[[package]]
 name = "embedded-io-async"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ff09972d4073aa8c299395be75161d582e7629cd663171d62af73c8d50dba3f"
 dependencies = [
- "embedded-io",
+ "embedded-io 0.6.1",
+]
+
+[[package]]
+name = "embedded-io-async"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2564b9f813c544241430e147d8bc454815ef9ac998878d30cc3055449f7fd4c0"
+dependencies = [
+ "embedded-io 0.7.1",
 ]
 
 [[package]]
@@ -1137,7 +1169,7 @@ dependencies = [
  "async-signal",
  "clap",
  "embassy-futures",
- "embassy-sync",
+ "embassy-sync 0.7.2",
  "embassy-time",
  "embassy-time-queue-utils",
  "env_logger",
@@ -1405,11 +1437,11 @@ dependencies = [
 
 [[package]]
 name = "octseq"
-version = "0.5.2"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "126c3ca37c9c44cec575247f43a3e4374d8927684f129d2beeb0d2cef262fe12"
+checksum = "182eab3e1cd9cdc0ecf1ce3342d9844f3dc7d098f0694569bfdf327b612d69fd"
 dependencies = [
- "heapless 0.8.0",
+ "heapless 0.9.2",
 ]
 
 [[package]]
@@ -1716,7 +1748,7 @@ dependencies = [
 [[package]]
 name = "rs-matter"
 version = "0.1.1"
-source = "git+https://github.com/project-chip/rs-matter#e8b0b0cbb20bf312a9c52fc1ee56541037a3b9c9"
+source = "git+https://github.com/project-chip/rs-matter#d54b4c1c367c98fff5d1985e543277052481bdfc"
 dependencies = [
  "aes",
  "async-channel",
@@ -1727,7 +1759,7 @@ dependencies = [
  "cipher",
  "critical-section",
  "crypto-bigint 0.6.1",
- "defmt 0.3.100",
+ "defmt",
  "der",
  "digest",
  "domain",
@@ -1735,10 +1767,10 @@ dependencies = [
  "either",
  "elliptic-curve",
  "embassy-futures",
- "embassy-sync",
+ "embassy-sync 0.8.0",
  "embassy-time",
  "futures-lite",
- "heapless 0.8.0",
+ "heapless 0.9.2",
  "hkdf",
  "hmac",
  "if-addrs",
@@ -1778,7 +1810,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-codegen"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#e8b0b0cbb20bf312a9c52fc1ee56541037a3b9c9"
+source = "git+https://github.com/project-chip/rs-matter#d54b4c1c367c98fff5d1985e543277052481bdfc"
 dependencies = [
  "convert_case",
  "miette",
@@ -1797,7 +1829,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-macros"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#e8b0b0cbb20bf312a9c52fc1ee56541037a3b9c9"
+source = "git+https://github.com/project-chip/rs-matter#d54b4c1c367c98fff5d1985e543277052481bdfc"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
