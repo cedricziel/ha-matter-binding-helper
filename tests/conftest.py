@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Generator
@@ -364,17 +365,68 @@ def docker_network():
         pass
 
 
+# Matter server backends under test. HA is migrating from the Python server to
+# the matter.js server (HA 2026.2+); the latter is a drop-in replacement on the
+# same WebSocket API, port 5580 and /ws path — so only the image differs.
+#
+# The image *tags* are not duplicated here: they live in docker-compose.yml
+# (single source of truth, bumped by Dependabot's docker ecosystem) and we read
+# them out of it by service name. Both backends run by default; restrict locally
+# with e.g. MATTER_BACKENDS=python.
+MATTER_BACKEND_SERVICES = {
+    "python": "matter-server",
+    "matterjs": "matter-server-js",
+}
+
+_COMPOSE_FILE = Path(__file__).resolve().parent.parent / "docker-compose.yml"
+
+
+def matter_backend_image(backend: str) -> str:
+    """Resolve a backend key to its pinned image via docker-compose.yml."""
+    import yaml
+
+    service = MATTER_BACKEND_SERVICES[backend]
+    compose = yaml.safe_load(_COMPOSE_FILE.read_text())
+    try:
+        return compose["services"][service]["image"]
+    except KeyError as exc:
+        raise RuntimeError(
+            f"docker-compose.yml has no image for service {service!r}"
+        ) from exc
+
+
+def _selected_matter_backends() -> list[str]:
+    sel = os.environ.get("MATTER_BACKENDS")
+    if not sel:
+        return list(MATTER_BACKEND_SERVICES)
+    chosen = [b.strip() for b in sel.split(",") if b.strip()]
+    unknown = [b for b in chosen if b not in MATTER_BACKEND_SERVICES]
+    if unknown:
+        raise ValueError(
+            f"Unknown MATTER_BACKENDS {unknown}; valid: {list(MATTER_BACKEND_SERVICES)}"
+        )
+    return chosen
+
+
+@pytest.fixture(scope="session", params=_selected_matter_backends())
+def matter_backend(request) -> str:
+    """The Matter server backend key under test (parametrizes the whole stack)."""
+    return request.param
+
+
 @pytest.fixture(scope="session")
-def matter_server_container(docker_network) -> Generator[DockerContainer, None, None]:
-    """Start python-matter-server container."""
+def matter_server_container(
+    matter_backend, docker_network
+) -> Generator[DockerContainer, None, None]:
+    """Start the selected Matter server container (python or matter.js)."""
     container = (
-        DockerContainer("ghcr.io/home-assistant-libs/python-matter-server:stable")
+        DockerContainer(matter_backend_image(matter_backend))
         .with_name("matter-server-test")
         .with_exposed_ports(5580)
         .with_env("TZ", "UTC")
     )
 
-    print("\n[testcontainers] Starting Matter Server container...")
+    print(f"\n[testcontainers] Starting Matter Server container ({matter_backend})...")
     container.start()
 
     # Connect to our network

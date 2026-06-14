@@ -27,7 +27,12 @@ import requests
 from testcontainers.core.container import DockerContainer
 from websockets.asyncio.client import connect
 
-from ..conftest import HABootstrapper, HAWebSocketClient
+from ..conftest import (
+    HABootstrapper,
+    HAWebSocketClient,
+    matter_backend,  # noqa: F401 — re-exported so e2e tests parametrize over backends
+    matter_backend_image,
+)
 
 MATTER_SERVER_PORT = 5580
 HA_PORT = 8123
@@ -84,12 +89,14 @@ def project_root() -> Path:
 
 
 @pytest.fixture(scope="session")
-def matter_server_container() -> Generator[DockerContainer, None, None]:
+def matter_server_container(
+    matter_backend,  # noqa: F811 — fixture imported from ..conftest
+) -> Generator[DockerContainer, None, None]:
     container = _host_container(
-        "ghcr.io/home-assistant-libs/python-matter-server:stable",
+        matter_backend_image(matter_backend),
         "matter-server-e2e",
     ).with_env("TZ", "UTC")
-    print("\n[e2e] Starting Matter Server (host network)...")
+    print(f"\n[e2e] Starting Matter Server ({matter_backend}, host network)...")
     container.start()
 
     deadline = time.time() + 90

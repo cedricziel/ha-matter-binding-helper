@@ -20,7 +20,9 @@ services:
 
   matter-server:
     container_name: matter-server
-    image: ghcr.io/home-assistant-libs/python-matter-server:stable
+    # Pinned so Dependabot (docker ecosystem) bumps it; the test fixtures read
+    # this exact tag out of this file, so there is one source of truth.
+    image: ghcr.io/home-assistant-libs/python-matter-server:8.1.2
     volumes:
       - matter-server-data:/data
       - ./scripts:/scripts:ro
@@ -29,6 +31,21 @@ services:
     # Host networking required for mDNS device discovery
     network_mode: host
     restart: unless-stopped
+
+  # matter.js-based server — HA's drop-in replacement for python-matter-server
+  # (same WebSocket API, port 5580). Off by default; `--profile matterjs` to use
+  # it in dev. The e2e/integration suites read this tag for the [matterjs] matrix.
+  matter-server-js:
+    container_name: matter-server-js
+    image: ghcr.io/matter-js/matterjs-server:1.0.0
+    volumes:
+      - matter-server-js-data:/data
+    environment:
+      - TZ=Europe/Berlin
+    network_mode: host
+    restart: unless-stopped
+    profiles:
+      - matterjs
 
   # Matter test device (rs-matter dimmable light)
   dimmable-light:
@@ -89,6 +106,8 @@ services:
 volumes:
   matter-server-data:
     name: matter-server-data
+  matter-server-js-data:
+    name: matter-server-js-data
   dimmable-light-data:
     name: dimmable-light-data
   on-off-switch-data:

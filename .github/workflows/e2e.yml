@@ -18,6 +18,12 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      # Both Matter server backends, independent required jobs; one failing must
+      # not cancel the other.
+      fail-fast: false
+      matrix:
+        backend: [python, matterjs]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,5 +38,7 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
-      - name: Run e2e tests
+      - name: Run e2e tests (${{ matrix.backend }})
+        env:
+          MATTER_BACKENDS: ${{ matrix.backend }}
         run: python -m pytest tests/e2e -v --tb=short
