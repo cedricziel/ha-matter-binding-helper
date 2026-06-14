@@ -12,13 +12,14 @@ from custom_components.matter_binding_helper.matter.group_keys import (
 
 def test_merge_into_empty_map():
     result = merge_group_key_map(None, group_id=5, key_set_id=0x100)
-    assert result == [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 0}]
+    # Default fabric index is the accessing fabric (1-based), not 0.
+    assert result == [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
 
 
 def test_merge_appends_new_group():
     existing = [{"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 1}]
     result = merge_group_key_map(existing, group_id=2, key_set_id=0x101)
-    assert {"groupId": 2, "groupKeySetID": 0x101, "fabricIndex": 0} in result
+    assert {"groupId": 2, "groupKeySetID": 0x101, "fabricIndex": 1} in result
     assert any(e["groupId"] == 1 for e in result)
     assert len(result) == 2
 
@@ -26,13 +27,22 @@ def test_merge_appends_new_group():
 def test_merge_is_idempotent_for_same_group():
     existing = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
     result = merge_group_key_map(existing, group_id=5, key_set_id=0x100)
-    assert result == [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 0}]
+    assert result == [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
 
 
 def test_merge_updates_key_set_for_existing_group():
     existing = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
     result = merge_group_key_map(existing, group_id=5, key_set_id=0x200)
-    assert result == [{"groupId": 5, "groupKeySetID": 0x200, "fabricIndex": 0}]
+    assert result == [{"groupId": 5, "groupKeySetID": 0x200, "fabricIndex": 1}]
+
+
+def test_merge_uses_supplied_fabric_index():
+    """The accessing fabric index is honoured on every written entry."""
+    existing = [{"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 2}]
+    result = merge_group_key_map(
+        existing, group_id=2, key_set_id=0x101, fabric_index=2
+    )
+    assert all(e["fabricIndex"] == 2 for e in result)
 
 
 def test_merge_reads_chip_style_struct_entries():
@@ -45,11 +55,11 @@ def test_merge_reads_chip_style_struct_entries():
 
     existing = [FakeEntry(1, 0x100)]
     result = merge_group_key_map(existing, group_id=2, key_set_id=0x101)
-    assert {"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 0} in result
-    assert {"groupId": 2, "groupKeySetID": 0x101, "fabricIndex": 0} in result
+    assert {"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 1} in result
+    assert {"groupId": 2, "groupKeySetID": 0x101, "fabricIndex": 1} in result
 
 
 def test_merge_skips_malformed_entries():
     existing = [{"groupId": None, "groupKeySetID": 5}, {"foo": "bar"}]
     result = merge_group_key_map(existing, group_id=9, key_set_id=0x100)
-    assert result == [{"groupId": 9, "groupKeySetID": 0x100, "fabricIndex": 0}]
+    assert result == [{"groupId": 9, "groupKeySetID": 0x100, "fabricIndex": 1}]
