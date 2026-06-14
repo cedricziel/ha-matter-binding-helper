@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.31.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.30.0...v0.31.0) (2026-06-14)
+
+
+### Features
+
+* **groups:** auto-allocate group IDs (better create-group UX) ([#267](https://github.com/cedricziel/ha-matter-binding-helper/issues/267)) ([a1c8094](https://github.com/cedricziel/ha-matter-binding-helper/commit/a1c80947ebab6837b2a8e13c0b7096ea4cc10ce4))
+
+
+### Documentation
+
+* **groups:** fix create-group-dialog JSDoc to match event contract ([#269](https://github.com/cedricziel/ha-matter-binding-helper/issues/269)) ([0a755a0](https://github.com/cedricziel/ha-matter-binding-helper/commit/0a755a01c030112e5cb085b53d7bdc9a7e804b91))
+
+
+### Miscellaneous
+
+* **dependabot:** track Python deps at repo root ([#270](https://github.com/cedricziel/ha-matter-binding-helper/issues/270)) ([99359a5](https://github.com/cedricziel/ha-matter-binding-helper/commit/99359a51ffd17334c90e6725e95539deffa88d0b))
+
 ## [0.30.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.18...v0.30.0) (2026-06-14)
 
 
