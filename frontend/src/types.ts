@@ -207,6 +207,7 @@ export interface ACLProgressEvent {
 
 // Event name constant
 export const EVENT_ACL_PROGRESS = "matter_binding_helper_acl_progress";
+export const EVENT_GROUP_PROGRESS = "matter_binding_helper_group_progress";
 
 export interface ProvisionACLForBindingsResponse {
   success: boolean;
