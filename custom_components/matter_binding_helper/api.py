@@ -29,6 +29,7 @@ from .const import (
     WS_TYPE_PROVISION_ACL_FOR_BINDINGS,
     WS_TYPE_REMOVE_ACL,
     WS_TYPE_REMOVE_FROM_GROUP,
+    WS_TYPE_REPAIR_GROUP_BINDINGS,
     WS_TYPE_SET_SCHEDULE,
     WS_TYPE_VERIFY_BINDINGS,
 )
@@ -67,6 +68,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_provision_acl)
     websocket_api.async_register_command(hass, ws_remove_acl)
     websocket_api.async_register_command(hass, ws_provision_acl_for_bindings)
+    websocket_api.async_register_command(hass, ws_repair_group_bindings)
     websocket_api.async_register_command(hass, ws_list_groups)
     websocket_api.async_register_command(hass, ws_create_group)
     websocket_api.async_register_command(hass, ws_delete_group)
@@ -1165,6 +1167,45 @@ async def ws_provision_acl_for_bindings(
     _LOGGER.info("ws_provision_acl_for_bindings called with: %s", msg)
 
     results = await matter_client.provision_acls_for_existing_bindings(
+        hass,
+        node_id=msg["node_id"],
+        endpoint_id=msg["endpoint_id"],
+    )
+
+    connection.send_result(
+        msg["id"],
+        {
+            "success": all(r["success"] for r in results) if results else True,
+            "results": results,
+            "total": len(results),
+            "succeeded": sum(1 for r in results if r["success"]),
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_REPAIR_GROUP_BINDINGS,
+        vol.Required("node_id"): vol.Coerce(int),
+        vol.Required("endpoint_id"): vol.Coerce(int),
+    }
+)
+@websocket_api.async_response
+async def ws_repair_group_bindings(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Re-provision the group chain for existing groupcast bindings on an endpoint.
+
+    Reads the source endpoint's bindings and re-runs groupcast provisioning
+    (group key on source + members, group-auth ACL on members) for each binding
+    that targets a group. Useful when provisioning failed (e.g. a member was
+    offline) or predates group support.
+    """
+    _LOGGER.info("ws_repair_group_bindings called with: %s", msg)
+
+    results = await matter_client.repair_group_bindings(
         hass,
         node_id=msg["node_id"],
         endpoint_id=msg["endpoint_id"],

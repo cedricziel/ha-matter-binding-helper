@@ -1042,3 +1042,53 @@ async def provision_acls_for_existing_bindings(
         )
 
     return results
+
+
+async def repair_group_bindings(
+    hass: HomeAssistant,
+    node_id: int,
+    endpoint_id: int,
+) -> list[dict[str, Any]]:
+    """Re-provision the group chain for existing groupcast bindings on an endpoint.
+
+    The group analogue of provision_acls_for_existing_bindings: reads the source
+    endpoint's bindings and, for each one targeting a group, re-runs the groupcast
+    provisioning (group key on source + members, group-auth ACL on members). Useful
+    when a binding was created while a member was offline, or before provisioning
+    existed.
+
+    Returns a list of per-binding result dicts.
+    """
+    results: list[dict[str, Any]] = []
+    bindings = await get_bindings(hass, node_id, endpoint_id)
+
+    for binding in bindings:
+        # Only groupcast bindings (have a target group and a concrete cluster).
+        if binding.target_group_id is None:
+            continue
+        if binding.cluster_id is None:
+            _LOGGER.debug("repair_group_bindings: skipping wildcard-cluster binding")
+            continue
+
+        _LOGGER.info(
+            "repair_group_bindings: re-provisioning node %s ep %s -> group %s cluster 0x%04X",
+            node_id,
+            endpoint_id,
+            binding.target_group_id,
+            binding.cluster_id,
+        )
+        result = await provision_group_for_binding(
+            hass=hass,
+            source_node_id=node_id,
+            group_id=binding.target_group_id,
+            cluster_id=binding.cluster_id,
+        )
+        results.append(
+            {
+                "target_group_id": binding.target_group_id,
+                "cluster_id": binding.cluster_id,
+                **result.to_dict(),
+            }
+        )
+
+    return results
