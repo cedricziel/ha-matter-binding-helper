@@ -95,6 +95,23 @@ async def test_real_create_and_list(hass):
 
 
 @pytest.mark.asyncio
+async def test_real_create_with_clusters_round_trips(hass):
+    """The group's controlled-cluster set survives create -> list."""
+    result = await create_group(hass, 10, "Lights", clusters=[0x0006, 0x0008])
+    assert result.success is True
+
+    listed = await get_groups(hass)
+    assert listed[0].clusters == [0x0006, 0x0008]
+
+
+@pytest.mark.asyncio
+async def test_real_create_without_clusters_is_untyped(hass):
+    await create_group(hass, 11, "Untyped")
+    listed = await get_groups(hass)
+    assert listed[0].clusters == []
+
+
+@pytest.mark.asyncio
 async def test_real_create_auto_allocates_id(hass):
     """Creating a group without an id auto-allocates and returns it."""
     result = await create_group(hass, None, "Ambient")
@@ -243,6 +260,16 @@ async def test_demo_lists_seed_group(demo_hass):
     groups_list = await get_groups(demo_hass)
     assert [g.group_id for g in groups_list] == [1]
     assert groups_list[0].name == "Living Room Lights"
+    # The seed group is typed as a lighting group (On/Off + Level Control).
+    assert groups_list[0].clusters == [0x0006, 0x0008]
+
+
+@pytest.mark.asyncio
+async def test_demo_create_with_clusters_round_trips(demo_hass):
+    result = await create_group(demo_hass, 2, "Blinds", clusters=[0x0102])
+    assert result.success is True
+    created = next(g for g in await get_groups(demo_hass) if g.group_id == 2)
+    assert created.clusters == [0x0102]
 
 
 @pytest.mark.asyncio

@@ -11,6 +11,10 @@ import { buttonStyles, stateStyles, formStyles } from "../../styles/shared-style
 import { dialogBaseStyles } from "../../styles/dialog-styles";
 import type { MatterNode, MatterEndpoint, MatterGroup } from "../../types";
 import { getClusterName } from "../../types";
+import {
+  groupControlClusters,
+  groupDefaultCluster,
+} from "../../group-type-logic";
 
 /**
  * A dialog for creating new Matter bindings.
@@ -219,10 +223,44 @@ export class CreateBindingDialog extends LitElement {
     `;
   }
 
-  private _renderGroupTarget() {
+  /**
+   * The clusters offered for a groupcast binding to the selected group.
+   *
+   * A typed group restricts the choice to the clusters it controls that the
+   * source can actually emit (its client clusters); if that intersection is
+   * empty we fall back to the group's clusters so the user can still see what
+   * the group expects. An untyped group (or no selection) just lists the
+   * source's client clusters, as before.
+   */
+  private _groupClusterChoices(): number[] {
     const sourceClientClusters = this.sourceEndpoint?.client_clusters ?? [];
-    if (this._selectedClusterId === null && sourceClientClusters.length > 0) {
-      this._selectedClusterId = sourceClientClusters[0];
+    const group = this.availableGroups.find(
+      (g) => g.group_id === this._selectedGroupId
+    );
+    const groupClusters = group ? groupControlClusters(group) : [];
+    if (groupClusters.length === 0) {
+      return sourceClientClusters;
+    }
+    const intersection = sourceClientClusters.filter((c) =>
+      groupClusters.includes(c)
+    );
+    return intersection.length > 0 ? intersection : groupClusters;
+  }
+
+  private _renderGroupTarget() {
+    const clusterChoices = this._groupClusterChoices();
+    const group = this.availableGroups.find(
+      (g) => g.group_id === this._selectedGroupId
+    );
+    // Default to the group's primary cluster when typed, else the first choice.
+    if (this._selectedClusterId === null && clusterChoices.length > 0) {
+      const preferred = group
+        ? groupDefaultCluster(groupControlClusters(group))
+        : null;
+      this._selectedClusterId =
+        preferred !== null && clusterChoices.includes(preferred)
+          ? preferred
+          : clusterChoices[0];
     }
     return html`
       <div class="form-group">
@@ -236,15 +274,15 @@ export class CreateBindingDialog extends LitElement {
         >
           <option value="" disabled selected>Select a group...</option>
           ${this.availableGroups.map(
-            (group) => html`
-              <option value=${group.group_id}>
-                ${group.name} (ID ${group.group_id})
+            (g) => html`
+              <option value=${g.group_id}>
+                ${g.name} (ID ${g.group_id})
               </option>
             `
           )}
         </select>
       </div>
-      ${sourceClientClusters.length > 0
+      ${clusterChoices.length > 0
         ? html`
             <div class="form-group">
               <label for="groupCluster">Cluster</label>
@@ -255,9 +293,12 @@ export class CreateBindingDialog extends LitElement {
                 @change=${this._handleClusterChange}
                 .value=${this._selectedClusterId?.toString() ?? ""}
               >
-                ${sourceClientClusters.map(
+                ${clusterChoices.map(
                   (clusterId) => html`
-                    <option value=${clusterId}>
+                    <option
+                      value=${clusterId}
+                      ?selected=${clusterId === this._selectedClusterId}
+                    >
                       ${getClusterName(clusterId)}
                     </option>
                   `
@@ -497,8 +538,7 @@ export class CreateBindingDialog extends LitElement {
     e.preventDefault();
 
     if (this._targetType === "group") {
-      const sourceClientClusters = this.sourceEndpoint?.client_clusters ?? [];
-      const clusterId = this._selectedClusterId ?? sourceClientClusters[0];
+      const clusterId = this._selectedClusterId ?? this._groupClusterChoices()[0];
       if (this._selectedGroupId !== null && clusterId !== undefined) {
         this.dispatchEvent(
           new CustomEvent("create-binding", {
@@ -542,6 +582,10 @@ export class CreateBindingDialog extends LitElement {
     const groupId = parseInt((e.target as HTMLSelectElement).value, 10);
     if (!isNaN(groupId)) {
       this._selectedGroupId = groupId;
+      // Clear so the cluster default re-applies for the newly selected group's
+      // type (a Lights group defaults to On/Off, a covers group to Window
+      // Covering, etc.).
+      this._selectedClusterId = null;
     }
   }
 

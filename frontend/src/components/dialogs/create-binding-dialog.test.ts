@@ -413,5 +413,86 @@ describe("CreateBindingDialog", () => {
       // Cluster defaults to the first source client cluster (On/Off).
       expect(events[0].detail.clusterId).toBe(TEST_CLUSTERS.ON_OFF);
     });
+
+    it("defaults the cluster to a typed group's primary cluster", async () => {
+      // Source can emit On/Off and Level; the group is typed primarily as Level.
+      const typedGroups = [
+        {
+          group_id: 7,
+          name: "Brightness",
+          members: [],
+          clusters: [TEST_CLUSTERS.LEVEL_CONTROL, TEST_CLUSTERS.ON_OFF],
+        },
+      ];
+      element = await fixture<CreateBindingDialog>(html`
+        <matter-create-binding-dialog
+          .open=${true}
+          .sourceNode=${sourceNode}
+          .sourceEndpoint=${sourceEndpoint}
+          .availableNodes=${targetNodes}
+          .availableGroups=${typedGroups}
+        ></matter-create-binding-dialog>
+      `);
+
+      const typeSelect = queryShadow<HTMLSelectElement>(element, "#targetType");
+      typeSelect!.value = "group";
+      typeSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      const groupSelect = queryShadow<HTMLSelectElement>(element, "#targetGroup");
+      groupSelect!.value = "7";
+      groupSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      const { events } = captureEvents<{
+        targetGroupId: number;
+        clusterId: number;
+      }>(element, "create-binding");
+
+      queryShadowAll<HTMLButtonElement>(element, "button")
+        .find((b) => b.textContent?.includes("Create Binding"))!
+        .click();
+
+      expect(events).toHaveLength(1);
+      // Not On/Off (the legacy first-client-cluster default) — the group's type wins.
+      expect(events[0].detail.clusterId).toBe(TEST_CLUSTERS.LEVEL_CONTROL);
+    });
+
+    it("restricts the cluster options to the group's clusters", async () => {
+      const typedGroups = [
+        {
+          group_id: 7,
+          name: "Brightness",
+          members: [],
+          clusters: [TEST_CLUSTERS.LEVEL_CONTROL],
+        },
+      ];
+      element = await fixture<CreateBindingDialog>(html`
+        <matter-create-binding-dialog
+          .open=${true}
+          .sourceNode=${sourceNode}
+          .sourceEndpoint=${sourceEndpoint}
+          .availableNodes=${targetNodes}
+          .availableGroups=${typedGroups}
+        ></matter-create-binding-dialog>
+      `);
+
+      const typeSelect = queryShadow<HTMLSelectElement>(element, "#targetType");
+      typeSelect!.value = "group";
+      typeSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+      const groupSelect = queryShadow<HTMLSelectElement>(element, "#targetGroup");
+      groupSelect!.value = "7";
+      groupSelect!.dispatchEvent(new Event("change"));
+      await elementUpdated(element);
+
+      const options = queryShadowAll<HTMLOptionElement>(
+        element,
+        "#groupCluster option"
+      );
+      const values = options.map((o) => o.value);
+      // On/Off (a source client cluster) is filtered out — only Level remains.
+      expect(values).toEqual([String(TEST_CLUSTERS.LEVEL_CONTROL)]);
+    });
   });
 });

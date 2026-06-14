@@ -1295,6 +1295,7 @@ async def ws_list_groups(
         vol.Required("type"): WS_TYPE_CREATE_GROUP,
         vol.Optional("group_id"): vol.Coerce(int),
         vol.Required("name"): str,
+        vol.Optional("clusters"): [vol.Coerce(int)],
     }
 )
 @websocket_api.async_response
@@ -1303,8 +1304,13 @@ async def ws_create_group(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Create a new Matter group. group_id is optional (auto-allocated if absent)."""
-    result = await matter_client.create_group(hass, msg.get("group_id"), msg["name"])
+    """Create a new Matter group. group_id is optional (auto-allocated if absent).
+
+    ``clusters`` records what the group is meant to control (the type authority).
+    """
+    result = await matter_client.create_group(
+        hass, msg.get("group_id"), msg["name"], msg.get("clusters")
+    )
     if result.success:
         connection.send_result(
             msg["id"], {"success": True, "group_id": result.group_id}
