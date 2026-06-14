@@ -73,6 +73,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _showCreateDialog = false;
   @state() private _showCreateGroupDialog = false;
   @state() private _manageGroup: MatterGroup | null = null;
+  @state() private _pendingDeleteGroup: MatterGroup | null = null;
   @state() private _allBindings: BindingWithContext[] = [];
   @state() private _recommendations: BindingRecommendation[] = [];
   @state() private _overviewLoading = false;
@@ -848,13 +849,23 @@ export class MatterBindingPanel extends LitElement {
     }
   }
 
-  private async _handleDeleteGroup(
-    e: CustomEvent<{ group: MatterGroup }>
-  ): Promise<void> {
-    const { group } = e.detail;
+  private _handleDeleteGroup(e: CustomEvent<{ group: MatterGroup }>): void {
+    // Deleting a group is destructive (removes its key material and membership);
+    // confirm first.
+    this._pendingDeleteGroup = e.detail.group;
+  }
+
+  private _cancelDeleteGroup(): void {
+    this._pendingDeleteGroup = null;
+  }
+
+  private async _confirmDeleteGroup(): Promise<void> {
+    const group = this._pendingDeleteGroup;
+    if (!group) return;
     this._actionInProgress = "delete-group";
     try {
       await api.deleteGroup(this.hass, group.group_id);
+      this._pendingDeleteGroup = null;
       await this._loadGroups();
     } catch (err) {
       this._error = `Failed to delete group: ${this._extractErrorMessage(err)}`;
@@ -1068,6 +1079,21 @@ export class MatterBindingPanel extends LitElement {
           @remove-member=${this._handleRemoveMember}
           @close=${this._closeManageGroupDialog}
         ></matter-manage-group-dialog>
+        ${this._pendingDeleteGroup
+          ? html`
+              <matter-confirm-dialog
+                .open=${true}
+                title="Delete Group"
+                icon="🗑️"
+                variant="danger"
+                confirmLabel="Delete"
+                .loading=${this._actionInProgress !== null}
+                .message=${`Delete group "${this._pendingDeleteGroup.name}" (ID ${this._pendingDeleteGroup.group_id})? This removes its group key and membership from the fabric. Bindings targeting this group will stop working.`}
+                @confirm=${this._confirmDeleteGroup}
+                @cancel=${this._cancelDeleteGroup}
+              ></matter-confirm-dialog>
+            `
+          : nothing}
         <matter-create-binding-dialog
           .open=${this._showCreateDialog}
           .sourceNode=${this._selectedSourceNode}
