@@ -6,8 +6,18 @@ tests, since chip.clusters is only available in the real runtime.
 """
 
 from custom_components.matter_binding_helper.matter.group_keys import (
+    _group_key_map_has,
     merge_group_key_map,
 )
+
+
+def test_group_key_map_has_detects_mapping():
+    entries = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
+    assert _group_key_map_has(entries, 5, 0x100) is True
+    assert _group_key_map_has(entries, 5, 0x200) is False  # wrong keyset
+    assert _group_key_map_has(entries, 9, 0x100) is False  # wrong group
+    assert _group_key_map_has(None, 5, 0x100) is False
+    assert _group_key_map_has([{"foo": "bar"}], 5, 0x100) is False
 
 
 def test_merge_into_empty_map():
