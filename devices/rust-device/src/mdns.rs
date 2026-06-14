@@ -10,7 +10,7 @@ use socket2::{Domain, Protocol, Socket, Type};
 
 use rs_matter::crypto::Crypto;
 use rs_matter::error::Error;
-use rs_matter::transport::network::mdns::builtin::{BuiltinMdnsResponder, Host};
+use rs_matter::transport::network::mdns::builtin::{BuiltinMdns, Host};
 use rs_matter::transport::network::mdns::{
     MDNS_IPV4_BROADCAST_ADDR, MDNS_IPV6_BROADCAST_ADDR, MDNS_SOCKET_DEFAULT_BIND_ADDR,
 };
@@ -91,7 +91,7 @@ async fn run_builtin_mdns<C: Crypto>(matter: &Matter<'_>, crypto: C) -> Result<(
     // Generate a unique hostname from device info
     let hostname = "matter-test-device";
 
-    BuiltinMdnsResponder::new()
+    BuiltinMdns::new()
         .run(
             &socket,
             &socket,
