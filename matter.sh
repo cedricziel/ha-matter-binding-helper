@@ -35,6 +35,17 @@ WS_URL="${HA_HOST/http:/ws:}"
 WS_URL="${WS_URL/https:/wss:}"
 WS_URL="${WS_URL}/api/websocket"
 
+# Tunables (override via .env or environment)
+#   WS_BUFFER  websocat max message size in bytes. The default websocat buffer is
+#              64 KiB, which silently TRUNCATES large responses (e.g. list_nodes on
+#              a fabric with many devices) and leaves you with empty output. Keep
+#              this generous.
+#   WS_WAIT    seconds to keep the connection open collecting the reply. The
+#              Matter server can be slow on first contact; raise this (e.g.
+#              WS_WAIT=10) if a command returns "No command result".
+WS_BUFFER="${WS_BUFFER:-16777216}"
+WS_WAIT="${WS_WAIT:-4}"
+
 # --- WEBSOCKET HELPER ---
 
 ws_call() {
@@ -52,28 +63,28 @@ ws_call() {
   local AUTH_MSG
   AUTH_MSG=$(jq -nc --arg token "$HA_TOKEN" '{type: "auth", access_token: $token}')
 
-  # Send auth + command via stdin with delays, capture all output
-  # Increase sleep to allow time for Matter server to respond (can be slow)
-  local OUTPUT
-  OUTPUT=$({ echo "$AUTH_MSG"; sleep 0.2; echo "$CMD_JSON"; sleep 3; } | timeout 15 websocat "$WS_URL" 2>/dev/null)
+  # Send auth + command, then hold the connection open WS_WAIT seconds so the
+  # (sometimes slow) Matter server can deliver the full reply before the pipe
+  # closes. `-B "$WS_BUFFER"` raises websocat's message-size cap; without it large
+  # responses (e.g. list_nodes on a big fabric) are silently truncated and never
+  # match the grep below — which is what makes a command return nothing at all.
+  local RESULT
+  RESULT=$(
+    { echo "$AUTH_MSG"; sleep 0.2; echo "$CMD_JSON"; sleep "$WS_WAIT"; } \
+      | timeout "$((WS_WAIT + 10))" websocat -B "$WS_BUFFER" "$WS_URL" 2>/dev/null \
+      | grep -m1 '"id":1' || true
+  )
 
-  if [[ -z "$OUTPUT" ]]; then
-    echo "Error: No response from WebSocket" >&2
+  if [[ -z "$RESULT" ]]; then
+    echo "Error: No command result received from WebSocket" >&2
+    echo "  (auth failed, command unknown, or the server took longer than ${WS_WAIT}s — try: WS_WAIT=30 $0 ...)" >&2
     return 1
   fi
 
-  # Get the command result - extract JSON response with id:1
-  local RESULT
-  # First try: line starting with {"id":1 (single-line response)
-  RESULT=$(echo "$OUTPUT" | grep -m1 '^{"id":1')
-
-  if [[ -z "$RESULT" ]]; then
-    # Fallback: any line containing "id":1 (flexible spacing)
-    RESULT=$(echo "$OUTPUT" | grep -m1 '"id":1')
-  fi
-
-  if [[ -z "$RESULT" ]]; then
-    echo "Error: No command result received (got: $(echo "$OUTPUT" | tail -1))" >&2
+  # Guard against a truncated response (would indicate WS_BUFFER is too small).
+  if ! echo "$RESULT" | jq -e . &>/dev/null; then
+    echo "Error: Received malformed/truncated JSON (${#RESULT} bytes)." >&2
+    echo "  Raise the buffer and retry, e.g.: WS_BUFFER=$((WS_BUFFER * 2)) $0 ..." >&2
     return 1
   fi
 
