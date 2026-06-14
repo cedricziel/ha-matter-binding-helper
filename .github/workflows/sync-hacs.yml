@@ -1,0 +1,63 @@
+---
+name: Sync hacs.json
+
+# Keeps hacs.json's minimum Home Assistant version aligned with the
+# `homeassistant` floor in requirements.txt. Runs AFTER a requirements bump lands
+# on main (e.g. a Dependabot security update), then opens a dedicated PR with the
+# hacs.json update and enables auto-merge — using RELEASE_PLEASE_TOKEN so the PR
+# triggers CI (the default GITHUB_TOKEN cannot) and can be auto-merged.
+on:
+  push:
+    branches: [main]
+    paths:
+      - requirements.txt
+      - scripts/sync_hacs_min_ha.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync hacs.json from requirements.txt
+        run: python scripts/sync_hacs_min_ha.py
+
+      - name: Open auto-merge PR if hacs.json changed
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if git diff --quiet hacs.json; then
+            echo "hacs.json already in sync; nothing to do."
+            exit 0
+          fi
+
+          # Don't stack duplicate sync PRs.
+          existing=$(gh pr list --state open \
+            --search 'in:title chore: sync hacs.json Home Assistant floor' \
+            --json number --jq '.[].number' | head -1)
+          if [ -n "$existing" ]; then
+            echo "Open hacs.json sync PR #$existing already exists; skipping."
+            exit 0
+          fi
+
+          branch="chore/sync-hacs-floor-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "chore: sync hacs.json Home Assistant floor"
+          git push origin "$branch"
+
+          url=$(gh pr create --base main --head "$branch" \
+            --title "chore: sync hacs.json Home Assistant floor" \
+            --body "Auto-generated: aligns hacs.json's \`homeassistant\` minimum with the requirements.txt floor after it changed on main.")
+          gh pr merge "$url" --auto --squash
