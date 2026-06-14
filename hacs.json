@@ -1,5 +1,6 @@
 {
   "name": "Matter Binding Helper",
+  "homeassistant": "2024.1.0",
   "render_readme": true,
   "zip_release": true,
   "filename": "matter_binding_helper.zip"

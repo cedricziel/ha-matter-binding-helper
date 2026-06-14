@@ -1,0 +1,46 @@
+---
+name: Sync hacs.json
+
+# Keeps hacs.json's minimum Home Assistant version aligned with the
+# `homeassistant` floor in requirements.txt. Runs on PRs that touch either file
+# (including Dependabot's) and commits the fix back to the PR branch — zero-touch.
+on:
+  pull_request:
+    paths:
+      - requirements.txt
+      - hacs.json
+      - scripts/sync_hacs_min_ha.py
+      - .github/workflows/sync-hacs.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    # Only same-repo PRs (Dependabot + maintainers) can push the fix back; fork
+    # PRs get a read-only token, so the final --check flags drift instead.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync hacs.json HA floor from requirements.txt
+        run: python scripts/sync_hacs_min_ha.py
+
+      - name: Commit any update to the PR branch
+        run: |
+          if ! git diff --quiet hacs.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "chore: sync hacs.json Home Assistant floor"
+            git push
+          fi
+
+      - name: Verify in sync
+        run: python scripts/sync_hacs_min_ha.py --check
