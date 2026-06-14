@@ -69,14 +69,18 @@ format: venv ## Format Python code
 	$(RUFF) format custom_components/matter_binding_helper
 
 test: venv ## Run Python tests
-	$(PYTHON) -m pytest tests/ -v
+	$(PYTHON) -m pytest tests/ -v --ignore=tests/e2e
 
 test-integration: venv ## Run integration tests (uses testcontainers for isolated environment)
 	@echo "Running integration tests with testcontainers..."
 	@echo "Fresh containers will be started automatically."
 	@echo ""
 	$(PIP) install -q -r requirements-test.txt
-	$(PYTHON) -m pytest tests/ -v --tb=short
+	$(PYTHON) -m pytest tests/ -v --tb=short --ignore=tests/e2e
+
+test-e2e: venv ## Run real-device e2e tests (Linux/host-networking only)
+	$(PIP) install -q -r requirements-test.txt
+	$(PYTHON) -m pytest tests/e2e -v --tb=short
 
 # Utility
 shell: ## Open a shell in the HA container

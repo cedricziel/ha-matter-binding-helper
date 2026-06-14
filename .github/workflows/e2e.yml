@@ -1,0 +1,33 @@
+---
+name: E2E (real devices)
+
+# Commissions the rs-matter virtual devices for real (host networking) and
+# verifies groupcast provisioning end-to-end. Runs on Linux only — host-network
+# Matter commissioning does not work on macOS Docker. Manually triggerable, and
+# on PRs that touch the relevant code.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "custom_components/matter_binding_helper/**"
+      - "devices/rust-device/**"
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yml"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Run e2e tests
+        run: python -m pytest tests/e2e -v --tb=short
