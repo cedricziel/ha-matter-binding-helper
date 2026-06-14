@@ -53,6 +53,14 @@ async def _accessing_fabric_index(client: Any, node_id: int) -> int:
             node_id=node_id, attribute_path=CURRENT_FABRIC_INDEX_PATH
         )
         index = int(value)
+        # Log the raw value: a 0 here means the controller is reaching the device
+        # without a promoted operational fabric, which makes every fabric-scoped
+        # write/command (KeySetWrite, GroupKeyMap, AddGroup) fail UNSUPPORTED_ACCESS.
+        _LOGGER.info(
+            "provision_group_key: node %s reports CurrentFabricIndex=%s",
+            node_id,
+            index,
+        )
         if index >= 1:
             return index
     except (ValueError, TypeError, AttributeError) as err:
@@ -77,6 +85,20 @@ def _entry_field(entry: Any, *keys: Any) -> Any:
                 if val is not None:
                     return val
     return None
+
+
+def _group_key_map_has(
+    existing: list[Any] | None, group_id: int, key_set_id: int
+) -> bool:
+    """True if the GroupKeyMap contains the group_id -> key_set_id mapping."""
+    for entry in existing or []:
+        gid = _entry_field(entry, "groupId", "1", 1)
+        ksid = _entry_field(entry, "groupKeySetID", "2", 2)
+        if gid is None or ksid is None:
+            continue
+        if int(gid) == group_id and int(ksid) == key_set_id:
+            return True
+    return False
 
 
 def merge_group_key_map(
@@ -201,6 +223,34 @@ async def provision_group_key(
             attribute_path=GROUP_KEY_MAP_PATH,
             value=updated,
         )
+
+        # 3. Verify the mapping actually landed. KeySetWrite and the write above
+        #    are fabric-scoped and return no usable status, so a silent
+        #    UNSUPPORTED_ACCESS (e.g. the controller is on fabric 0) would
+        #    otherwise only surface later as a confusing AddGroup rejection.
+        readback = await client.read_attribute(
+            node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+        )
+        if not _group_key_map_has(readback, group_id, key_set_id):
+            _LOGGER.error(
+                "provision_group_key: GroupKeyMap readback on node %s missing "
+                "group %s -> keyset %s (fabric %s); got %s",
+                node_id,
+                group_id,
+                key_set_id,
+                fabric_index,
+                readback,
+            )
+            return GroupOperationResult(
+                success=False,
+                message=(
+                    "Group key provisioning was not accepted by the device "
+                    "(no GroupKeyMap entry for the accessing fabric). The Matter "
+                    "controller may be sending fabric-scoped writes without a "
+                    "promoted operational fabric."
+                ),
+                error_code="device_error",
+            )
 
         return GroupOperationResult(
             success=True,
