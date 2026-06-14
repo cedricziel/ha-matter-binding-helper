@@ -949,6 +949,7 @@ def _serialize_value(value: Any) -> dict[str, Any]:
         vol.Optional("target_group_id"): vol.Coerce(int),
         vol.Optional("verify", default=True): bool,
         vol.Optional("provision_acl", default=True): bool,
+        vol.Optional("provision_group", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -976,6 +977,7 @@ async def ws_create_binding(
         target_group_id=msg.get("target_group_id"),
         verify=msg.get("verify", True),
         provision_acl=msg.get("provision_acl", True),
+        provision_group=msg.get("provision_group", True),
     )
     _LOGGER.info("ws_create_binding result: %s", result)
     if result.success:
@@ -1190,6 +1192,7 @@ async def ws_provision_acl_for_bindings(
         vol.Optional("cluster_id"): vol.Coerce(int),
         vol.Optional("verify", default=True): bool,
         vol.Optional("remove_acl", default=True): bool,
+        vol.Optional("remove_group", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -1217,6 +1220,7 @@ async def ws_delete_binding(
         cluster_id=msg.get("cluster_id"),
         verify=msg.get("verify", True),
         remove_acl=msg.get("remove_acl", True),
+        remove_group=msg.get("remove_group", True),
     )
     _LOGGER.info("ws_delete_binding result: %s", result)
     if result.success:

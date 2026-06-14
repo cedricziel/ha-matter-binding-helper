@@ -8,7 +8,7 @@ Covers:
 """
 
 import itertools
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,8 +21,10 @@ from custom_components.matter_binding_helper.matter.groups import (
     create_group,
     delete_group,
     get_groups,
+    provision_group_for_binding,
     remove_from_group,
 )
+from custom_components.matter_binding_helper.matter.models import GroupOperationResult
 from custom_components.matter_binding_helper.matter.group_store import (
     _GROUP_STORE_KEY,
     GroupStore,
@@ -129,6 +131,75 @@ async def test_real_remove_client_unavailable(hass):
         result = await remove_from_group(hass, 10, 5, 1)
     assert result.success is False
     assert result.error_code == "client_unavailable"
+
+
+# --- Groupcast binding orchestration (provision_group_for_binding) ---------
+
+
+@pytest.mark.asyncio
+async def test_provision_for_binding_missing_group(hass):
+    result = await provision_group_for_binding(
+        hass, source_node_id=4, group_id=99, cluster_id=6
+    )
+    assert result.success is False
+    assert result.error_code == GROUP_NOT_FOUND_CODE
+
+
+@pytest.mark.asyncio
+async def test_provision_for_binding_keys_source_and_acls_members(hass):
+    # Group 10 with two members.
+    await create_group(hass, 10, "Lights")
+    store = hass.data[DOMAIN]["_group_store"]
+    await store.async_add_member(10, 1, 1)
+    await store.async_add_member(10, 2, 1)
+
+    key_mock = AsyncMock(return_value=GroupOperationResult(True, "ok"))
+    acl_mock = AsyncMock(return_value=GroupOperationResult(True, "ok"))
+    with (
+        patch.object(groups, "provision_group_key", key_mock),
+        patch.object(groups, "provision_group_acl", acl_mock),
+    ):
+        result = await provision_group_for_binding(
+            hass, source_node_id=4, group_id=10, cluster_id=6
+        )
+
+    assert result.success is True
+    # Source (4) + both members (1, 2) get the key.
+    keyed_nodes = {call.args[1] for call in key_mock.await_args_list}
+    assert keyed_nodes == {4, 1, 2}
+    # Both members get a group ACL for the cluster.
+    acl_nodes = {call.args[1] for call in acl_mock.await_args_list}
+    assert acl_nodes == {1, 2}
+
+
+@pytest.mark.asyncio
+async def test_provision_for_binding_member_acl_failure_is_reported(hass):
+    await create_group(hass, 10, "Lights")
+    store = hass.data[DOMAIN]["_group_store"]
+    await store.async_add_member(10, 1, 1)
+
+    key_mock = AsyncMock(return_value=GroupOperationResult(True, "ok"))
+    acl_mock = AsyncMock(
+        return_value=GroupOperationResult(False, "denied", "device_error")
+    )
+    with (
+        patch.object(groups, "provision_group_key", key_mock),
+        patch.object(groups, "provision_group_acl", acl_mock),
+    ):
+        result = await provision_group_for_binding(
+            hass, source_node_id=4, group_id=10, cluster_id=6
+        )
+
+    assert result.success is False
+    assert "denied" in result.message
+
+
+@pytest.mark.asyncio
+async def test_provision_for_binding_demo_short_circuits(demo_hass):
+    result = await provision_group_for_binding(
+        demo_hass, source_node_id=4, group_id=1, cluster_id=6
+    )
+    assert result.success is True
 
 
 # --- Demo mode -------------------------------------------------------------
