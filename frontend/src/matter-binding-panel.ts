@@ -37,6 +37,7 @@ import "./components/bindings/binding-card";
 import "./components/acl/acl-section";
 import "./components/dialogs/create-binding-dialog";
 import "./components/dialogs/create-group-dialog";
+import "./components/dialogs/manage-group-dialog";
 import "./components/dialogs/confirm-dialog";
 import "./components/dialogs/operation-progress-dialog";
 import "./components/dialogs/create-automation-dialog";
@@ -69,6 +70,7 @@ export class MatterBindingPanel extends LitElement {
   @state() private _activeTab: "overview" | "bindings" | "groups" = "overview";
   @state() private _showCreateDialog = false;
   @state() private _showCreateGroupDialog = false;
+  @state() private _manageGroup: MatterGroup | null = null;
   @state() private _allBindings: BindingWithContext[] = [];
   @state() private _recommendations: BindingRecommendation[] = [];
   @state() private _overviewLoading = false;
@@ -727,8 +729,52 @@ export class MatterBindingPanel extends LitElement {
   }
 
   private _handleGroupClick(e: CustomEvent<{ group: MatterGroup }>) {
-    // Placeholder for future group management functionality
-    console.log("Group clicked:", e.detail.group);
+    this._manageGroup = e.detail.group;
+  }
+
+  private _closeManageGroupDialog(): void {
+    this._manageGroup = null;
+  }
+
+  private async _handleAddMember(
+    e: CustomEvent<{ nodeId: number; endpointId: number }>
+  ): Promise<void> {
+    if (!this._manageGroup) return;
+    const groupId = this._manageGroup.group_id;
+    const { nodeId, endpointId } = e.detail;
+    this._actionInProgress = "group-member";
+    try {
+      await api.addToGroup(this.hass, groupId, nodeId, endpointId);
+      await this._refreshManagedGroup(groupId);
+    } catch (err) {
+      this._error = `Failed to add member: ${this._extractErrorMessage(err)}`;
+    } finally {
+      this._actionInProgress = null;
+    }
+  }
+
+  private async _handleRemoveMember(
+    e: CustomEvent<{ nodeId: number; endpointId: number }>
+  ): Promise<void> {
+    if (!this._manageGroup) return;
+    const groupId = this._manageGroup.group_id;
+    const { nodeId, endpointId } = e.detail;
+    this._actionInProgress = "group-member";
+    try {
+      await api.removeFromGroup(this.hass, groupId, nodeId, endpointId);
+      await this._refreshManagedGroup(groupId);
+    } catch (err) {
+      this._error = `Failed to remove member: ${this._extractErrorMessage(err)}`;
+    } finally {
+      this._actionInProgress = null;
+    }
+  }
+
+  /** Reload groups and re-point the open manage dialog at the fresh data. */
+  private async _refreshManagedGroup(groupId: number): Promise<void> {
+    await this._loadGroups();
+    this._manageGroup =
+      this._groups.find((g) => g.group_id === groupId) ?? null;
   }
 
   private _openCreateGroupDialog(): void {
@@ -966,6 +1012,15 @@ export class MatterBindingPanel extends LitElement {
           @create-group=${this._handleCreateGroup}
           @cancel=${this._closeCreateGroupDialog}
         ></matter-create-group-dialog>
+        <matter-manage-group-dialog
+          .open=${this._manageGroup !== null}
+          .group=${this._manageGroup}
+          .availableNodes=${this._nodes}
+          .loading=${this._actionInProgress !== null}
+          @add-member=${this._handleAddMember}
+          @remove-member=${this._handleRemoveMember}
+          @close=${this._closeManageGroupDialog}
+        ></matter-manage-group-dialog>
         <matter-create-binding-dialog
           .open=${this._showCreateDialog}
           .sourceNode=${this._selectedSourceNode}
