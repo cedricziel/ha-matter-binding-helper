@@ -50,6 +50,23 @@ export class CreateGroupDialog extends LitElement {
         font-size: 12px;
         margin-top: 8px;
       }
+      .advanced-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 400;
+        cursor: pointer;
+        margin-bottom: 12px;
+      }
+      .advanced-toggle input {
+        width: auto;
+      }
+      .note {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: 6px;
+        line-height: 1.4;
+      }
     `,
   ];
 
@@ -63,6 +80,8 @@ export class CreateGroupDialog extends LitElement {
 
   @state() private _name = "";
   @state() private _error = "";
+  @state() private _advanced = false;
+  @state() private _groupId = "";
 
   render() {
     if (!this.open) {
@@ -85,6 +104,37 @@ export class CreateGroupDialog extends LitElement {
                 placeholder="e.g. Living Room Lights"
               />
             </div>
+            <label class="advanced-toggle">
+              <input
+                type="checkbox"
+                .checked=${this._advanced}
+                @change=${this._onAdvancedToggle}
+                ?disabled=${this.loading}
+              />
+              Advanced: set group ID manually
+            </label>
+            ${this._advanced
+              ? html`
+                  <div class="field">
+                    <label for="group-id">Group ID</label>
+                    <input
+                      id="group-id"
+                      type="number"
+                      min="1"
+                      max="65527"
+                      .value=${this._groupId}
+                      @input=${this._onGroupId}
+                      ?disabled=${this.loading}
+                      placeholder="e.g. 100"
+                    />
+                    <div class="note">
+                      Leave Advanced off to let Home Assistant pick a free ID
+                      automatically. Only set this if you need to match a specific
+                      Matter group ID (1–65527); it must not already be in use.
+                    </div>
+                  </div>
+                `
+              : nothing}
             ${this._error
               ? html`<div class="error">${this._error}</div>`
               : nothing}
@@ -121,14 +171,38 @@ export class CreateGroupDialog extends LitElement {
     this._error = "";
   }
 
+  private _onAdvancedToggle(e: Event) {
+    this._advanced = (e.target as HTMLInputElement).checked;
+    this._error = "";
+  }
+
+  private _onGroupId(e: Event) {
+    this._groupId = (e.target as HTMLInputElement).value;
+    this._error = "";
+  }
+
   private _handleCreate() {
     if (!this._name.trim()) {
       this._error = "Name is required.";
       return;
     }
+
+    const detail: { name: string; groupId?: number } = {
+      name: this._name.trim(),
+    };
+
+    if (this._advanced && this._groupId.trim() !== "") {
+      const groupId = parseInt(this._groupId, 10);
+      if (!Number.isInteger(groupId) || groupId < 1 || groupId > 65527) {
+        this._error = "Group ID must be a whole number between 1 and 65527.";
+        return;
+      }
+      detail.groupId = groupId;
+    }
+
     this.dispatchEvent(
       new CustomEvent("create-group", {
-        detail: { name: this._name.trim() },
+        detail,
         bubbles: true,
         composed: true,
       })
@@ -137,6 +211,8 @@ export class CreateGroupDialog extends LitElement {
 
   private _handleCancel() {
     this._name = "";
+    this._groupId = "";
+    this._advanced = false;
     this._error = "";
     this.dispatchEvent(
       new CustomEvent("cancel", { bubbles: true, composed: true })
