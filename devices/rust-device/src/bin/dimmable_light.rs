@@ -28,6 +28,7 @@ use rs_matter::dm::clusters::decl::level_control::{
 };
 use rs_matter::dm::clusters::decl::on_off as on_off_cluster;
 use rs_matter::dm::clusters::desc::{self, ClusterHandler as _};
+use rs_matter::dm::clusters::groups::{ClusterHandler as _, GroupsHandler};
 use rs_matter::dm::clusters::net_comm::SharedNetworks;
 use rs_matter::dm::devices::test::{DAC_PRIVKEY, TEST_DEV_ATT, TEST_DEV_COMM, TEST_DEV_DET};
 use rs_matter::dm::devices::DEV_TYPE_DIMMABLE_LIGHT;
@@ -231,6 +232,7 @@ const NODE: Node<'static> = Node {
                 OnOffDeviceLogic::CLUSTER,
                 LevelControlDeviceLogic::CLUSTER,
                 BindingHandler::CLUSTER,
+                GroupsHandler::CLUSTER,
             ),
         ),
     ],
@@ -265,8 +267,34 @@ fn dm_handler<'a, LH: LevelControlHooks, OH: OnOffHooks>(
             .chain(
                 EpClMatcher::new(Some(1), Some(BindingHandler::CLUSTER.id)),
                 Async(binding.adapt()),
+            )
+            .chain(
+                EpClMatcher::new(Some(1), Some(GroupsHandler::CLUSTER.id)),
+                Async(GroupsHandler::new(Dataver::new_rand(&mut rand)).adapt()),
             ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Endpoint 1 must advertise the Groups cluster (0x0004) so the light can be
+    /// added to a Matter group and actuated via groupcast On/Off / Level Control.
+    #[test]
+    fn endpoint1_exposes_groups_cluster() {
+        let ep = NODE
+            .endpoints
+            .iter()
+            .find(|e| e.id == 1)
+            .expect("application endpoint 1");
+        assert!(
+            ep.clusters
+                .iter()
+                .any(|c| c.id == GroupsHandler::CLUSTER.id),
+            "Groups cluster (0x0004) not registered on endpoint 1"
+        );
+    }
 }
 
 // ============================================================================

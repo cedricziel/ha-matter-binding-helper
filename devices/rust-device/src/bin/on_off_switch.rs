@@ -21,6 +21,7 @@ use rand::RngCore;
 
 use rs_matter::crypto::{default_crypto, Crypto};
 use rs_matter::dm::clusters::desc::{self, ClusterHandler as _};
+use rs_matter::dm::clusters::groups::{ClusterHandler as _, GroupsHandler};
 use rs_matter::dm::clusters::net_comm::SharedNetworks;
 use rs_matter::dm::devices::test::{DAC_PRIVKEY, TEST_DEV_ATT, TEST_DEV_COMM, TEST_DEV_DET};
 use rs_matter::dm::endpoints::EthSysHandlerBuilder;
@@ -198,7 +199,11 @@ const NODE: Node<'static> = Node {
         Endpoint::new(
             1,
             devices!(DEV_TYPE_ON_OFF_LIGHT_SWITCH),
-            clusters!(desc::DescHandler::CLUSTER, BindingHandler::CLUSTER,),
+            clusters!(
+                desc::DescHandler::CLUSTER,
+                BindingHandler::CLUSTER,
+                GroupsHandler::CLUSTER,
+            ),
         ),
     ],
 };
@@ -222,6 +227,32 @@ fn dm_handler<'a>(
             .chain(
                 EpClMatcher::new(Some(1), Some(BindingHandler::CLUSTER.id)),
                 Async(binding.adapt()),
+            )
+            .chain(
+                EpClMatcher::new(Some(1), Some(GroupsHandler::CLUSTER.id)),
+                Async(GroupsHandler::new(Dataver::new_rand(&mut rand)).adapt()),
             ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Endpoint 1 must advertise the Groups cluster (0x0004) so the device can
+    /// be added to a Matter group and respond to groupcast.
+    #[test]
+    fn endpoint1_exposes_groups_cluster() {
+        let ep = NODE
+            .endpoints
+            .iter()
+            .find(|e| e.id == 1)
+            .expect("application endpoint 1");
+        assert!(
+            ep.clusters
+                .iter()
+                .any(|c| c.id == GroupsHandler::CLUSTER.id),
+            "Groups cluster (0x0004) not registered on endpoint 1"
+        );
+    }
 }
