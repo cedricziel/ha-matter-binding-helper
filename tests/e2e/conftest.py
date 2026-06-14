@@ -96,6 +96,11 @@ def matter_server_container(
         matter_backend_image(matter_backend),
         "matter-server-e2e",
     ).with_env("TZ", "UTC")
+    if matter_backend == "matterjs":
+        # matter.js rejects test/development certificates by default (an
+        # intentional difference from python-matter-server). Our rs-matter
+        # virtual devices use test certs, so opt in to test-net DCL.
+        container.with_env("ENABLE_TEST_NET_DCL", "true")
     print(f"\n[e2e] Starting Matter Server ({matter_backend}, host network)...")
     container.start()
 
