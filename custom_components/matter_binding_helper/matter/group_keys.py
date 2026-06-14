@@ -21,8 +21,10 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from ..const import (
+    ATTR_CURRENT_FABRIC_INDEX,
     ATTR_GROUP_KEY_MAP,
     CLUSTER_GROUP_KEY_MANAGEMENT,
+    CLUSTER_OPERATIONAL_CREDENTIALS,
     GROUP_EPOCH_START_TIME,
     GROUP_KEY_SECURITY_POLICY_TRUST_FIRST,
 )
@@ -33,6 +35,33 @@ from .models import GroupOperationResult
 _LOGGER = logging.getLogger(__name__)
 
 GROUP_KEY_MAP_PATH = f"0/{CLUSTER_GROUP_KEY_MANAGEMENT}/{ATTR_GROUP_KEY_MAP}"
+CURRENT_FABRIC_INDEX_PATH = (
+    f"0/{CLUSTER_OPERATIONAL_CREDENTIALS}/{ATTR_CURRENT_FABRIC_INDEX}"
+)
+
+
+async def _accessing_fabric_index(client: Any, node_id: int) -> int:
+    """Read the device's CurrentFabricIndex (the accessing fabric).
+
+    Fabric-scoped writes must carry the real fabric index. python-matter-server
+    coerces a 0 to the accessing fabric, but matter.js writes it literally, so a
+    hardcoded 0 lands the GroupKeyMap on fabric 0 and the device rejects AddGroup
+    with UNSUPPORTED_ACCESS. Fabric indices are 1-based; fall back to 1.
+    """
+    try:
+        value = await client.read_attribute(
+            node_id=node_id, attribute_path=CURRENT_FABRIC_INDEX_PATH
+        )
+        index = int(value)
+        if index >= 1:
+            return index
+    except (ValueError, TypeError, AttributeError) as err:
+        _LOGGER.warning(
+            "Could not read CurrentFabricIndex for node %s (%s); assuming 1",
+            node_id,
+            err,
+        )
+    return 1
 
 
 def _entry_field(entry: Any, *keys: Any) -> Any:
@@ -54,12 +83,15 @@ def merge_group_key_map(
     existing: list[Any] | None,
     group_id: int,
     key_set_id: int,
+    fabric_index: int = 1,
 ) -> list[dict[str, int]]:
     """Return the GroupKeyMap list with (group_id -> key_set_id) ensured present.
 
     Pure read-modify-write helper. Preserves existing mappings, is idempotent
     (no duplicate for the same group_id), and normalizes every entry to a plain
-    dict suitable for ``write_attribute``.
+    dict suitable for ``write_attribute``. ``fabric_index`` must be the accessing
+    fabric (see ``_accessing_fabric_index``): matter.js honours it literally, so a
+    wrong index leaves the device without a group key for the accessing fabric.
     """
     result: list[dict[str, int]] = []
     found = False
@@ -72,11 +104,17 @@ def merge_group_key_map(
         if gid == group_id:
             found = True
             ksid = key_set_id  # update to the desired key set
-        result.append({"groupId": gid, "groupKeySetID": ksid, "fabricIndex": 0})
+        result.append(
+            {"groupId": gid, "groupKeySetID": ksid, "fabricIndex": fabric_index}
+        )
 
     if not found:
         result.append(
-            {"groupId": group_id, "groupKeySetID": key_set_id, "fabricIndex": 0}
+            {
+                "groupId": group_id,
+                "groupKeySetID": key_set_id,
+                "fabricIndex": fabric_index,
+            }
         )
     return result
 
@@ -151,10 +189,13 @@ async def provision_group_key(
         )
 
         # 2. Map the group id to the key set in GroupKeyMap (read-modify-write).
+        #    The mapping must be scoped to the accessing fabric or matter.js
+        #    leaves the device without a key and rejects AddGroup.
+        fabric_index = await _accessing_fabric_index(client, node_id)
         existing = await client.read_attribute(
             node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
         )
-        updated = merge_group_key_map(existing, group_id, key_set_id)
+        updated = merge_group_key_map(existing, group_id, key_set_id, fabric_index)
         await client.write_attribute(
             node_id=node_id,
             attribute_path=GROUP_KEY_MAP_PATH,
