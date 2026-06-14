@@ -849,6 +849,44 @@ export class MatterBindingPanel extends LitElement {
     }
   }
 
+  private async _handleRepairGroups(): Promise<void> {
+    // Find the distinct source endpoints that have groupcast bindings.
+    const sources = new Map<string, { nodeId: number; endpointId: number }>();
+    for (const b of this._allBindings) {
+      if (b.binding.target_group_id !== null) {
+        const key = `${b.binding.node_id}/${b.binding.endpoint_id}`;
+        sources.set(key, {
+          nodeId: b.binding.node_id,
+          endpointId: b.binding.endpoint_id,
+        });
+      }
+    }
+    if (sources.size === 0) {
+      this._error = "No groupcast bindings to repair.";
+      return;
+    }
+
+    this._actionInProgress = "repair-groups";
+    try {
+      let total = 0;
+      let succeeded = 0;
+      for (const { nodeId, endpointId } of sources.values()) {
+        const r = await api.repairGroupBindings(this.hass, nodeId, endpointId);
+        total += r.total;
+        succeeded += r.succeeded;
+      }
+      this._error =
+        succeeded === total
+          ? `Repaired ${total} groupcast binding(s).`
+          : `Repaired ${succeeded}/${total} groupcast binding(s); some failed (check device availability).`;
+      await this._loadOverviewData();
+    } catch (err) {
+      this._error = `Failed to repair groups: ${this._extractErrorMessage(err)}`;
+    } finally {
+      this._actionInProgress = null;
+    }
+  }
+
   private _handleDeleteGroup(e: CustomEvent<{ group: MatterGroup }>): void {
     // Deleting a group is destructive (removes its key material and membership);
     // confirm first.
@@ -1062,6 +1100,7 @@ export class MatterBindingPanel extends LitElement {
                   @group-click=${this._handleGroupClick}
                   @create-group-click=${this._openCreateGroupDialog}
                   @delete-group=${this._handleDeleteGroup}
+                  @repair-groups-click=${this._handleRepairGroups}
                 ></matter-groups-tab>
               `}
         <matter-create-group-dialog

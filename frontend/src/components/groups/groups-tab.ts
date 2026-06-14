@@ -32,6 +32,11 @@ export class GroupsTab extends LitElement {
         justify-content: space-between;
       }
 
+      .header-actions {
+        display: flex;
+        gap: 8px;
+      }
+
       .group-card-header {
         display: flex;
         align-items: flex-start;
@@ -109,13 +114,23 @@ export class GroupsTab extends LitElement {
       <div class="card">
         <div class="card-header">
           <span>Matter Groups</span>
-          <button
-            type="button"
-            class="btn btn-primary"
-            @click=${this._handleCreateClick}
-          >
-            Create Group
-          </button>
+          <span class="header-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              title="Re-provision keys and access for existing groupcast bindings"
+              @click=${this._handleRepairClick}
+            >
+              Repair
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click=${this._handleCreateClick}
+            >
+              Create Group
+            </button>
+          </span>
         </div>
         ${this.loading
           ? html`<div class="loading">Loading...</div>`
@@ -183,6 +198,13 @@ export class GroupsTab extends LitElement {
 
   private _handleCreateClick() {
     this.dispatchEvent(new CustomEvent("create-group-click", {
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private _handleRepairClick() {
+    this.dispatchEvent(new CustomEvent("repair-groups-click", {
       bubbles: true,
       composed: true,
     }));

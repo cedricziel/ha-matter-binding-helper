@@ -190,6 +190,19 @@ export async function provisionACLForBindings(
   });
 }
 
+/** Re-provision the group chain for a source endpoint's groupcast bindings. */
+export async function repairGroupBindings(
+  hass: HomeAssistant,
+  nodeId: number,
+  endpointId: number
+): Promise<{ success: boolean; total: number; succeeded: number }> {
+  return hass.callWS({
+    type: `${DOMAIN}/repair_group_bindings`,
+    node_id: nodeId,
+    endpoint_id: endpointId,
+  });
+}
+
 export async function listGroups(hass: HomeAssistant): Promise<ListGroupsResponse> {
   return hass.callWS({
     type: `${DOMAIN}/list_groups`,

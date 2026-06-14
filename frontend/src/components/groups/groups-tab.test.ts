@@ -201,6 +201,18 @@ describe("GroupsTab", () => {
       expect(events).toHaveLength(1);
     });
 
+    it("emits repair-groups-click when the Repair button is clicked", async () => {
+      element = await fixture<GroupsTab>(html`
+        <matter-groups-tab .groups=${[]}></matter-groups-tab>
+      `);
+      const { events } = captureEvents(element, "repair-groups-click");
+
+      const buttons = queryShadowAll<HTMLButtonElement>(element, "button");
+      buttons.find((b) => b.textContent?.trim() === "Repair")!.click();
+
+      expect(events).toHaveLength(1);
+    });
+
     it("emits delete-group (and not group-click) when Delete is clicked", async () => {
       element = await fixture<GroupsTab>(html`
         <matter-groups-tab .groups=${mockGroups}></matter-groups-tab>
