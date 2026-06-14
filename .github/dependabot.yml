@@ -1,7 +1,10 @@
+---
 version: 2
 updates:
+  # Python deps live in the root requirements*.txt files; the custom component's
+  # manifest.json declares no requirements, so target the repo root.
   - package-ecosystem: "pip"
-    directory: "/custom_components/matter_binding_helper"
+    directory: "/"
     schedule:
       interval: "weekly"
 
