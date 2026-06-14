@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.30.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.18...v0.30.0) (2026-06-14)
+
+
+### Features
+
+* **devices:** add Groups cluster to rs-matter mock devices ([#260](https://github.com/cedricziel/ha-matter-binding-helper/issues/260)) ([b241fa9](https://github.com/cedricziel/ha-matter-binding-helper/commit/b241fa9e45114358acd118c6da386a75f4ea03d4))
+* **groups:** add Group Key Management provisioning ([#261](https://github.com/cedricziel/ha-matter-binding-helper/issues/261)) ([82bbb16](https://github.com/cedricziel/ha-matter-binding-helper/commit/82bbb1650b75468cb439fe730defb4b1fb82c58d))
+* **groups:** add group-auth ACL provisioning ([#263](https://github.com/cedricziel/ha-matter-binding-helper/issues/263)) ([9a7c4d1](https://github.com/cedricziel/ha-matter-binding-helper/commit/9a7c4d17a170b90c386727d264599ca2a8d52822))
+* **groups:** add honesty gate and group constants foundation ([#257](https://github.com/cedricziel/ha-matter-binding-helper/issues/257)) ([f3affea](https://github.com/cedricziel/ha-matter-binding-helper/commit/f3affeac3f23de8d3e41a1973363bd1562df84e2))
+* **groups:** group management UI (create + delete) ([#265](https://github.com/cedricziel/ha-matter-binding-helper/issues/265)) ([4cb8a35](https://github.com/cedricziel/ha-matter-binding-helper/commit/4cb8a35c7e50934f146ee7a2cf084880411641ff))
+* **groups:** group-target option in the create-binding dialog ([#266](https://github.com/cedricziel/ha-matter-binding-helper/issues/266)) ([6b7840b](https://github.com/cedricziel/ha-matter-binding-helper/commit/6b7840bb34079083304b49e4ce5a48f960ae5f50))
+* **groups:** implement group management in demo mode ([#259](https://github.com/cedricziel/ha-matter-binding-helper/issues/259)) ([2c8e8df](https://github.com/cedricziel/ha-matter-binding-helper/commit/2c8e8df6e4cfd0844715dd5153f9fdff1cf891b4))
+* **groups:** implement real Groups cluster membership ([#262](https://github.com/cedricziel/ha-matter-binding-helper/issues/262)) ([7d29487](https://github.com/cedricziel/ha-matter-binding-helper/commit/7d2948704436a9b2e53f36efc36ded4bd1deb9a9))
+* **groups:** persistent group + group-key registry (2/N) ([#258](https://github.com/cedricziel/ha-matter-binding-helper/issues/258)) ([b7b5240](https://github.com/cedricziel/ha-matter-binding-helper/commit/b7b52405e332232e021c325d97692817fcc55ab8))
+* **groups:** wire groupcast binding provisioning end-to-end ([#264](https://github.com/cedricziel/ha-matter-binding-helper/issues/264)) ([9c9675f](https://github.com/cedricziel/ha-matter-binding-helper/commit/9c9675fdb776dfb3c188ce5a7f8bc030f7fb1082))
+
+
+### Bug Fixes
+
+* **matter.sh:** prevent silent truncation of large WS responses ([#256](https://github.com/cedricziel/ha-matter-binding-helper/issues/256)) ([aea8989](https://github.com/cedricziel/ha-matter-binding-helper/commit/aea898958712e7715c3c0aaa099656efb3da467f))
+
+
+### Miscellaneous
+
+* **deps:** bump rs-matter from `9917d2c` to `e8b0b0c` in /devices/rust-device ([#239](https://github.com/cedricziel/ha-matter-binding-helper/issues/239)) ([78b1449](https://github.com/cedricziel/ha-matter-binding-helper/commit/78b14498342893178ac1fda70ba324fdf18d9f08))
+
 ## [0.29.18](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.29.17...v0.29.18) (2026-06-10)
 
 
