@@ -82,6 +82,12 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      # Run both Matter server backends as independent, required jobs. Don't let
+      # one backend's failure cancel the other — we want both results.
+      fail-fast: false
+      matrix:
+        backend: [python, matterjs]
     steps:
       - uses: actions/checkout@v6
 
@@ -93,7 +99,9 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
-      - name: Run integration tests
+      - name: Run integration tests (${{ matrix.backend }})
         # tests/e2e needs host networking + real commissioning; it runs in the
         # dedicated e2e workflow, not here.
+        env:
+          MATTER_BACKENDS: ${{ matrix.backend }}
         run: python -m pytest tests/ -v --tb=short --ignore=tests/e2e

@@ -22,3 +22,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # Matter server backend images (python-matter-server + matterjs-server) and
+  # other pinned images in docker-compose.yml. The test fixtures read these tags
+  # out of the compose file, so bumping here updates the [python]/[matterjs]
+  # e2e matrix too.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
