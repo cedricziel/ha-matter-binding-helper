@@ -27,9 +27,27 @@ from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN, GROUP_KEY_SET_BASE
 
+
+def get_group_store(hass: HomeAssistant) -> "GroupStore":
+    """Return the cached GroupStore for this hass, creating it on first use.
+
+    Tests can pre-seed ``hass.data[DOMAIN][_GROUP_STORE_KEY]`` with a GroupStore
+    built around a fake backing store to avoid touching HA storage.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    store = domain_data.get(_GROUP_STORE_KEY)
+    if store is None:
+        store = GroupStore(hass)
+        domain_data[_GROUP_STORE_KEY] = store
+    return store
+
+
 STORAGE_KEY = f"{DOMAIN}_groups"
 STORAGE_VERSION = 1
 EPOCH_KEY_BYTES = 16  # Matter group epoch keys are 128-bit
+
+# Key under hass.data[DOMAIN] for the cached GroupStore singleton.
+_GROUP_STORE_KEY = "_group_store"
 
 
 def _default_epoch_key() -> str:

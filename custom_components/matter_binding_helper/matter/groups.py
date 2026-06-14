@@ -1,19 +1,24 @@
 """Group operations for Matter devices.
 
-Groupcast is implemented incrementally (see the group provisioning plan). In demo
-mode, group management is fully functional against an in-memory store so the UI
-can be developed without hardware. On a real fabric, the mutating operations
-still return an explicit "not supported" result until the Groups cluster +
-Group Key Management path lands — so the UI tells the user the truth rather than
-appearing to succeed/no-op.
+Two backends:
+- Demo mode: in-memory store so the UI works without hardware.
+- Real fabric: groups are tracked in the persistent GroupStore (names + group
+  keys), membership is provisioned on devices via Group Key Management
+  (``KeySetWrite`` + ``GroupKeyMap``) followed by the Groups cluster
+  (``AddGroup`` / ``RemoveGroup``). Matter has no "create group" command — a
+  group exists once a device holds its key material and is added to it — so
+  create/delete operate on the registry and add/remove touch the devices.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 
+from ..const import CLUSTER_GROUPS
+from .client import get_raw_matter_client
 from .demo import (
     add_demo_group_member,
     create_demo_group,
@@ -22,6 +27,8 @@ from .demo import (
     is_demo_mode,
     remove_demo_group_member,
 )
+from .group_keys import provision_group_key
+from .group_store import get_group_store
 from .models import GroupEntry, GroupOperationResult
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,38 +37,65 @@ _LOGGER = logging.getLogger(__name__)
 GROUP_NOT_SUPPORTED_CODE = "not_supported"
 GROUP_ALREADY_EXISTS_CODE = "already_exists"
 GROUP_NOT_FOUND_CODE = "not_found"
+GROUP_DEVICE_ERROR_CODE = "device_error"
 GROUP_NOT_SUPPORTED_MESSAGE = (
-    "Matter group management is not implemented yet. Group creation, membership "
-    "and groupcast bindings are coming in a future release."
+    "Matter group management is not available (Matter client not connected)."
 )
 
 
-def _not_supported() -> GroupOperationResult:
-    """Return the standard 'not yet supported' result for group mutations."""
+def _client_unavailable() -> GroupOperationResult:
     return GroupOperationResult(
         success=False,
         message=GROUP_NOT_SUPPORTED_MESSAGE,
-        error_code=GROUP_NOT_SUPPORTED_CODE,
+        error_code="client_unavailable",
     )
 
 
-async def get_groups(hass: HomeAssistant) -> list[GroupEntry]:
-    """Get all Matter groups.
+def _add_group_command(group_id: int, name: str) -> Any:
+    """Build the chip Groups.AddGroup command (chip imported lazily)."""
+    from chip.clusters import Objects as clusters
 
-    In demo mode, returns the in-memory demo groups. On a real fabric, returns an
-    empty list until group support is implemented (honest: no managed groups yet;
-    only the mutating operations report the unsupported state).
-    """
+    return clusters.Groups.Commands.AddGroup(groupID=group_id, groupName=name)
+
+
+def _remove_group_command(group_id: int) -> Any:
+    """Build the chip Groups.RemoveGroup command (chip imported lazily)."""
+    from chip.clusters import Objects as clusters
+
+    return clusters.Groups.Commands.RemoveGroup(groupID=group_id)
+
+
+def _response_status(response: Any) -> int | None:
+    """Extract the status field from a Groups command response (0 = success)."""
+    if response is None:
+        return None
+    if isinstance(response, dict):
+        val = response.get("status", response.get("0"))
+    else:
+        val = getattr(response, "status", None)
+    try:
+        return int(val) if val is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+async def get_groups(hass: HomeAssistant) -> list[GroupEntry]:
+    """Get all Matter groups (from the registry, or demo store in demo mode)."""
     if is_demo_mode(hass):
         return get_demo_groups()
-    _LOGGER.debug("get_groups: group support not implemented yet, returning []")
-    return []
+
+    store = get_group_store(hass)
+    await store.async_load()
+    return [
+        GroupEntry(group_id=r.group_id, name=r.name, members=list(r.members))
+        for r in store.list_groups()
+    ]
 
 
 async def create_group(
     hass: HomeAssistant, group_id: int, name: str
 ) -> GroupOperationResult:
-    """Create a new Matter group."""
+    """Create a new Matter group (allocates a group key set in the registry)."""
     if is_demo_mode(hass):
         if not create_demo_group(group_id, name):
             return GroupOperationResult(
@@ -70,12 +104,21 @@ async def create_group(
                 error_code=GROUP_ALREADY_EXISTS_CODE,
             )
         return GroupOperationResult(success=True, message=f"Created group {group_id}")
-    _LOGGER.debug("create_group: not supported yet (group %s: %s)", group_id, name)
-    return _not_supported()
+
+    store = get_group_store(hass)
+    await store.async_load()
+    if store.get_group(group_id) is not None:
+        return GroupOperationResult(
+            success=False,
+            message=f"Group {group_id} already exists",
+            error_code=GROUP_ALREADY_EXISTS_CODE,
+        )
+    await store.async_create_group(group_id, name)
+    return GroupOperationResult(success=True, message=f"Created group {group_id}")
 
 
 async def delete_group(hass: HomeAssistant, group_id: int) -> GroupOperationResult:
-    """Delete a Matter group."""
+    """Delete a Matter group, best-effort removing it from member devices."""
     if is_demo_mode(hass):
         if not delete_demo_group(group_id):
             return GroupOperationResult(
@@ -84,14 +127,46 @@ async def delete_group(hass: HomeAssistant, group_id: int) -> GroupOperationResu
                 error_code=GROUP_NOT_FOUND_CODE,
             )
         return GroupOperationResult(success=True, message=f"Deleted group {group_id}")
-    _LOGGER.debug("delete_group: not supported yet (group %s)", group_id)
-    return _not_supported()
+
+    store = get_group_store(hass)
+    await store.async_load()
+    record = store.get_group(group_id)
+    if record is None:
+        return GroupOperationResult(
+            success=False,
+            message=f"Group {group_id} not found",
+            error_code=GROUP_NOT_FOUND_CODE,
+        )
+
+    client = get_raw_matter_client(hass)
+    if client:
+        for member in record.members:
+            try:
+                await client.send_device_command(
+                    node_id=member["node_id"],
+                    endpoint_id=member["endpoint_id"],
+                    command=_remove_group_command(group_id),
+                )
+            except Exception as err:  # noqa: BLE001 - best-effort cleanup
+                _LOGGER.warning(
+                    "delete_group: RemoveGroup failed on node %s ep %s: %s",
+                    member["node_id"],
+                    member["endpoint_id"],
+                    err,
+                )
+
+    await store.async_delete_group(group_id)
+    return GroupOperationResult(success=True, message=f"Deleted group {group_id}")
 
 
 async def add_to_group(
     hass: HomeAssistant, group_id: int, node_id: int, endpoint_id: int
 ) -> GroupOperationResult:
-    """Add an endpoint to a group."""
+    """Add an endpoint to a group.
+
+    Provisions the group key on the node (prerequisite), then issues
+    ``Groups.AddGroup`` and records membership.
+    """
     if is_demo_mode(hass):
         if not add_demo_group_member(group_id, node_id, endpoint_id):
             return GroupOperationResult(
@@ -103,19 +178,63 @@ async def add_to_group(
             success=True,
             message=f"Added node {node_id} endpoint {endpoint_id} to group {group_id}",
         )
-    _LOGGER.debug(
-        "add_to_group: not supported yet (node %s endpoint %s -> group %s)",
-        node_id,
-        endpoint_id,
-        group_id,
+
+    store = get_group_store(hass)
+    await store.async_load()
+    record = store.get_group(group_id)
+    if record is None:
+        return GroupOperationResult(
+            success=False,
+            message=f"Group {group_id} not found",
+            error_code=GROUP_NOT_FOUND_CODE,
+        )
+
+    client = get_raw_matter_client(hass)
+    if not client:
+        return _client_unavailable()
+
+    # 1. Provision the group key on this node (AddGroup is rejected without it).
+    key_result = await provision_group_key(
+        hass, node_id, group_id, record.key_set_id, record.epoch_key
     )
-    return _not_supported()
+    if not key_result.success:
+        return key_result
+
+    # 2. Add the endpoint to the group via the Groups cluster.
+    try:
+        response = await client.send_device_command(
+            node_id=node_id,
+            endpoint_id=endpoint_id,
+            command=_add_group_command(group_id, record.name),
+        )
+    except Exception as err:  # noqa: BLE001 - surfaced to the user
+        _LOGGER.error("add_to_group: AddGroup failed: %s", err, exc_info=True)
+        return GroupOperationResult(
+            success=False,
+            message=f"AddGroup failed: {err}",
+            error_code=GROUP_DEVICE_ERROR_CODE,
+        )
+
+    status = _response_status(response)
+    if status not in (0, None):
+        return GroupOperationResult(
+            success=False,
+            message=f"Device rejected AddGroup (status {status})",
+            error_code=GROUP_DEVICE_ERROR_CODE,
+        )
+
+    # 3. Record membership.
+    await store.async_add_member(group_id, node_id, endpoint_id)
+    return GroupOperationResult(
+        success=True,
+        message=f"Added node {node_id} endpoint {endpoint_id} to group {group_id}",
+    )
 
 
 async def remove_from_group(
     hass: HomeAssistant, group_id: int, node_id: int, endpoint_id: int
 ) -> GroupOperationResult:
-    """Remove an endpoint from a group."""
+    """Remove an endpoint from a group via ``Groups.RemoveGroup``."""
     if is_demo_mode(hass):
         if not remove_demo_group_member(group_id, node_id, endpoint_id):
             return GroupOperationResult(
@@ -129,10 +248,55 @@ async def remove_from_group(
                 f"Removed node {node_id} endpoint {endpoint_id} from group {group_id}"
             ),
         )
-    _LOGGER.debug(
-        "remove_from_group: not supported yet (node %s endpoint %s -> group %s)",
-        node_id,
-        endpoint_id,
-        group_id,
+
+    store = get_group_store(hass)
+    await store.async_load()
+    if store.get_group(group_id) is None:
+        return GroupOperationResult(
+            success=False,
+            message=f"Group {group_id} not found",
+            error_code=GROUP_NOT_FOUND_CODE,
+        )
+
+    client = get_raw_matter_client(hass)
+    if not client:
+        return _client_unavailable()
+
+    try:
+        response = await client.send_device_command(
+            node_id=node_id,
+            endpoint_id=endpoint_id,
+            command=_remove_group_command(group_id),
+        )
+    except Exception as err:  # noqa: BLE001 - surfaced to the user
+        _LOGGER.error("remove_from_group: RemoveGroup failed: %s", err, exc_info=True)
+        return GroupOperationResult(
+            success=False,
+            message=f"RemoveGroup failed: {err}",
+            error_code=GROUP_DEVICE_ERROR_CODE,
+        )
+
+    status = _response_status(response)
+    if status not in (0, None):
+        return GroupOperationResult(
+            success=False,
+            message=f"Device rejected RemoveGroup (status {status})",
+            error_code=GROUP_DEVICE_ERROR_CODE,
+        )
+
+    await store.async_remove_member(group_id, node_id, endpoint_id)
+    return GroupOperationResult(
+        success=True,
+        message=f"Removed node {node_id} endpoint {endpoint_id} from group {group_id}",
     )
-    return _not_supported()
+
+
+# CLUSTER_GROUPS is re-exported for callers that need the Groups cluster id.
+__all__ = [
+    "CLUSTER_GROUPS",
+    "add_to_group",
+    "create_group",
+    "delete_group",
+    "get_groups",
+    "remove_from_group",
+]
