@@ -30,8 +30,8 @@ avahi = ["rs-matter/zbus"]
 # ResourceExhausted.
 rs-matter = { git = "https://github.com/project-chip/rs-matter", features = [
     "async-io",
-    "max-group-keys-per-fabric-4",
-    "max-groups-per-fabric-8",
+    "max-group-keys-per-fabric-5",
+    "max-groups-per-fabric-32",
 ] }
 
 # Async runtime
