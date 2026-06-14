@@ -1,8 +1,5 @@
 """Unit tests for matter/models.py."""
 
-import pytest
-from dataclasses import FrozenInstanceError
-
 from custom_components.matter_binding_helper.matter.models import (
     ACLEntry,
     ACLProvisioningResult,

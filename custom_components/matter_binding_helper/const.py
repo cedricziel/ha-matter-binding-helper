@@ -95,6 +95,9 @@ ACL_VERIFY_INTERVAL = 2  # seconds
 # group key sets are allocated from this base upward.
 GROUP_KEY_SET_BASE = 0x0100
 GROUP_KEY_SECURITY_POLICY_TRUST_FIRST = 0  # GroupKeySecurityPolicyEnum.kTrustFirst
+# Group ids are auto-allocated from this base. Matter reserves group id 0 ("all
+# groups"); the application range is 0x0001-0xFFF7.
+GROUP_ID_BASE = 1
 # GroupKeyManagement attribute IDs
 ATTR_GROUP_KEY_MAP = 0  # GroupKeyMap (list of GroupId -> GroupKeySetID)
 # epochStartTime0 must be non-zero per spec (and rs-matter rejects 0). The exact

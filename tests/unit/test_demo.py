@@ -1,7 +1,7 @@
 """Unit tests for matter/demo.py."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from custom_components.matter_binding_helper.matter.models import (
     ACLEntry,

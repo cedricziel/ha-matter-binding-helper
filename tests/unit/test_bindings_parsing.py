@@ -4,9 +4,6 @@ Tests that bindings with cluster_id=None (any cluster per Matter spec)
 are handled correctly without causing TypeError.
 """
 
-import pytest
-
-from custom_components.matter_binding_helper.matter.models import BindingEntry
 from custom_components.matter_binding_helper.matter.bindings import (
     _parse_binding_value,
 )
@@ -24,7 +21,9 @@ class TestParseBindingValueNoneCluster:
                 "Cluster": None,  # Explicitly None
             }
         ]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         assert result[0].cluster_id is None
@@ -40,7 +39,9 @@ class TestParseBindingValueNoneCluster:
                 # No Cluster key at all
             }
         ]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         assert result[0].cluster_id is None
@@ -55,7 +56,9 @@ class TestParseBindingValueNoneCluster:
                 "Cluster": 0,  # 0 is falsy but valid
             }
         ]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         # Note: 0 is a valid cluster ID, should not be converted to None
@@ -72,7 +75,9 @@ class TestParseBindingValueNoneCluster:
                 "Cluster": 6,  # On/Off cluster
             }
         ]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         assert result[0].cluster_id == 6
@@ -93,7 +98,9 @@ class TestParseBindingValueNoneCluster:
             group = None
 
         binding_value = [MockBinding()]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         assert result[0].cluster_id is None
@@ -110,7 +117,9 @@ class TestParseBindingValueNoneCluster:
             group = None
 
         binding_value = [MockBinding()]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         assert result[0].cluster_id == 8
@@ -122,7 +131,9 @@ class TestParseBindingValueNoneCluster:
             {"Node": 6, "Endpoint": 1, "Cluster": None},
             {"Node": 7, "Endpoint": 2},  # No Cluster key
         ]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 3
         assert result[0].cluster_id == 6
@@ -137,7 +148,9 @@ class TestParseBindingValueNoneCluster:
                 "Cluster": None,
             }
         ]
-        result = _parse_binding_value(node_id=1, endpoint_id=1, binding_value=binding_value)
+        result = _parse_binding_value(
+            node_id=1, endpoint_id=1, binding_value=binding_value
+        )
 
         assert len(result) == 1
         assert result[0].cluster_id is None

@@ -26,24 +26,21 @@ describe("CreateGroupDialog", () => {
     expect(queryShadow(element, ".dialog-overlay")).toBeNull();
   });
 
-  it("renders id and name inputs when open", async () => {
+  it("renders only a name input when open (id is auto-allocated)", async () => {
     element = await fixture(
       html`<matter-create-group-dialog .open=${true}></matter-create-group-dialog>`
     );
-    expect(queryShadow(element, "#group-id")).not.toBeNull();
+    expect(queryShadow(element, "#group-id")).toBeNull();
     expect(queryShadow(element, "#group-name")).not.toBeNull();
   });
 
-  it("emits create-group with parsed id and trimmed name", async () => {
+  it("emits create-group with just the trimmed name", async () => {
     element = await fixture(
       html`<matter-create-group-dialog .open=${true}></matter-create-group-dialog>`
     );
     const { events } = captureEvents(element, "create-group");
 
-    const idInput = queryShadow<HTMLInputElement>(element, "#group-id");
     const nameInput = queryShadow<HTMLInputElement>(element, "#group-name");
-    idInput!.value = "7";
-    idInput!.dispatchEvent(new Event("input"));
     nameInput!.value = "  Bedroom  ";
     nameInput!.dispatchEvent(new Event("input"));
     await elementUpdated(element);
@@ -52,19 +49,14 @@ describe("CreateGroupDialog", () => {
     buttons.find((b) => b.textContent?.includes("Create"))!.click();
 
     expect(events).toHaveLength(1);
-    expect(events[0].detail).toEqual({ groupId: 7, name: "Bedroom" });
+    expect(events[0].detail).toEqual({ name: "Bedroom" });
   });
 
-  it("shows an error and emits nothing for an invalid id", async () => {
+  it("shows an error and emits nothing for an empty name", async () => {
     element = await fixture(
       html`<matter-create-group-dialog .open=${true}></matter-create-group-dialog>`
     );
     const { events } = captureEvents(element, "create-group");
-
-    const nameInput = queryShadow<HTMLInputElement>(element, "#group-name");
-    nameInput!.value = "Bedroom";
-    nameInput!.dispatchEvent(new Event("input"));
-    await elementUpdated(element);
 
     const buttons = queryShadowAll<HTMLButtonElement>(element, "button");
     buttons.find((b) => b.textContent?.includes("Create"))!.click();

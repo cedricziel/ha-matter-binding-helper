@@ -25,7 +25,7 @@ from typing import Any, Callable
 
 from homeassistant.core import HomeAssistant
 
-from ..const import DOMAIN, GROUP_KEY_SET_BASE
+from ..const import DOMAIN, GROUP_ID_BASE, GROUP_KEY_SET_BASE
 
 
 def get_group_store(hass: HomeAssistant) -> "GroupStore":
@@ -128,10 +128,15 @@ class GroupStore:
             return
         raw = await self._store.async_load()
         if not raw:
-            self._data = {"next_key_set_id": GROUP_KEY_SET_BASE, "groups": {}}
+            self._data = {
+                "next_key_set_id": GROUP_KEY_SET_BASE,
+                "next_group_id": GROUP_ID_BASE,
+                "groups": {},
+            }
         else:
             self._data = {
                 "next_key_set_id": int(raw.get("next_key_set_id", GROUP_KEY_SET_BASE)),
+                "next_group_id": int(raw.get("next_group_id", GROUP_ID_BASE)),
                 "groups": dict(raw.get("groups", {})),
             }
 
@@ -159,16 +164,29 @@ class GroupStore:
 
     # -- mutations --------------------------------------------------------
 
-    async def async_create_group(self, group_id: int, name: str) -> GroupRecord:
+    def _allocate_group_id(self, data: dict[str, Any]) -> int:
+        """Pick the next free group id, skipping any already in use."""
+        gid = int(data.get("next_group_id", GROUP_ID_BASE))
+        while str(gid) in data["groups"]:
+            gid += 1
+        data["next_group_id"] = gid + 1
+        return gid
+
+    async def async_create_group(self, group_id: int | None, name: str) -> GroupRecord:
         """Create a group, allocating a key set id and a fresh epoch key.
 
-        Raises ValueError if the group already exists.
+        If ``group_id`` is None, the next free group id is allocated automatically
+        (the common case — users shouldn't have to invent a Matter group id).
+        Raises ValueError if an explicitly-requested group already exists.
         """
         data = self._require_loaded()
-        key = str(group_id)
-        if key in data["groups"]:
+
+        if group_id is None:
+            group_id = self._allocate_group_id(data)
+        elif str(group_id) in data["groups"]:
             raise ValueError(f"Group {group_id} already exists")
 
+        key = str(group_id)
         key_set_id = int(data["next_key_set_id"])
         data["next_key_set_id"] = key_set_id + 1
         record = GroupRecord(

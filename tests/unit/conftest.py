@@ -4,7 +4,6 @@ Mocks homeassistant modules to allow testing matter/ subpackage in isolation.
 """
 
 import sys
-from types import ModuleType
 from unittest.mock import MagicMock
 
 # Create mock module for homeassistant with all submodules

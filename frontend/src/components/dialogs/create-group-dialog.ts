@@ -61,7 +61,6 @@ export class CreateGroupDialog extends LitElement {
   @property({ type: Boolean })
   loading = false;
 
-  @state() private _groupId = "";
   @state() private _name = "";
   @state() private _error = "";
 
@@ -75,18 +74,6 @@ export class CreateGroupDialog extends LitElement {
         <div class="dialog" @click=${this._stop}>
           <div class="dialog-header">Create Group</div>
           <div class="dialog-body">
-            <div class="field">
-              <label for="group-id">Group ID</label>
-              <input
-                id="group-id"
-                type="number"
-                min="1"
-                .value=${this._groupId}
-                @input=${this._onGroupId}
-                ?disabled=${this.loading}
-                placeholder="e.g. 1"
-              />
-            </div>
             <div class="field">
               <label for="group-name">Name</label>
               <input
@@ -129,29 +116,19 @@ export class CreateGroupDialog extends LitElement {
     e.stopPropagation();
   }
 
-  private _onGroupId(e: Event) {
-    this._groupId = (e.target as HTMLInputElement).value;
-    this._error = "";
-  }
-
   private _onName(e: Event) {
     this._name = (e.target as HTMLInputElement).value;
     this._error = "";
   }
 
   private _handleCreate() {
-    const groupId = parseInt(this._groupId, 10);
-    if (!Number.isInteger(groupId) || groupId < 1) {
-      this._error = "Group ID must be a positive integer.";
-      return;
-    }
     if (!this._name.trim()) {
       this._error = "Name is required.";
       return;
     }
     this.dispatchEvent(
       new CustomEvent("create-group", {
-        detail: { groupId, name: this._name.trim() },
+        detail: { name: this._name.trim() },
         bubbles: true,
         composed: true,
       })
@@ -159,7 +136,6 @@ export class CreateGroupDialog extends LitElement {
   }
 
   private _handleCancel() {
-    this._groupId = "";
     this._name = "";
     this._error = "";
     this.dispatchEvent(
