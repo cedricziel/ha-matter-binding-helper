@@ -65,6 +65,12 @@ def test_merge_updates_key_set_for_existing_group():
     assert result == [{"groupId": 5, "groupKeySetID": 0x200, "fabricIndex": 1}]
 
 
+def test_merge_emits_tag_keys_when_requested():
+    """matter.js only persists numeric TLV tag keys on the list write."""
+    result = merge_group_key_map(None, group_id=5, key_set_id=0x100, tag_keys=True)
+    assert result == [{"1": 5, "2": 0x100, "254": 1}]
+
+
 def test_merge_uses_supplied_fabric_index():
     """The accessing fabric index is honoured on every written entry."""
     existing = [{"groupId": 1, "groupKeySetID": 0x100, "fabricIndex": 2}]

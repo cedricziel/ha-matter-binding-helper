@@ -78,6 +78,35 @@ async def _create_group(ws_client, name: str) -> int:
 
 
 @pytest.mark.asyncio
+async def test_add_to_group_persists_group_key(ws_client, device_nodes):
+    """Focused check: adding a member writes a GroupKeyMap that actually sticks.
+
+    Isolates the group-key provisioning (KeySetWrite + GroupKeyMap write) from the
+    binding/ACL flow. python-matter-server accepts the camelCase list write;
+    matter.js only persists numeric tag keys, so provision_group_key must retry
+    the alternate format and verify the readback. This is the exact behaviour that
+    differs between the two backends.
+    """
+    light = device_nodes["light"]
+
+    group_id = await _create_group(ws_client, "E2E KeyMap")
+    add = await ws_client.call(
+        "matter_binding_helper/add_to_group",
+        group_id=group_id,
+        node_id=light,
+        endpoint_id=1,
+    )
+    # add_to_group now fails fast if the GroupKeyMap write did not persist, so a
+    # success here already implies the key landed; assert the device state too.
+    assert add.get("success"), f"add_to_group failed: {add}"
+
+    gkm = await _wait_group_key_map(ws_client, light, group_id)
+    assert gkm and str(group_id) in gkm, (
+        f"GroupKeyMap did not persist group {group_id} on node {light}: {gkm!r}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_groupcast_binding_provisions_real_devices(ws_client, device_nodes):
     light = device_nodes["light"]
     switch = device_nodes["switch"]

@@ -113,19 +113,39 @@ def _group_key_map_has(
     return False
 
 
+def _group_key_entry(
+    group_id: int, key_set_id: int, fabric_index: int, tag_keys: bool
+) -> dict[str, int]:
+    """One GroupKeyMap entry, keyed by either field name or numeric TLV tag.
+
+    python-matter-server accepts camelCase field names on write; matter.js
+    silently drops entries it cannot map and only persists numeric tag keys
+    (``1``=groupId, ``2``=groupKeySetID, ``254``=fabricIndex), which is also the
+    shape both servers return on read.
+    """
+    if tag_keys:
+        return {"1": group_id, "2": key_set_id, "254": fabric_index}
+    return {
+        "groupId": group_id,
+        "groupKeySetID": key_set_id,
+        "fabricIndex": fabric_index,
+    }
+
+
 def merge_group_key_map(
     existing: list[Any] | None,
     group_id: int,
     key_set_id: int,
     fabric_index: int = 1,
+    tag_keys: bool = False,
 ) -> list[dict[str, int]]:
     """Return the GroupKeyMap list with (group_id -> key_set_id) ensured present.
 
     Pure read-modify-write helper. Preserves existing mappings, is idempotent
     (no duplicate for the same group_id), and normalizes every entry to a plain
     dict suitable for ``write_attribute``. ``fabric_index`` must be the accessing
-    fabric (see ``_accessing_fabric_index``): matter.js honours it literally, so a
-    wrong index leaves the device without a group key for the accessing fabric.
+    fabric. ``tag_keys`` selects numeric TLV tag keys over camelCase field names
+    (see ``_group_key_entry``).
     """
     result: list[dict[str, int]] = []
     found = False
@@ -138,18 +158,10 @@ def merge_group_key_map(
         if gid == group_id:
             found = True
             ksid = key_set_id  # update to the desired key set
-        result.append(
-            {"groupId": gid, "groupKeySetID": ksid, "fabricIndex": fabric_index}
-        )
+        result.append(_group_key_entry(gid, ksid, fabric_index, tag_keys))
 
     if not found:
-        result.append(
-            {
-                "groupId": group_id,
-                "groupKeySetID": key_set_id,
-                "fabricIndex": fabric_index,
-            }
-        )
+        result.append(_group_key_entry(group_id, key_set_id, fabric_index, tag_keys))
     return result
 
 
@@ -222,59 +234,71 @@ async def provision_group_key(
             command=_build_key_set_write_command(key_set_id, epoch_key),
         )
 
-        # 2. Map the group id to the key set in GroupKeyMap (read-modify-write).
-        #    The mapping must be scoped to the accessing fabric or matter.js
-        #    leaves the device without a key and rejects AddGroup.
+        # 2. Map the group id to the key set in GroupKeyMap (read-modify-write),
+        #    scoped to the accessing fabric. We verify the write landed by reading
+        #    it back: matter.js silently drops a camelCase list-of-struct write
+        #    (no error, attribute stays empty), so on the first miss we retry with
+        #    numeric TLV tag keys — the shape both servers return on read.
         fabric_index = await _accessing_fabric_index(client, node_id)
-        existing = _unwrap_attr_list(
-            await client.read_attribute(
-                node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
-            ),
-            GROUP_KEY_MAP_PATH,
-        )
-        updated = merge_group_key_map(existing, group_id, key_set_id, fabric_index)
-        await client.write_attribute(
-            node_id=node_id,
-            attribute_path=GROUP_KEY_MAP_PATH,
-            value=updated,
-        )
-
-        # 3. Verify the mapping actually landed. KeySetWrite and the write above
-        #    are fabric-scoped and return no usable status, so a silent
-        #    UNSUPPORTED_ACCESS (e.g. the controller is on fabric 0) would
-        #    otherwise only surface later as a confusing AddGroup rejection.
-        readback = _unwrap_attr_list(
-            await client.read_attribute(
-                node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
-            ),
-            GROUP_KEY_MAP_PATH,
-        )
-        if not _group_key_map_has(readback, group_id, key_set_id):
-            _LOGGER.error(
-                "provision_group_key: GroupKeyMap readback on node %s missing "
-                "group %s -> keyset %s (fabric %s); got %s",
-                node_id,
-                group_id,
-                key_set_id,
-                fabric_index,
-                readback,
-            )
-            return GroupOperationResult(
-                success=False,
-                message=(
-                    "Group key provisioning was not accepted by the device "
-                    f"(device reports accessing fabric {fabric_index}; no "
-                    f"GroupKeyMap entry for group {group_id} after write; "
-                    f"readback={readback!r}). The Matter controller may be "
-                    "sending fabric-scoped writes without a promoted "
-                    "operational fabric."
+        last_readback: Any = None
+        for tag_keys in (False, True):
+            existing = _unwrap_attr_list(
+                await client.read_attribute(
+                    node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
                 ),
-                error_code="device_error",
+                GROUP_KEY_MAP_PATH,
             )
+            updated = merge_group_key_map(
+                existing, group_id, key_set_id, fabric_index, tag_keys=tag_keys
+            )
+            await client.write_attribute(
+                node_id=node_id,
+                attribute_path=GROUP_KEY_MAP_PATH,
+                value=updated,
+            )
+            last_readback = _unwrap_attr_list(
+                await client.read_attribute(
+                    node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+                ),
+                GROUP_KEY_MAP_PATH,
+            )
+            if _group_key_map_has(last_readback, group_id, key_set_id):
+                _LOGGER.info(
+                    "provision_group_key: GroupKeyMap accepted on node %s using "
+                    "%s keys (group %s -> keyset %s, fabric %s)",
+                    node_id,
+                    "tag" if tag_keys else "name",
+                    group_id,
+                    key_set_id,
+                    fabric_index,
+                )
+                return GroupOperationResult(
+                    success=True,
+                    message=(
+                        f"Provisioned group key for group {group_id} on node {node_id}"
+                    ),
+                )
 
+        # 3. Neither format persisted — fail fast with a clear, diagnostic error
+        #    rather than letting it surface later as a confusing AddGroup rejection.
+        _LOGGER.error(
+            "provision_group_key: GroupKeyMap readback on node %s missing "
+            "group %s -> keyset %s (fabric %s) after name+tag writes; got %s",
+            node_id,
+            group_id,
+            key_set_id,
+            fabric_index,
+            last_readback,
+        )
         return GroupOperationResult(
-            success=True,
-            message=f"Provisioned group key for group {group_id} on node {node_id}",
+            success=False,
+            message=(
+                "Group key provisioning was not accepted by the device "
+                f"(accessing fabric {fabric_index}; no GroupKeyMap entry for "
+                f"group {group_id} after both camelCase and tag-key writes; "
+                f"readback={last_readback!r})."
+            ),
+            error_code="device_error",
         )
     except Exception as err:  # noqa: BLE001 - surfaced to the user
         _LOGGER.error(
