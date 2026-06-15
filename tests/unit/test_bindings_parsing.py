@@ -169,7 +169,7 @@ class TestBindingEntryKeyFormat:
         target = {"cluster": 6, "node": 3, "endpoint": 1, "group": None}
         assert _binding_entry(target, tag_keys=False) == {
             "cluster": 6,
-            "fabricIndex": 0,
+            "fabricIndex": 1,
             "node": 3,
             "endpoint": 1,
         }
@@ -183,7 +183,7 @@ class TestBindingEntryKeyFormat:
         target = {"cluster": 6, "node": 3, "endpoint": 1, "group": None}
         assert _binding_entry(target, tag_keys=True) == {
             "4": 6,
-            "254": 0,
+            "254": 1,
             "1": 3,
             "3": 1,
         }
@@ -195,7 +195,7 @@ class TestBindingEntryKeyFormat:
 
         # group=2, cluster=4, fabricIndex=254 (no node/endpoint for groupcast)
         target = {"cluster": 6, "node": None, "endpoint": None, "group": 7}
-        assert _binding_entry(target, tag_keys=True) == {"4": 6, "254": 0, "2": 7}
+        assert _binding_entry(target, tag_keys=True) == {"4": 6, "254": 1, "2": 7}
 
 
 class TestParseBindingValueTagKeys:
