@@ -188,8 +188,9 @@ def ha_container(project_root: Path) -> Generator[DockerContainer, None, None]:
 
     yield container
 
-    # Dump the integration's own log lines so CI failures are diagnosable without
-    # a live device (the integration logs each provisioning step it performs).
+    # Write the integration's own log lines to a file so CI failures are
+    # diagnosable without a live device. A file (not stdout) survives pytest's
+    # output capture; the workflow prints it on failure.
     try:
         stdout, stderr = container.get_logs()
         text = (stdout or b"").decode("utf-8", "ignore") + (stderr or b"").decode(
@@ -204,11 +205,9 @@ def ha_container(project_root: Path) -> Generator[DockerContainer, None, None]:
                 for k in ("provision", "GroupKeyMap", "ACL", "acl", "binding", "AddGroup")
             )
         ]
-        if lines:
-            print("\n[e2e] ===== matter_binding_helper provisioning logs =====")
-            for ln in lines[-120:]:
-                print(ln)
-            print("[e2e] ===== end logs =====")
+        out = project_root / "e2e-ha.log"
+        out.write_text("\n".join(lines[-300:]), encoding="utf-8")
+        print(f"\n[e2e] wrote {len(lines)} integration log lines to {out}")
     except Exception as err:  # noqa: BLE001 - diagnostics only
         print(f"[e2e] could not capture HA logs: {err}")
 

@@ -42,3 +42,7 @@ jobs:
         env:
           MATTER_BACKENDS: ${{ matrix.backend }}
         run: python -m pytest tests/e2e -v --tb=short
+
+      - name: Integration provisioning logs (${{ matrix.backend }})
+        if: always()
+        run: cat e2e-ha.log 2>/dev/null || echo "no e2e-ha.log captured"

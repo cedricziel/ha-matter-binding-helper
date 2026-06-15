@@ -87,18 +87,12 @@ async def get_bindings(
             result,
         )
 
-        if result and isinstance(result, list):
-            for binding in result:
-                _LOGGER.debug("get_bindings: Processing binding entry: %s", binding)
-                entry = BindingEntry(
-                    node_id=node_id,
-                    endpoint_id=endpoint_id,
-                    cluster_id=binding.get("Cluster"),  # Can be None (any cluster)
-                    target_node_id=binding.get("Node"),
-                    target_endpoint_id=binding.get("Endpoint"),
-                    target_group_id=binding.get("Group"),
-                )
-                bindings.append(entry)
+        # read_attribute may wrap the value as {"<ep>/<cluster>/0": value}; unwrap
+        # and parse through _parse_binding_value so camelCase and matter.js's
+        # numeric TLV tag keys are both handled.
+        if isinstance(result, dict) and attribute_path in result:
+            result = result[attribute_path]
+        bindings = _parse_binding_value(node_id, endpoint_id, result)
     except Exception as err:
         _LOGGER.error(
             "Error reading bindings for node %s endpoint %s: %s",
@@ -601,13 +595,26 @@ async def create_binding(
             )
             _LOGGER.info("create_binding: write_attribute result: %s", result)
 
-            read_back = await get_bindings(hass, source_node_id, source_endpoint_id)
-            if any(
-                binding_matches(
-                    b, target_node_id, target_endpoint_id, target_group_id, cluster_id
-                )
-                for b in read_back
-            ):
+            # Poll the readback: matter-server's attribute cache lags a fresh
+            # fabric-scoped write, so a single immediate read can false-negative a
+            # write that succeeded.
+            persisted = False
+            for _ in range(5):
+                read_back = await get_bindings(hass, source_node_id, source_endpoint_id)
+                if any(
+                    binding_matches(
+                        b,
+                        target_node_id,
+                        target_endpoint_id,
+                        target_group_id,
+                        cluster_id,
+                    )
+                    for b in read_back
+                ):
+                    persisted = True
+                    break
+                await asyncio.sleep(1.5)
+            if persisted:
                 if tag_keys:
                     _LOGGER.info("create_binding: binding accepted using tag keys")
                 break

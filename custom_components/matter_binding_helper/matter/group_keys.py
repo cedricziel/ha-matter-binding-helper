@@ -15,6 +15,7 @@ Both operations go through the generic matter-server primitives:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -256,13 +257,23 @@ async def provision_group_key(
                 attribute_path=GROUP_KEY_MAP_PATH,
                 value=updated,
             )
-            last_readback = _unwrap_attr_list(
-                await client.read_attribute(
-                    node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
-                ),
-                GROUP_KEY_MAP_PATH,
-            )
-            if _group_key_map_has(last_readback, group_id, key_set_id):
+            # matter-server serves attributes from a subscription cache that lags
+            # a fresh fabric-scoped write, so poll the readback before concluding
+            # the format was rejected (otherwise a slow cache false-negatives a
+            # write that actually succeeded).
+            found = False
+            for attempt in range(5):
+                last_readback = _unwrap_attr_list(
+                    await client.read_attribute(
+                        node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+                    ),
+                    GROUP_KEY_MAP_PATH,
+                )
+                if _group_key_map_has(last_readback, group_id, key_set_id):
+                    found = True
+                    break
+                await asyncio.sleep(1.5)
+            if found:
                 _LOGGER.info(
                     "provision_group_key: GroupKeyMap accepted on node %s using "
                     "%s keys (group %s -> keyset %s, fabric %s)",
