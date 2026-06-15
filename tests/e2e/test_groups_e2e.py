@@ -69,6 +69,22 @@ def _group_key_map(dump: dict[str, Any]) -> str:
     return ""
 
 
+async def _wait_group_auth_acl(ws_client, node: int, group_id: int) -> list[dict[str, Any]]:
+    """Poll a node's ACL until a group-auth entry for the group appears."""
+    entries: list[dict[str, Any]] = []
+    for _ in range(12):
+        acl = await ws_client.call("matter_binding_helper/list_acl", node_id=node)
+        entries = acl.get("entries", [])
+        if any(
+            e.get("auth_mode") == AUTH_MODE_GROUP
+            and group_id in (e.get("subjects") or [])
+            for e in entries
+        ):
+            return entries
+        await asyncio.sleep(3)
+    return entries
+
+
 async def _create_group(ws_client, name: str) -> int:
     result = await ws_client.call("matter_binding_helper/create_group", name=name)
     assert result.get("success"), f"create_group failed: {result}"
@@ -122,9 +138,9 @@ async def test_groupcast_binding_provisions_real_devices(ws_client, device_nodes
             f"group {group_id} not mapped in GroupKeyMap on node {node}: {gkm}"
         )
 
-    # 3c. The member has a group-auth ACL entry for the group.
-    acl = await ws_client.call("matter_binding_helper/list_acl", node_id=light)
-    entries = acl.get("entries", [])
+    # 3c. The member has a group-auth ACL entry for the group. Poll: the ACL,
+    # like the GroupKeyMap, propagates to matter-server's cache asynchronously.
+    entries = await _wait_group_auth_acl(ws_client, light, group_id)
     assert any(
         e.get("auth_mode") == AUTH_MODE_GROUP and group_id in (e.get("subjects") or [])
         for e in entries

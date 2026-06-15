@@ -202,7 +202,19 @@ def ha_container(project_root: Path) -> Generator[DockerContainer, None, None]:
             if "matter_binding_helper" in ln
             and any(
                 k in ln
-                for k in ("provision", "GroupKeyMap", "ACL", "acl", "binding", "AddGroup")
+                for k in (
+                    "provision",
+                    "GroupKeyMap",
+                    "ACL",
+                    "acl",
+                    "binding",
+                    "AddGroup",
+                    "write_attribute",
+                    "read_attribute",
+                    "tag",
+                    "persist",
+                    "status",
+                )
             )
         ]
         out = project_root / "e2e-ha.log"
@@ -244,6 +256,7 @@ def commissioned(
     entry_id = boot.install_integration(access_token)
     assert entry_id, "matter_binding_helper install failed"
     # NOTE: real mode — demo mode is deliberately NOT enabled.
+    boot.set_component_debug_logging(access_token)
     time.sleep(2)
 
     light_code = _pairing_code_from_logs(dimmable_light_container)
