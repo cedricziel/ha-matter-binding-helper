@@ -87,6 +87,18 @@ def _entry_field(entry: Any, *keys: Any) -> Any:
     return None
 
 
+def _unwrap_attr_list(value: Any, path: str) -> list[Any]:
+    """Normalize a read_attribute result to a bare list.
+
+    read_attribute may return the value directly or wrapped as
+    ``{"<endpoint>/<cluster>/<attr>": value}``. Unwrap so callers always see the
+    list of entries.
+    """
+    if isinstance(value, dict) and path in value:
+        value = value[path]
+    return value if isinstance(value, list) else []
+
+
 def _group_key_map_has(
     existing: list[Any] | None, group_id: int, key_set_id: int
 ) -> bool:
@@ -214,8 +226,11 @@ async def provision_group_key(
         #    The mapping must be scoped to the accessing fabric or matter.js
         #    leaves the device without a key and rejects AddGroup.
         fabric_index = await _accessing_fabric_index(client, node_id)
-        existing = await client.read_attribute(
-            node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+        existing = _unwrap_attr_list(
+            await client.read_attribute(
+                node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+            ),
+            GROUP_KEY_MAP_PATH,
         )
         updated = merge_group_key_map(existing, group_id, key_set_id, fabric_index)
         await client.write_attribute(
@@ -228,8 +243,11 @@ async def provision_group_key(
         #    are fabric-scoped and return no usable status, so a silent
         #    UNSUPPORTED_ACCESS (e.g. the controller is on fabric 0) would
         #    otherwise only surface later as a confusing AddGroup rejection.
-        readback = await client.read_attribute(
-            node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+        readback = _unwrap_attr_list(
+            await client.read_attribute(
+                node_id=node_id, attribute_path=GROUP_KEY_MAP_PATH
+            ),
+            GROUP_KEY_MAP_PATH,
         )
         if not _group_key_map_has(readback, group_id, key_set_id):
             _LOGGER.error(

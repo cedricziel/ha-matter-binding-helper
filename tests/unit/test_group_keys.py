@@ -7,8 +7,27 @@ tests, since chip.clusters is only available in the real runtime.
 
 from custom_components.matter_binding_helper.matter.group_keys import (
     _group_key_map_has,
+    _unwrap_attr_list,
     merge_group_key_map,
 )
+
+
+def test_unwrap_attr_list_handles_path_wrapped_and_bare():
+    path = "0/63/0"
+    # read_attribute may wrap the value as {path: value} ...
+    assert _unwrap_attr_list({path: [{"1": 1}]}, path) == [{"1": 1}]
+    # ... or return the bare list ...
+    assert _unwrap_attr_list([{"1": 1}], path) == [{"1": 1}]
+    # ... or nothing usable.
+    assert _unwrap_attr_list(None, path) == []
+    assert _unwrap_attr_list({path: []}, path) == []
+
+
+def test_group_key_map_has_with_tag_keyed_entries():
+    """Device readback uses numeric TLV tag keys, not camelCase."""
+    readback = [{"1": 1, "2": 256, "254": 1}]  # groupId=1, keySetID=256, fabric=1
+    assert _group_key_map_has(readback, 1, 256) is True
+    assert _group_key_map_has(readback, 1, 999) is False
 
 
 def test_group_key_map_has_detects_mapping():
