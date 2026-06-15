@@ -196,3 +196,23 @@ class TestBindingEntryKeyFormat:
         # group=2, cluster=4, fabricIndex=254 (no node/endpoint for groupcast)
         target = {"cluster": 6, "node": None, "endpoint": None, "group": 7}
         assert _binding_entry(target, tag_keys=True) == {"4": 6, "254": 0, "2": 7}
+
+
+class TestParseBindingValueTagKeys:
+    """matter.js returns Binding entries keyed by numeric TLV tags."""
+
+    def test_parse_groupcast_binding_tag_keys(self):
+        # cluster=4 -> 6 (On/Off), group=2 -> 7
+        result = _parse_binding_value(1, 1, [{"4": 6, "2": 7, "254": 1}])
+        assert len(result) == 1
+        assert result[0].cluster_id == 6
+        assert result[0].target_group_id == 7
+        assert result[0].target_node_id is None
+
+    def test_parse_unicast_binding_tag_keys(self):
+        # cluster=4 -> 6, node=1 -> 3, endpoint=3 -> 1
+        result = _parse_binding_value(1, 1, [{"4": 6, "1": 3, "3": 1, "254": 1}])
+        assert len(result) == 1
+        assert result[0].cluster_id == 6
+        assert result[0].target_node_id == 3
+        assert result[0].target_endpoint_id == 1

@@ -294,9 +294,11 @@ def _parse_binding_value(
         target_group = None
 
         if isinstance(binding, dict):
-            # Dict format - try multiple key naming conventions
+            # Dict format - try multiple key naming conventions. matter.js returns
+            # the Binding TargetStruct keyed by numeric TLV tags (node=1, group=2,
+            # endpoint=3, cluster=4); python-matter-server uses camelCase names.
             # Use explicit None check to allow cluster_id=0 (which is falsy but valid)
-            for key in ("Cluster", "cluster", "ClusterId", "clusterId"):
+            for key in ("Cluster", "cluster", "ClusterId", "clusterId", "4"):
                 if key in binding and binding[key] is not None:
                     cluster_id = binding[key]
                     break
@@ -305,18 +307,21 @@ def _parse_binding_value(
                 or binding.get("node")
                 or binding.get("NodeId")
                 or binding.get("nodeId")
+                or binding.get("1")
             )
             target_endpoint = (
                 binding.get("Endpoint")
                 or binding.get("endpoint")
                 or binding.get("EndpointId")
                 or binding.get("endpointId")
+                or binding.get("3")
             )
             target_group = (
                 binding.get("Group")
                 or binding.get("group")
                 or binding.get("GroupId")
                 or binding.get("groupId")
+                or binding.get("2")
             )
         elif hasattr(binding, "cluster"):
             # Object with snake_case attributes

@@ -187,6 +187,31 @@ def ha_container(project_root: Path) -> Generator[DockerContainer, None, None]:
         pytest.fail("Home Assistant did not become ready")
 
     yield container
+
+    # Dump the integration's own log lines so CI failures are diagnosable without
+    # a live device (the integration logs each provisioning step it performs).
+    try:
+        stdout, stderr = container.get_logs()
+        text = (stdout or b"").decode("utf-8", "ignore") + (stderr or b"").decode(
+            "utf-8", "ignore"
+        )
+        lines = [
+            ln
+            for ln in text.splitlines()
+            if "matter_binding_helper" in ln
+            and any(
+                k in ln
+                for k in ("provision", "GroupKeyMap", "ACL", "acl", "binding", "AddGroup")
+            )
+        ]
+        if lines:
+            print("\n[e2e] ===== matter_binding_helper provisioning logs =====")
+            for ln in lines[-120:]:
+                print(ln)
+            print("[e2e] ===== end logs =====")
+    except Exception as err:  # noqa: BLE001 - diagnostics only
+        print(f"[e2e] could not capture HA logs: {err}")
+
     container.stop()
 
 
