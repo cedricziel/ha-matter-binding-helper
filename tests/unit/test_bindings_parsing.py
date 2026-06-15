@@ -156,3 +156,43 @@ class TestParseBindingValueNoneCluster:
         assert result[0].cluster_id is None
         assert result[0].target_group_id == 100
         assert result[0].target_node_id is None
+
+
+class TestBindingEntryKeyFormat:
+    """Tests for _binding_entry camelCase vs numeric TLV tag key rendering."""
+
+    def test_unicast_entry_camelcase(self):
+        from custom_components.matter_binding_helper.matter.bindings import (
+            _binding_entry,
+        )
+
+        target = {"cluster": 6, "node": 3, "endpoint": 1, "group": None}
+        assert _binding_entry(target, tag_keys=False) == {
+            "cluster": 6,
+            "fabricIndex": 0,
+            "node": 3,
+            "endpoint": 1,
+        }
+
+    def test_unicast_entry_tag_keys(self):
+        from custom_components.matter_binding_helper.matter.bindings import (
+            _binding_entry,
+        )
+
+        # node=1, endpoint=3, cluster=4, fabricIndex=254
+        target = {"cluster": 6, "node": 3, "endpoint": 1, "group": None}
+        assert _binding_entry(target, tag_keys=True) == {
+            "4": 6,
+            "254": 0,
+            "1": 3,
+            "3": 1,
+        }
+
+    def test_groupcast_entry_tag_keys(self):
+        from custom_components.matter_binding_helper.matter.bindings import (
+            _binding_entry,
+        )
+
+        # group=2, cluster=4, fabricIndex=254 (no node/endpoint for groupcast)
+        target = {"cluster": 6, "node": None, "endpoint": None, "group": 7}
+        assert _binding_entry(target, tag_keys=True) == {"4": 6, "254": 0, "2": 7}

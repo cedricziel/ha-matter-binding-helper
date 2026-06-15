@@ -432,6 +432,36 @@ async def verify_bindings(
         )
 
 
+def _binding_entry(target: dict[str, Any], tag_keys: bool) -> dict[str, Any]:
+    """Render one Binding TargetStruct entry in camelCase or numeric TLV tag keys.
+
+    matter.js only persists tag-keyed list-of-struct entries (Binding tags:
+    node=1, group=2, endpoint=3, cluster=4, fabricIndex=254); python-matter-server
+    accepts either. fabricIndex 0 is set by the device on a fabric-scoped write.
+    """
+    cluster = target["cluster"]
+    node = target.get("node")
+    endpoint = target.get("endpoint")
+    group = target.get("group")
+    if tag_keys:
+        entry: dict[str, Any] = {"4": cluster, "254": 0}
+        if node is not None:
+            entry["1"] = node
+        if group is not None:
+            entry["2"] = group
+        if endpoint is not None:
+            entry["3"] = endpoint
+        return entry
+    entry = {"cluster": cluster, "fabricIndex": 0}
+    if node is not None:
+        entry["node"] = node
+    if endpoint is not None:
+        entry["endpoint"] = endpoint
+    if group is not None:
+        entry["group"] = group
+    return entry
+
+
 async def create_binding(
     hass: HomeAssistant,
     source_node_id: int,
@@ -524,48 +554,64 @@ async def create_binding(
             "create_binding: Current bindings count: %d", len(current_bindings)
         )
 
-        # Build new binding entry - use the TargetStruct format
-        new_binding: dict[str, Any] = {
-            "cluster": cluster_id,
-            "fabricIndex": 0,  # Will be set by the device
-        }
-        if target_node_id is not None:
-            new_binding["node"] = target_node_id
-        if target_endpoint_id is not None:
-            new_binding["endpoint"] = target_endpoint_id
-        if target_group_id is not None:
-            new_binding["group"] = target_group_id
-
-        _LOGGER.debug("create_binding: New binding entry: %s", new_binding)
-
-        # Build the full binding list with lowercase keys (Matter SDK format)
-        binding_list = []
-        for b in current_bindings:
-            entry: dict[str, Any] = {
+        # Targets to write: existing bindings plus the new one. Kept as plain
+        # field tuples so the list can be rendered in either key format below.
+        targets = [
+            {
                 "cluster": b.cluster_id,
-                "fabricIndex": 0,
+                "node": b.target_node_id,
+                "endpoint": b.target_endpoint_id,
+                "group": b.target_group_id,
             }
-            if b.target_node_id is not None:
-                entry["node"] = b.target_node_id
-            if b.target_endpoint_id is not None:
-                entry["endpoint"] = b.target_endpoint_id
-            if b.target_group_id is not None:
-                entry["group"] = b.target_group_id
-            binding_list.append(entry)
+            for b in current_bindings
+        ]
+        targets.append(
+            {
+                "cluster": cluster_id,
+                "node": target_node_id,
+                "endpoint": target_endpoint_id,
+                "group": target_group_id,
+            }
+        )
 
-        binding_list.append(new_binding)
-        _LOGGER.debug("create_binding: Full binding list to write: %s", binding_list)
-
-        # Write the binding attribute
+        # Write the binding attribute. Like GroupKeyMap, Binding is a fabric-scoped
+        # list-of-struct: python-matter-server accepts camelCase field names, but
+        # matter.js silently drops entries it can't map and only persists numeric
+        # TLV tag keys. Write camelCase first, read back, and retry with tag keys
+        # on a miss so both backends work.
         attribute_path = f"{source_endpoint_id}/{CLUSTER_BINDING}/0"
         _LOGGER.info("create_binding: Writing to attribute path: %s", attribute_path)
 
-        result = await client.write_attribute(
-            node_id=source_node_id,
-            attribute_path=attribute_path,
-            value=binding_list,
-        )
-        _LOGGER.info("create_binding: write_attribute result: %s", result)
+        for tag_keys in (False, True):
+            binding_list = [_binding_entry(t, tag_keys) for t in targets]
+            _LOGGER.debug(
+                "create_binding: writing binding list (%s keys): %s",
+                "tag" if tag_keys else "name",
+                binding_list,
+            )
+            result = await client.write_attribute(
+                node_id=source_node_id,
+                attribute_path=attribute_path,
+                value=binding_list,
+            )
+            _LOGGER.info("create_binding: write_attribute result: %s", result)
+
+            read_back = await get_bindings(hass, source_node_id, source_endpoint_id)
+            if any(
+                binding_matches(
+                    b, target_node_id, target_endpoint_id, target_group_id, cluster_id
+                )
+                for b in read_back
+            ):
+                if tag_keys:
+                    _LOGGER.info("create_binding: binding accepted using tag keys")
+                break
+        else:
+            _LOGGER.warning(
+                "create_binding: binding did not persist on node %s after "
+                "camelCase and tag-key writes",
+                source_node_id,
+            )
 
         # Provision ACL on target device if requested (for unicast bindings)
         acl_result = None
