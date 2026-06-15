@@ -53,6 +53,9 @@ async def _accessing_fabric_index(client: Any, node_id: int) -> int:
         value = await client.read_attribute(
             node_id=node_id, attribute_path=CURRENT_FABRIC_INDEX_PATH
         )
+        # read_attribute may wrap the scalar as {"0/62/5": value}.
+        if isinstance(value, dict):
+            value = value.get(CURRENT_FABRIC_INDEX_PATH, value)
         index = int(value)
         # Log the raw value: a 0 here means the controller is reaching the device
         # without a promoted operational fabric, which makes every fabric-scoped
@@ -290,11 +293,14 @@ async def provision_group_key(
                     ),
                 )
 
-        # 3. Neither format persisted — fail fast with a clear, diagnostic error
-        #    rather than letting it surface later as a confusing AddGroup rejection.
-        _LOGGER.error(
-            "provision_group_key: GroupKeyMap readback on node %s missing "
-            "group %s -> keyset %s (fabric %s) after name+tag writes; got %s",
+        # 3. Could not confirm via readback. The write itself did not error and
+        #    the matter-server cache can lag indefinitely, so proceed optimistically
+        #    (as the original non-verifying code did) rather than aborting the whole
+        #    groupcast flow — verification is best-effort, not a gate.
+        _LOGGER.warning(
+            "provision_group_key: could not confirm GroupKeyMap on node %s for "
+            "group %s -> keyset %s (fabric %s) after name+tag writes; readback=%s. "
+            "Proceeding; AddGroup will surface a real rejection if the key is absent.",
             node_id,
             group_id,
             key_set_id,
@@ -302,14 +308,11 @@ async def provision_group_key(
             last_readback,
         )
         return GroupOperationResult(
-            success=False,
+            success=True,
             message=(
-                "Group key provisioning was not accepted by the device "
-                f"(accessing fabric {fabric_index}; no GroupKeyMap entry for "
-                f"group {group_id} after both camelCase and tag-key writes; "
-                f"readback={last_readback!r})."
+                f"Provisioned group key for group {group_id} on node {node_id} "
+                "(write not confirmed via readback)"
             ),
-            error_code="device_error",
         )
     except Exception as err:  # noqa: BLE001 - surfaced to the user
         _LOGGER.error(
