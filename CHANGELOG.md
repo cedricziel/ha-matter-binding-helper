@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.34.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.33.0...v0.34.0) (2026-06-16)
+
+
+### Features
+
+* **groups:** Repair Groups affordance ([#295](https://github.com/cedricziel/ha-matter-binding-helper/issues/295)) ([2324828](https://github.com/cedricziel/ha-matter-binding-helper/commit/2324828ccfd228d719ea1c1299454a9b8274c249))
+* **groups:** type-aware group management ([#297](https://github.com/cedricziel/ha-matter-binding-helper/issues/297)) ([45080a2](https://github.com/cedricziel/ha-matter-binding-helper/commit/45080a24ce0682dd49b9be494a3de9fc64f6d2ef))
+
+
+### Bug Fixes
+
+* **groups:** scope GroupKeyMap write to the accessing fabric (matter.js) ([#306](https://github.com/cedricziel/ha-matter-binding-helper/issues/306)) ([c154bf3](https://github.com/cedricziel/ha-matter-binding-helper/commit/c154bf3d020a04a743bf91cfef9099729d7ed6c2))
+* real-device groupcast works on both python-matter-server and matter.js 1.0 ([#308](https://github.com/cedricziel/ha-matter-binding-helper/issues/308)) ([c233910](https://github.com/cedricziel/ha-matter-binding-helper/commit/c233910c43217188f460e10c5850a1cf059c48bd))
+
+
+### Miscellaneous
+
+* **deps-dev:** update ruff requirement from &gt;=0.1.0 to &gt;=0.15.17 ([#304](https://github.com/cedricziel/ha-matter-binding-helper/issues/304)) ([c2608e5](https://github.com/cedricziel/ha-matter-binding-helper/commit/c2608e5ca9d4e215b2af4a82153bda4f416b7f59))
+* **deps:** bump actions/checkout from 4 to 6 ([#300](https://github.com/cedricziel/ha-matter-binding-helper/issues/300)) ([a0503a6](https://github.com/cedricziel/ha-matter-binding-helper/commit/a0503a6a0343e6a504ee0d0f7269c1395b4c2ce3))
+* **deps:** bump actions/setup-python from 5 to 6 ([#299](https://github.com/cedricziel/ha-matter-binding-helper/issues/299)) ([b977771](https://github.com/cedricziel/ha-matter-binding-helper/commit/b9777715d0a22b13e6e2d4e71ed95102a234f8b2))
+* **deps:** update docker requirement from &gt;=7.0 to &gt;=7.1.0 ([#305](https://github.com/cedricziel/ha-matter-binding-helper/issues/305)) ([a8963a5](https://github.com/cedricziel/ha-matter-binding-helper/commit/a8963a52b491ac15eb5daa8b1bfc9895e085fd0b))
+* **deps:** update pytest requirement from &gt;=7.0 to &gt;=9.1.0 ([#301](https://github.com/cedricziel/ha-matter-binding-helper/issues/301)) ([1f53471](https://github.com/cedricziel/ha-matter-binding-helper/commit/1f534711d517f12979cf6eb2185582886693e9e7))
+* **deps:** update requests requirement from &gt;=2.28 to &gt;=2.34.2 ([#303](https://github.com/cedricziel/ha-matter-binding-helper/issues/303)) ([4389bdf](https://github.com/cedricziel/ha-matter-binding-helper/commit/4389bdf69a979bfd0827f56c6251367277a55341))
+* **deps:** update testcontainers requirement from &gt;=4.0 to &gt;=4.14.2 ([#302](https://github.com/cedricziel/ha-matter-binding-helper/issues/302)) ([171c904](https://github.com/cedricziel/ha-matter-binding-helper/commit/171c904320f68c584f9b6cd507c447af08824e97))
+
 ## [0.33.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.32.0...v0.33.0) (2026-06-14)
 
 
