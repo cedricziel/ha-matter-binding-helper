@@ -17,7 +17,6 @@ import pytest
 import pytest_asyncio
 import requests
 from testcontainers.core.container import DockerContainer
-from testcontainers.core.waiting_utils import wait_for_logs
 from websockets.asyncio.client import connect
 
 
@@ -300,7 +299,7 @@ class HABootstrapper:
                 # Wait for commissioning result (can take a while)
                 msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=120))
                 if msg.get("success"):
-                    print(f"[testcontainers] Device commissioned successfully!")
+                    print("[testcontainers] Device commissioned successfully!")
                     return True
                 else:
                     print(f"Commissioning failed: {msg}")
