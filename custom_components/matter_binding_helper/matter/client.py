@@ -71,6 +71,11 @@ class MatterClientProtocol(ABC):
         """Send a device command to a node."""
         ...
 
+    @abstractmethod
+    async def send_raw_command(self, command: str, **kwargs: Any) -> Any:
+        """Send a high-level matter-server WS command by name (e.g. set_acl_entry)."""
+        ...
+
 
 class RealMatterClient(MatterClientProtocol):
     """Wraps the actual python-matter-server client."""
@@ -137,6 +142,10 @@ class RealMatterClient(MatterClientProtocol):
             endpoint_id=endpoint_id,
             command=command,
         )
+
+    async def send_raw_command(self, command: str, **kwargs: Any) -> Any:
+        """Send a high-level matter-server WS command by name (e.g. set_acl_entry)."""
+        return await self._client.send_command(command, **kwargs)
 
 
 def get_raw_matter_client(hass: HomeAssistant) -> "RealMatterServerClient | None":

@@ -29,7 +29,7 @@ from ..const import (
     GROUP_EPOCH_START_TIME,
     GROUP_KEY_SECURITY_POLICY_TRUST_FIRST,
 )
-from .client import get_raw_matter_client
+from .client import get_client
 from .demo import is_demo_mode
 from .models import GroupOperationResult
 
@@ -208,7 +208,7 @@ async def provision_group_key(
         )
         return GroupOperationResult(success=True, message="Demo mode: group key set")
 
-    client = get_raw_matter_client(hass)
+    client = get_client(hass)
     if not client:
         return GroupOperationResult(
             success=False,
