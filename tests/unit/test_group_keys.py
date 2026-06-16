@@ -6,8 +6,37 @@ tests, since chip.clusters is only available in the real runtime.
 """
 
 from custom_components.matter_binding_helper.matter.group_keys import (
+    _group_key_map_has,
+    _unwrap_attr_list,
     merge_group_key_map,
 )
+
+
+def test_unwrap_attr_list_handles_path_wrapped_and_bare():
+    path = "0/63/0"
+    # read_attribute may wrap the value as {path: value} ...
+    assert _unwrap_attr_list({path: [{"1": 1}]}, path) == [{"1": 1}]
+    # ... or return the bare list ...
+    assert _unwrap_attr_list([{"1": 1}], path) == [{"1": 1}]
+    # ... or nothing usable.
+    assert _unwrap_attr_list(None, path) == []
+    assert _unwrap_attr_list({path: []}, path) == []
+
+
+def test_group_key_map_has_with_tag_keyed_entries():
+    """Device readback uses numeric TLV tag keys, not camelCase."""
+    readback = [{"1": 1, "2": 256, "254": 1}]  # groupId=1, keySetID=256, fabric=1
+    assert _group_key_map_has(readback, 1, 256) is True
+    assert _group_key_map_has(readback, 1, 999) is False
+
+
+def test_group_key_map_has_detects_mapping():
+    entries = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
+    assert _group_key_map_has(entries, 5, 0x100) is True
+    assert _group_key_map_has(entries, 5, 0x200) is False  # wrong keyset
+    assert _group_key_map_has(entries, 9, 0x100) is False  # wrong group
+    assert _group_key_map_has(None, 5, 0x100) is False
+    assert _group_key_map_has([{"foo": "bar"}], 5, 0x100) is False
 
 
 def test_merge_into_empty_map():
@@ -34,6 +63,12 @@ def test_merge_updates_key_set_for_existing_group():
     existing = [{"groupId": 5, "groupKeySetID": 0x100, "fabricIndex": 1}]
     result = merge_group_key_map(existing, group_id=5, key_set_id=0x200)
     assert result == [{"groupId": 5, "groupKeySetID": 0x200, "fabricIndex": 1}]
+
+
+def test_merge_emits_tag_keys_when_requested():
+    """matter.js only persists numeric TLV tag keys on the list write."""
+    result = merge_group_key_map(None, group_id=5, key_set_id=0x100, tag_keys=True)
+    assert result == [{"1": 5, "2": 0x100, "254": 1}]
 
 
 def test_merge_uses_supplied_fabric_index():

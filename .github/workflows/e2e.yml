@@ -3,16 +3,15 @@ name: E2E (real devices)
 
 # Commissions the rs-matter virtual devices for real (host networking) and
 # verifies groupcast provisioning end-to-end. Runs on Linux only — host-network
-# Matter commissioning does not work on macOS Docker. Manually triggerable, and
-# on PRs that touch the relevant code.
+# Matter commissioning does not work on macOS Docker.
+#
+# Runs on every PR to main (no path filter): these jobs are required status
+# checks, so they must report on every PR or branch protection would deadlock
+# PRs that don't touch the integration paths.
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "custom_components/matter_binding_helper/**"
-      - "devices/rust-device/**"
-      - "tests/e2e/**"
-      - ".github/workflows/e2e.yml"
+    branches: [main]
 
 jobs:
   e2e:
@@ -42,3 +41,7 @@ jobs:
         env:
           MATTER_BACKENDS: ${{ matrix.backend }}
         run: python -m pytest tests/e2e -v --tb=short
+
+      - name: Integration provisioning logs (${{ matrix.backend }})
+        if: always()
+        run: cat e2e-ha.log 2>/dev/null || echo "no e2e-ha.log captured"

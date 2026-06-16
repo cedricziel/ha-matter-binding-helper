@@ -22,11 +22,19 @@ def test_build_group_acl_entry_uses_group_auth_mode():
     entry = build_group_acl_entry(
         group_id=5, cluster_id=CLUSTER_ON_OFF, target_endpoint_id=1
     )
+    # Both key spellings are emitted: chip/python reads authMode/deviceType,
+    # matter.js reads auth_mode/device_type.
     assert entry["authMode"] == ACL_AUTH_MODE_GROUP
+    assert entry["auth_mode"] == ACL_AUTH_MODE_GROUP
     assert entry["subjects"] == [5]
     assert entry["privilege"] == ACL_PRIVILEGE_OPERATE
     assert entry["targets"] == [
-        {"cluster": CLUSTER_ON_OFF, "endpoint": 1, "deviceType": None}
+        {
+            "cluster": CLUSTER_ON_OFF,
+            "endpoint": 1,
+            "deviceType": None,
+            "device_type": None,
+        }
     ]
 
 

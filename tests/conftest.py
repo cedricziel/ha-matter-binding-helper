@@ -162,6 +162,18 @@ class HABootstrapper:
 
         return asyncio.run(_create_token())
 
+    def set_component_debug_logging(self, access_token: str) -> None:
+        """Raise the integration's log level so e2e failures show each device write."""
+        try:
+            self.session.post(
+                f"{self.base_url}/api/services/logger/set_level",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"custom_components.matter_binding_helper": "debug"},
+                timeout=10,
+            )
+        except Exception:  # noqa: BLE001 - diagnostics only
+            pass
+
     def install_matter_integration(self, access_token: str, matter_server_url: str) -> str | None:
         """Install Matter integration via REST API config flow."""
         headers = {"Authorization": f"Bearer {access_token}"}

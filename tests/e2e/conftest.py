@@ -187,6 +187,42 @@ def ha_container(project_root: Path) -> Generator[DockerContainer, None, None]:
         pytest.fail("Home Assistant did not become ready")
 
     yield container
+
+    # Write the integration's own log lines to a file so CI failures are
+    # diagnosable without a live device. A file (not stdout) survives pytest's
+    # output capture; the workflow prints it on failure.
+    try:
+        stdout, stderr = container.get_logs()
+        text = (stdout or b"").decode("utf-8", "ignore") + (stderr or b"").decode(
+            "utf-8", "ignore"
+        )
+        lines = [
+            ln
+            for ln in text.splitlines()
+            if "matter_binding_helper" in ln
+            and any(
+                k in ln
+                for k in (
+                    "provision",
+                    "GroupKeyMap",
+                    "ACL",
+                    "acl",
+                    "binding",
+                    "AddGroup",
+                    "write_attribute",
+                    "read_attribute",
+                    "tag",
+                    "persist",
+                    "status",
+                )
+            )
+        ]
+        out = project_root / "e2e-ha.log"
+        out.write_text("\n".join(lines[-300:]), encoding="utf-8")
+        print(f"\n[e2e] wrote {len(lines)} integration log lines to {out}")
+    except Exception as err:  # noqa: BLE001 - diagnostics only
+        print(f"[e2e] could not capture HA logs: {err}")
+
     container.stop()
 
 
@@ -220,6 +256,7 @@ def commissioned(
     entry_id = boot.install_integration(access_token)
     assert entry_id, "matter_binding_helper install failed"
     # NOTE: real mode — demo mode is deliberately NOT enabled.
+    boot.set_component_debug_logging(access_token)
     time.sleep(2)
 
     light_code = _pairing_code_from_logs(dimmable_light_container)
