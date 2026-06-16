@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 
 from ..const import CLUSTER_BINDING
 from .acl import provision_acl_for_binding, remove_acl_entry
-from .client import get_raw_matter_client
+from .client import get_client
 from .group_keys import _accessing_fabric_index
 from .groups import provision_group_for_binding, teardown_group_for_binding
 from .demo import (
@@ -46,7 +46,7 @@ async def get_bindings(
         )
         return get_demo_bindings(node_id, endpoint_id)
 
-    client = get_raw_matter_client(hass)
+    client = get_client(hass)
     if not client:
         _LOGGER.warning("get_bindings: Matter client not available")
         return []
@@ -368,7 +368,7 @@ async def verify_bindings(
             bindings_found=len(cached),
         )
 
-    client = get_raw_matter_client(hass)
+    client = get_client(hass)
     if not client:
         return BindingVerificationResult(
             success=False,
@@ -519,7 +519,7 @@ async def create_binding(
             bindings_found=len(cached),
         )
 
-    client = get_raw_matter_client(hass)
+    client = get_client(hass)
     if not client:
         _LOGGER.error("create_binding: Matter client not available")
         return BindingVerificationResult(
@@ -812,7 +812,7 @@ async def delete_binding(
             bindings_found=len(cached),
         )
 
-    client = get_raw_matter_client(hass)
+    client = get_client(hass)
     if not client:
         return BindingVerificationResult(
             success=False,

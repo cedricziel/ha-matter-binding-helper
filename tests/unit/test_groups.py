@@ -140,7 +140,7 @@ async def test_real_delete_missing_group(hass):
 @pytest.mark.asyncio
 async def test_real_delete_empty_group(hass):
     await create_group(hass, 10, "Hallway")
-    with patch.object(groups, "get_raw_matter_client", return_value=None):
+    with patch.object(groups, "get_client", return_value=None):
         result = await delete_group(hass, 10)
     assert result.success is True
     assert await get_groups(hass) == []
@@ -156,7 +156,7 @@ async def test_real_add_to_missing_group(hass):
 @pytest.mark.asyncio
 async def test_real_add_client_unavailable(hass):
     await create_group(hass, 10, "Hallway")
-    with patch.object(groups, "get_raw_matter_client", return_value=None):
+    with patch.object(groups, "get_client", return_value=None):
         result = await add_to_group(hass, 10, 5, 1)
     assert result.success is False
     assert result.error_code == "client_unavailable"
@@ -165,7 +165,7 @@ async def test_real_add_client_unavailable(hass):
 @pytest.mark.asyncio
 async def test_real_remove_client_unavailable(hass):
     await create_group(hass, 10, "Hallway")
-    with patch.object(groups, "get_raw_matter_client", return_value=None):
+    with patch.object(groups, "get_client", return_value=None):
         result = await remove_from_group(hass, 10, 5, 1)
     assert result.success is False
     assert result.error_code == "client_unavailable"
