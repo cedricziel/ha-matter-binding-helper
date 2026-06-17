@@ -1748,7 +1748,7 @@ dependencies = [
 [[package]]
 name = "rs-matter"
 version = "0.1.1"
-source = "git+https://github.com/project-chip/rs-matter#d54b4c1c367c98fff5d1985e543277052481bdfc"
+source = "git+https://github.com/project-chip/rs-matter#256033b6f7b3cc28be9b8168f328cac83ff6affd"
 dependencies = [
  "aes",
  "async-channel",
@@ -1769,6 +1769,7 @@ dependencies = [
  "embassy-futures",
  "embassy-sync 0.8.0",
  "embassy-time",
+ "embedded-io-async 0.7.0",
  "futures-lite",
  "heapless 0.9.2",
  "hkdf",
@@ -1810,7 +1811,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-codegen"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#d54b4c1c367c98fff5d1985e543277052481bdfc"
+source = "git+https://github.com/project-chip/rs-matter#256033b6f7b3cc28be9b8168f328cac83ff6affd"
 dependencies = [
  "convert_case",
  "miette",
@@ -1829,7 +1830,7 @@ dependencies = [
 [[package]]
 name = "rs-matter-macros"
 version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#d54b4c1c367c98fff5d1985e543277052481bdfc"
+source = "git+https://github.com/project-chip/rs-matter#256033b6f7b3cc28be9b8168f328cac83ff6affd"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
