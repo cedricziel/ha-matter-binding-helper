@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.35.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.34.0...v0.35.0) (2026-06-22)
+
+
+### Features
+
+* **#61:** optional direct connection to a non-default Matter server ([#312](https://github.com/cedricziel/ha-matter-binding-helper/issues/312)) ([07b4bc4](https://github.com/cedricziel/ha-matter-binding-helper/commit/07b4bc47adcfee8d6b6e3e94d5292886697a9bc7))
+
+
+### Code Refactoring
+
+* **client:** route device I/O through the MatterClientProtocol seam ([#309](https://github.com/cedricziel/ha-matter-binding-helper/issues/309)) ([ec00b47](https://github.com/cedricziel/ha-matter-binding-helper/commit/ec00b47ed9d48066fded760177b9d75a46fc007c))
+* **wire:** centralize fabric-scoped write mechanism into matter/wire.py ([#311](https://github.com/cedricziel/ha-matter-binding-helper/issues/311)) ([1b165d0](https://github.com/cedricziel/ha-matter-binding-helper/commit/1b165d00e7ab0d9bb7e9b434d633e0dfee4f5824))
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#319](https://github.com/cedricziel/ha-matter-binding-helper/issues/319)) ([c65b642](https://github.com/cedricziel/ha-matter-binding-helper/commit/c65b6422ec200ff4f831ba133c5d91de12cc5dc2))
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#315](https://github.com/cedricziel/ha-matter-binding-helper/issues/315)) ([607bd9d](https://github.com/cedricziel/ha-matter-binding-helper/commit/607bd9dbaca46d1858f04c021549eb41af7f8c67))
+* **deps-dev:** bump happy-dom from 20.10.3 to 20.10.6 in /frontend ([#320](https://github.com/cedricziel/ha-matter-binding-helper/issues/320)) ([fe7af90](https://github.com/cedricziel/ha-matter-binding-helper/commit/fe7af90de9bce2ca77a822e46eba83db42d7cba8))
+* **deps-dev:** bump vitest from 4.1.8 to 4.1.9 in /frontend ([#321](https://github.com/cedricziel/ha-matter-binding-helper/issues/321)) ([66dfcc2](https://github.com/cedricziel/ha-matter-binding-helper/commit/66dfcc2cf17d46d4e65be03544a1c96ae5778a6f))
+* **deps:** bump rs-matter in /devices/rust-device ([#316](https://github.com/cedricziel/ha-matter-binding-helper/issues/316)) ([906789b](https://github.com/cedricziel/ha-matter-binding-helper/commit/906789b0a5964d8768b624b968b2086b62adde09))
+* **deps:** update pyyaml requirement from &gt;=6.0 to &gt;=6.0.3 ([#317](https://github.com/cedricziel/ha-matter-binding-helper/issues/317)) ([56e44c4](https://github.com/cedricziel/ha-matter-binding-helper/commit/56e44c442c67ed20f411f33f2937ae52032c62d8))
+
 ## [0.34.0](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.33.0...v0.34.0) (2026-06-16)
 
 
