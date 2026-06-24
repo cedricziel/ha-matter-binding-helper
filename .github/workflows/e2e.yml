@@ -24,7 +24,7 @@ jobs:
       matrix:
         backend: [python, matterjs]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # This job only reads the repo and runs tests; it never pushes.
           persist-credentials: false
