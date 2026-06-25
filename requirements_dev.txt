@@ -3,7 +3,7 @@
 # Testing
 pytest>=9.1.0
 pytest-asyncio>=1.4.0
-pytest-homeassistant-custom-component>=0.13.339
+pytest-homeassistant-custom-component>=0.13.340
 
 # Linting and formatting
 ruff>=0.15.17
