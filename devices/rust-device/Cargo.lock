@@ -1747,8 +1747,8 @@ dependencies = [
 
 [[package]]
 name = "rs-matter"
-version = "0.1.1"
-source = "git+https://github.com/project-chip/rs-matter#256033b6f7b3cc28be9b8168f328cac83ff6affd"
+version = "0.2.0"
+source = "git+https://github.com/project-chip/rs-matter#de83bdc71e92fbc97edbaa5a470a76e2f6ff8cef"
 dependencies = [
  "aes",
  "async-channel",
@@ -1810,8 +1810,8 @@ dependencies = [
 
 [[package]]
 name = "rs-matter-codegen"
-version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#256033b6f7b3cc28be9b8168f328cac83ff6affd"
+version = "0.2.0"
+source = "git+https://github.com/project-chip/rs-matter#de83bdc71e92fbc97edbaa5a470a76e2f6ff8cef"
 dependencies = [
  "convert_case",
  "miette",
@@ -1829,8 +1829,8 @@ dependencies = [
 
 [[package]]
 name = "rs-matter-macros"
-version = "0.1.0"
-source = "git+https://github.com/project-chip/rs-matter#256033b6f7b3cc28be9b8168f328cac83ff6affd"
+version = "0.2.0"
+source = "git+https://github.com/project-chip/rs-matter#de83bdc71e92fbc97edbaa5a470a76e2f6ff8cef"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
