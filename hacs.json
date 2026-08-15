@@ -1,6 +1,6 @@
 {
   "name": "Matter Binding Helper",
-  "homeassistant": "2026.7.1",
+  "homeassistant": "2026.8.1",
   "render_readme": true,
   "zip_release": true,
   "filename": "matter_binding_helper.zip"
