@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install -r requirements_dev.txt
+        run: pip install "ruff>=0.15.20,<0.16"
 
       - name: Run ruff check
         run: ruff check custom_components/matter_binding_helper
