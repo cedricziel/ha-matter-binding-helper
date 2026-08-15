@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.35.2](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.1...v0.35.2) (2026-08-15)
+
+
+### Miscellaneous
+
+* add MIT license ([a42d3b9](https://github.com/cedricziel/ha-matter-binding-helper/commit/a42d3b9bcf99b4c4cac68e792082a9bb661855fd))
+* **deps-dev:** bump @typescript-eslint/eslint-plugin in /frontend ([#340](https://github.com/cedricziel/ha-matter-binding-helper/issues/340)) ([6259f48](https://github.com/cedricziel/ha-matter-binding-helper/commit/6259f480598b7d6bdcc653e74a21b976df8b77e7))
+* **deps-dev:** update ruff requirement from &gt;=0.15.19 to &gt;=0.15.20 ([#345](https://github.com/cedricziel/ha-matter-binding-helper/issues/345)) ([a16c771](https://github.com/cedricziel/ha-matter-binding-helper/commit/a16c77100ff82ca90670a51ba260128a5d00dc1d))
+* **deps:** bump env_logger in /devices/rust-device ([#341](https://github.com/cedricziel/ha-matter-binding-helper/issues/341)) ([bb0df71](https://github.com/cedricziel/ha-matter-binding-helper/commit/bb0df718e6a7b54119ead35774efc22d08f5f054))
+* **deps:** update homeassistant requirement ([#343](https://github.com/cedricziel/ha-matter-binding-helper/issues/343)) ([6d1871b](https://github.com/cedricziel/ha-matter-binding-helper/commit/6d1871b00bebc8ba9aaf1994ce5f095b08819293))
+* sync hacs.json Home Assistant floor ([#349](https://github.com/cedricziel/ha-matter-binding-helper/issues/349)) ([e2e94f1](https://github.com/cedricziel/ha-matter-binding-helper/commit/e2e94f16a09c9e9c9741d8ea8379a3ea2e77a82f))
+
 ## [0.35.1](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.0...v0.35.1) (2026-07-02)
 
 
