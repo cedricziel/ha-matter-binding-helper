@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.35.5](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.4...v0.35.5) (2026-08-31)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump eslint from 10.8.1 to 10.9.0 in /frontend ([#393](https://github.com/cedricziel/ha-matter-binding-helper/issues/393)) ([f85d666](https://github.com/cedricziel/ha-matter-binding-helper/commit/f85d66626460be1fc4a98b288752656e9ed7bfe2))
+* **deps-dev:** bump happy-dom from 20.10.6 to 20.11.6 in /frontend ([#378](https://github.com/cedricziel/ha-matter-binding-helper/issues/378)) ([8bb2f96](https://github.com/cedricziel/ha-matter-binding-helper/commit/8bb2f96f8341dc2ea57bb8a0110567f61dab1f4a))
+* **deps-dev:** bump rollup from 4.62.4 to 4.62.5 in /frontend ([#387](https://github.com/cedricziel/ha-matter-binding-helper/issues/387)) ([e404528](https://github.com/cedricziel/ha-matter-binding-helper/commit/e404528fdfaac7f58c2c0652b824f62b4793c894))
+* **deps-dev:** bump vitest from 4.1.10 to 4.1.11 in /frontend ([#394](https://github.com/cedricziel/ha-matter-binding-helper/issues/394)) ([2b78752](https://github.com/cedricziel/ha-matter-binding-helper/commit/2b78752452afd9305e045dc763ffbbc58461c276))
+* **deps-dev:** update pytest-homeassistant-custom-component requirement ([#392](https://github.com/cedricziel/ha-matter-binding-helper/issues/392)) ([1897387](https://github.com/cedricziel/ha-matter-binding-helper/commit/1897387391c2b7348ecd6cb9530bde40bf035520))
+* **deps-dev:** update ruff requirement ([#390](https://github.com/cedricziel/ha-matter-binding-helper/issues/390)) ([f6cf8b2](https://github.com/cedricziel/ha-matter-binding-helper/commit/f6cf8b2a742ccaef34376f2b1b98a033216d5628))
+* **deps:** update homeassistant requirement ([#388](https://github.com/cedricziel/ha-matter-binding-helper/issues/388)) ([0a0bc8c](https://github.com/cedricziel/ha-matter-binding-helper/commit/0a0bc8c3d2406366b6de0fdf128ee60530227770))
+* sync hacs.json Home Assistant floor ([#395](https://github.com/cedricziel/ha-matter-binding-helper/issues/395)) ([77fd17d](https://github.com/cedricziel/ha-matter-binding-helper/commit/77fd17d9a77c297303dca4c6e093dde57c2f73b6))
+
 ## [0.35.4](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.3...v0.35.4) (2026-08-23)
 
 
