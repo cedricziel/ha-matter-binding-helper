@@ -22,7 +22,7 @@
     "eslint": "^10.9.1",
     "happy-dom": "^20.14.0",
     "prettier": "^3.9.6",
-    "rollup": "^4.63.1",
+    "rollup": "^4.63.2",
     "tslib": "^2.6.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
