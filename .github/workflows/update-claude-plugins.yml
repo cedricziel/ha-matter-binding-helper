@@ -13,4 +13,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: cedricziel/claude-plugins/actions/update-plugin@main
         with:
-          plugins: toolkit
+          plugins: oss
