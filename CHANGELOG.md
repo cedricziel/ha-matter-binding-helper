@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.35.10](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.9...v0.35.10) (2026-10-03)
+
+
+### Miscellaneous
+
+* **deps:** update homeassistant requirement ([#440](https://github.com/cedricziel/ha-matter-binding-helper/issues/440)) ([1bf4d3c](https://github.com/cedricziel/ha-matter-binding-helper/commit/1bf4d3c0af104a872c2147b3f8c65ad3d27ed359))
+* sync hacs.json Home Assistant floor ([#444](https://github.com/cedricziel/ha-matter-binding-helper/issues/444)) ([b51108c](https://github.com/cedricziel/ha-matter-binding-helper/commit/b51108c4b7f6dfff0463e80bc37f5a6491e4914c))
+
 ## [0.35.9](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.8...v0.35.9) (2026-10-01)
 
 
