@@ -12,7 +12,7 @@
     "format": "prettier --write src/**/*.ts"
   },
   "devDependencies": {
-    "@open-wc/testing": "^4.0.0",
+    "@open-wc/testing": "^5.0.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
