@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.35.10](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.9...v0.35.10) (2026-10-09)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump @typescript-eslint/parser in /frontend ([#438](https://github.com/cedricziel/ha-matter-binding-helper/issues/438)) ([64503bc](https://github.com/cedricziel/ha-matter-binding-helper/commit/64503bcccd8ffd847d3869b0dd7e8d0cb591b551))
+* **deps-dev:** bump rollup from 4.63.2 to 4.64.0 in /frontend ([#447](https://github.com/cedricziel/ha-matter-binding-helper/issues/447)) ([1973c50](https://github.com/cedricziel/ha-matter-binding-helper/commit/1973c50eeef02ab5951edc1728b84ab0f8bd7aeb))
+* **deps-dev:** update pytest-homeassistant-custom-component requirement ([#437](https://github.com/cedricziel/ha-matter-binding-helper/issues/437)) ([c91b96d](https://github.com/cedricziel/ha-matter-binding-helper/commit/c91b96de0ff71850408f7294c10b7b8a12f11eb8))
+* **deps-dev:** update pytest-homeassistant-custom-component requirement ([#448](https://github.com/cedricziel/ha-matter-binding-helper/issues/448)) ([40ee35a](https://github.com/cedricziel/ha-matter-binding-helper/commit/40ee35aee54c489a5cc66b13759d7d16de0afd1f))
+* **deps:** update homeassistant requirement ([#440](https://github.com/cedricziel/ha-matter-binding-helper/issues/440)) ([1bf4d3c](https://github.com/cedricziel/ha-matter-binding-helper/commit/1bf4d3c0af104a872c2147b3f8c65ad3d27ed359))
+* **deps:** update websockets requirement from &gt;=17.1 to &gt;=17.2 ([#450](https://github.com/cedricziel/ha-matter-binding-helper/issues/450)) ([a9deafa](https://github.com/cedricziel/ha-matter-binding-helper/commit/a9deafa16cd3a8ff839fdd2d6da611d0f842934f))
+* sync hacs.json Home Assistant floor ([#444](https://github.com/cedricziel/ha-matter-binding-helper/issues/444)) ([b51108c](https://github.com/cedricziel/ha-matter-binding-helper/commit/b51108c4b7f6dfff0463e80bc37f5a6491e4914c))
+
 ## [0.35.9](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.8...v0.35.9) (2026-10-01)
 
 
