@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.35.11](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.10...v0.35.11) (2026-10-16)
+
+
+### Miscellaneous
+
+* **deps-dev:** update pytest-homeassistant-custom-component requirement ([#458](https://github.com/cedricziel/ha-matter-binding-helper/issues/458)) ([dfd08bf](https://github.com/cedricziel/ha-matter-binding-helper/commit/dfd08bfcd52b5ae5b522d5b2306c542e01d87d7c))
+* **deps-dev:** update ruff requirement ([#449](https://github.com/cedricziel/ha-matter-binding-helper/issues/449)) ([e29e333](https://github.com/cedricziel/ha-matter-binding-helper/commit/e29e333f8e058fb94f8a90be49d2d43b023c24ec))
+* **deps-dev:** update ruff requirement ([#456](https://github.com/cedricziel/ha-matter-binding-helper/issues/456)) ([474d7e2](https://github.com/cedricziel/ha-matter-binding-helper/commit/474d7e289d45fbc06f88fcaa165120edae6ef7a3))
+* **deps:** update homeassistant requirement ([#457](https://github.com/cedricziel/ha-matter-binding-helper/issues/457)) ([3831745](https://github.com/cedricziel/ha-matter-binding-helper/commit/383174517c0fae24b16c4d51fe1bd609b384c1a9))
+* sync hacs.json Home Assistant floor ([#459](https://github.com/cedricziel/ha-matter-binding-helper/issues/459)) ([6d5e674](https://github.com/cedricziel/ha-matter-binding-helper/commit/6d5e6741a1972e66eaedff2d9811e88ddbc0704b))
+
 ## [0.35.10](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.9...v0.35.10) (2026-10-09)
 
 
