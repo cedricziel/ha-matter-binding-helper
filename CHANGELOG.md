@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.35.12](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.11...v0.35.12) (2026-10-24)
+
+
+### Miscellaneous
+
+* **deps-dev:** bump prettier from 3.9.6 to 3.9.10 in /frontend ([#454](https://github.com/cedricziel/ha-matter-binding-helper/issues/454)) ([b9faa3f](https://github.com/cedricziel/ha-matter-binding-helper/commit/b9faa3fdcc2e10bea1255f1d62dd727f20f7dd09))
+* **deps-dev:** bump rollup from 4.64.0 to 4.64.10 in /frontend ([#468](https://github.com/cedricziel/ha-matter-binding-helper/issues/468)) ([7f44216](https://github.com/cedricziel/ha-matter-binding-helper/commit/7f44216bd8f79991a9fe61c535933e337384eaf3))
+* **deps-dev:** update ruff requirement ([#466](https://github.com/cedricziel/ha-matter-binding-helper/issues/466)) ([50746df](https://github.com/cedricziel/ha-matter-binding-helper/commit/50746df2c41f387de12584f3a4b516f22a7b9691))
+
 ## [0.35.11](https://github.com/cedricziel/ha-matter-binding-helper/compare/v0.35.10...v0.35.11) (2026-10-16)
 
 
