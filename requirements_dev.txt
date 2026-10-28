@@ -6,4 +6,4 @@ pytest-asyncio>=1.4.0
 pytest-homeassistant-custom-component>=0.13.373
 
 # Linting and formatting
-ruff>=0.17.1,<0.18
+ruff>=0.17.2,<0.18
