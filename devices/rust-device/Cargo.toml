@@ -49,7 +49,7 @@ socket2 = "0.6"
 nix = { version = "0.31", features = ["net"] }
 
 # Randomness (seeds the rs-matter crypto backend)
-rand = { version = "0.8", features = ["std", "std_rng"] }
+rand = { version = "0.10", features = ["std", "std_rng"] }
 
 # Utilities
 static_cell = "2"
