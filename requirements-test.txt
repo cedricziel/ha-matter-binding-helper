@@ -1,6 +1,6 @@
 # Test dependencies for Matter Binding Helper integration tests
 pytest>=9.1.1
-pytest-asyncio>=1.4.0
+pytest-asyncio>=1.4.1.post1
 websockets>=17.3
 testcontainers>=4.15.0
 requests>=2.34.2
