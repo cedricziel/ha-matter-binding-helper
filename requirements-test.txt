@@ -5,4 +5,4 @@ websockets>=17.4
 testcontainers>=4.15.0
 requests>=2.34.2
 docker>=7.2.0
-pyyaml>=6.0.3  # fixtures read pinned Matter server image tags from docker-compose.yml
+pyyaml>=6.0.4  # fixtures read pinned Matter server image tags from docker-compose.yml
